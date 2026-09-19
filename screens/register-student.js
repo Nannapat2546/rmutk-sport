@@ -265,7 +265,7 @@ export default function RegisterStudent({ navigation }) {
     };
 
     try {
-      const response = await fetch('https://app-rmutk-sports.onrender.com/api/register/student', {
+      const response = await fetch('https://rmutk-sport.onrender.com/api/register/student', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(studentData),
