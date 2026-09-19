@@ -50,7 +50,7 @@ export default function LoginStaffScreen({ navigation }) {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/login-staff', {
+      const response = await fetch('https://app-rmutk-sports.onrender.com/api/login-staff', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
