@@ -53,7 +53,7 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
 
     try {
-      const response = await fetch('https://app-rmutk-sports.onrender.com/api/login-admin', {
+      const response = await fetch('https://rmutk-sport.onrender.com/api/login-admin', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
