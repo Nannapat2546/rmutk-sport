@@ -24,7 +24,7 @@ const majorNameThai = {
 };
 
 export default function Dashboard({ route, navigation }) {
-  const API_URL = 'http://localhost:3000';
+  const API_URL = 'https://app-rmutk-sports.onrender.com';
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [popularEquipment, setPopularEquipment] = useState([]);
