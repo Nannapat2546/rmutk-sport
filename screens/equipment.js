@@ -59,7 +59,7 @@ export default function EquipmentScreen({ navigation }) {
   const [editingId, setEditingId] = useState(null);
   const [isSuccessModalVisible, setSuccessModalVisible] = useState(false);
 
-  const API_URL = 'http://localhost:3000'; 
+  const API_URL = 'http://https://app-rmutk-sports.onrender.com'; 
 
   useEffect(() => {
     if (currentView === 'main') fetchEquipment();
