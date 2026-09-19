@@ -52,7 +52,7 @@ const CustomDropdown = ({ label, options, selectedValue, onSelect, placeholder }
 
 export default function BorrowScreen({ navigation, route }) {
   const qrData = route.params?.qrData || '';
-  const API_URL = 'http://localhost:3000'; 
+  const API_URL = 'http://https://app-rmutk-sports.onrender.com'; 
   
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState(null);
