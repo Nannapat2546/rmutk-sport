@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 export default function HistoryScreen({ navigation, route }) {
   const accountId = route.params?.accountId; 
-  const API_URL = 'http://localhost:3000'; 
+  const API_URL = 'https://app-rmutk-sports.onrender.com'; 
 
   const [isLoading, setIsLoading] = useState(true);
   const [historyData, setHistoryData] = useState([]);
