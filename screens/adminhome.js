@@ -98,7 +98,7 @@ export default function AdminDashboard({ navigation, route }) {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await fetch(`http://localhost:3000/api/admin/dashboard-stats?mode=${viewMode}&month=${selectedMonth}`);
+      const response = await fetch(`https://app-rmutk-sports.onrender.com/api/admin/dashboard-stats?mode=${viewMode}&month=${selectedMonth}`);
       if (response.ok) {
         const result = await response.json();
         setStats(result);
@@ -111,7 +111,7 @@ export default function AdminDashboard({ navigation, route }) {
   const fetchUsers = async () => {
     try {
       setLoadingUsers(true);
-      const response = await fetch('http://localhost:3000/api/admin/users');
+      const response = await fetch('https://app-rmutk-sports.onrender.com/api/admin/users');
       if (response.ok) {
         const result = await response.json();
         setUsers(result);
@@ -125,7 +125,7 @@ export default function AdminDashboard({ navigation, route }) {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/admin/settings');
+      const response = await fetch('https://app-rmutk-sports.onrender.com/api/admin/settings');
       if (response.ok) {
         const result = await response.json();
         setSystemSettings({
@@ -146,7 +146,7 @@ export default function AdminDashboard({ navigation, route }) {
   const saveSettings = async () => {
     setSavingSettings(true);
     try {
-      const response = await fetch('http://localhost:3000/api/admin/settings', {
+      const response = await fetch('https://app-rmutk-sports.onrender.com/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(systemSettings)
@@ -179,7 +179,7 @@ export default function AdminDashboard({ navigation, route }) {
     }
 
     try {
-      const response = await fetch('http://localhost:3000/api/change-password', {
+      const response = await fetch('https://app-rmutk-sports.onrender.com/api/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -204,7 +204,7 @@ export default function AdminDashboard({ navigation, route }) {
   const togglePermission = async (userId, field, currentValue) => {
     try {
       setUsers(users.map(u => u.id === userId ? { ...u, [field]: !currentValue } : u));
-      await fetch(`http://localhost:3000/api/admin/users/${userId}/permissions`, {
+      await fetch(`https://app-rmutk-sports.onrender.com/api/admin/users/${userId}/permissions`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ field: field, value: !currentValue })
@@ -227,7 +227,7 @@ export default function AdminDashboard({ navigation, route }) {
     }
 
     try {
-      const res = await fetch(`http://localhost:3000/api/admin/create-staff`, {
+      const res = await fetch(`https://app-rmutk-sports.onrender.com/api/admin/create-staff`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newName, email: newEmail, password: newPassword, role: 'staff' })
@@ -249,7 +249,7 @@ export default function AdminDashboard({ navigation, route }) {
   const handleDeleteStaff = (userId, userName) => {
     const executeDelete = async () => {
       try {
-        const res = await fetch(`http://localhost:3000/api/admin/users/${userId}`, { method: 'DELETE' });
+        const res = await fetch(`https://app-rmutk-sports.onrender.com/api/admin/users/${userId}`, { method: 'DELETE' });
         if (res.ok) {
           fetchUsers();
           showMessage('สำเร็จ', `ลบบัญชี ${userName} เรียบร้อยแล้ว`);
@@ -305,7 +305,7 @@ export default function AdminDashboard({ navigation, route }) {
 
   const openUserDetails = async (user) => {
     try {
-      const res = await fetch(`http://localhost:3000/api/admin/users/${user.id}/detail`);
+      const res = await fetch(`https://app-rmutk-sports.onrender.com/api/admin/users/${user.id}/detail`);
       if (res.ok) {
         const detailedData = await res.json();
         setSelectedUser({ ...user, ...detailedData });
