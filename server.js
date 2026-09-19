@@ -212,7 +212,7 @@ app.post('/api/request-otp', async (req, res) => {
   `;
 
   const mailOptions = {
-    from: '"ระบบศูนย์กีฬา RMUTK" <your-email@gmail.com>', 
+    from: `"ระบบศูนย์กีฬา RMUTK" <${process.env.EMAIL_USER}>`,
     to: email,
     subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} - RMUTK Sports`,
     html: emailHtmlTemplate
