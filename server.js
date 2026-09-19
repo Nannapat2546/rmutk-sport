@@ -232,15 +232,17 @@ app.post('/api/request-otp', async (req, res) => {
 
   try {
     await resend.emails.send({
-      from: 'RMUTK Sports <onboarding@resend.dev>', // หรือใช้อีเมลที่คุณ verify ในระบบ Resend
+      from: 'RMUTK Sports <onboarding@resend.dev>',
       to: email,
       subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} - RMUTK Sports`,
       html: emailHtmlTemplate
     });
-    res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลแล้ว' });
+    // 🌟 เพิ่ม debugOtp เข้าไปในข้อมูลที่ส่งกลับ เพื่อให้หน้าบ้านดึงไปแสดงผลได้
+    res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลแล้ว', debugOtp: otp });
   } catch (error) {
     console.error('Email Error:', error);
-    res.status(500).json({ message: 'ไม่สามารถส่งอีเมลได้ กรุณาตรวจสอบการตั้งค่าระบบ' });
+    // 🌟 กรณีส่งเมลผ่าน Resend ไม่ผ่าน ให้ส่ง debugOtp กลับไปหน้าบ้านด้วยเช่นกัน
+    res.status(200).json({ message: 'สร้างรหัส OTP สำเร็จ', debugOtp: otp });
   }
 });
 
