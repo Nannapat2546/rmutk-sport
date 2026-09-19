@@ -25,7 +25,7 @@ export default function StaffDashboard({ route, navigation }) {
   const [notifications, setNotifications] = useState([]);
   const [loadingNotif, setLoadingNotif] = useState(false);
 
-  const API_URL = 'http://localhost:3000'; 
+  const API_URL = 'https://app-rmutk-sports.onrender.com'; 
   const currentUser = route.params?.user || {};
 
   const menuItems = [
