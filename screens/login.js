@@ -22,7 +22,7 @@ export default function Login({ navigation }) {
     }
 
     try {
-      const response = await fetch('https://app-rmutk-sports.onrender.com/api/login', {
+      const response = await fetch('https://rmutk-sport.onrender.com/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
