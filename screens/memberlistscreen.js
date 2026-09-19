@@ -33,7 +33,7 @@ const majorNameThai = {
 export default function MemberListScreen({ navigation }) {
   const [isLoading, setIsLoading] = useState(true);
   const [members, setMembers] = useState([]);
-  const API_URL = 'http://localhost:3000';
+  const API_URL = 'https://app-rmutk-sports.onrender.com';
 
   useEffect(() => {
     fetchMembers();
