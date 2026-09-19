@@ -11,9 +11,13 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const pool = new Pool({
-  connectionString: 'postgresql://postgres.qeglmdrtanxflxgshrdy:0807780787bua@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres',
-  ssl: { rejectUnauthorized: false } 
+  user: 'postgres',
+  host: 'localhost',
+  database: 'project65',
+  password: '0807780787', 
+  port: 5432,
 });
+
 // ===========================================================================
 // 🌟 สคริปต์อัปเดตฐานข้อมูลอัตโนมัติ
 // ===========================================================================
@@ -34,7 +38,7 @@ const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: '655021000097@mail.rmutk.ac.th', 
-    pass: 'anex stdq wmmt xpiu'     
+    pass: 'anexstdqwmmtxpiu'     
   }
 });
 
@@ -391,9 +395,6 @@ app.get('/api/users/scan/:code', async (req, res) => {
   }
 });
 
-// ===========================================================================
-// 🏀 API: บันทึกการยืมอุปกรณ์ (แก้ไขตัดคอลัมน์ที่ไม่มีจริงออก ป้องกัน Error 100%)
-// ===========================================================================
 app.post('/api/borrow', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -407,7 +408,6 @@ app.post('/api/borrow', async (req, res) => {
 
     await client.query('BEGIN');
 
-    // 1. ค้นหา account_id ของผู้ใช้ (ใช้เฉพาะคอลัมน์ที่มีอยู่จริงในระบบ)
     const userCheck = await client.query(`
       SELECT a.id as account_id 
       FROM accounts a
@@ -422,7 +422,6 @@ app.post('/api/borrow', async (req, res) => {
     }
     const realAccountId = userCheck.rows[0].account_id;
 
-    // 2. เช็กชื่อคอลัมน์ที่มีอยู่จริงในตาราง transactions
     const colCheck = await client.query(`
       SELECT column_name 
       FROM information_schema.columns 
@@ -484,7 +483,6 @@ app.get('/api/returns/pending/:account_id', async (req, res) => {
   }
 });
 
-// 🌟 คืนของ
 app.post('/api/return', async (req, res) => {
   const { transaction_id, normal_qty, broken_qty, borrowed_qty, new_expected_date } = req.body;
   const normal = parseInt(normal_qty) || 0;
@@ -567,12 +565,17 @@ app.get('/api/members', async (req, res) => {
   }
 });
 
+// 🌟 แก้ไขตรงนี้: เพิ่มการดึง t.id as transaction_id และ a.email เพื่อนำไปใช้ส่งแจ้งเตือน
 app.get('/api/reports/dashboard', async (req, res) => {
   try {
-    const borrowRes = await pool.query(`SELECT COALESCE(s.full_name, e.full_name) as member_name, inv.item_name as equipment, COALESCE(t.return_condition, 'ใช้งาน') as equipment_status, GREATEST(t.qty, t.original_qty) as amount, t.created_at as borrow_date, t.return_date as return_date, t.promised_return_date as expected_return_date FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN students s ON t.borrower_account_id = s.account_id LEFT JOIN externals e ON t.borrower_account_id = e.account_id WHERE t.return_date IS NOT NULL ORDER BY t.return_date DESC LIMIT 50`);
-    const pendingRes = await pool.query(`SELECT COALESCE(s.full_name, e.full_name) as member_name, inv.item_name as equipment, 'ใช้งาน' as equipment_status, GREATEST(t.qty, t.original_qty) as amount, t.qty as pending_amount, t.created_at as borrow_date, t.promised_return_date as expected_return_date FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN students s ON t.borrower_account_id = s.account_id LEFT JOIN externals e ON t.borrower_account_id = e.account_id WHERE t.return_date IS NULL ORDER BY t.created_at ASC`);
+    const borrowRes = await pool.query(`SELECT t.id as transaction_id, a.email, COALESCE(s.full_name, e.full_name) as member_name, inv.item_name as equipment, COALESCE(t.return_condition, 'ใช้งาน') as equipment_status, GREATEST(t.qty, t.original_qty) as amount, t.created_at as borrow_date, t.return_date as return_date, t.promised_return_date as expected_return_date FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN accounts a ON t.borrower_account_id = a.id LEFT JOIN students s ON t.borrower_account_id = s.account_id LEFT JOIN externals e ON t.borrower_account_id = e.account_id WHERE t.return_date IS NOT NULL ORDER BY t.return_date DESC LIMIT 50`);
+    
+    // 🌟 ดึงข้อมูล t.id และ a.email ออกมาใช้งานในตารางคงค้าง
+    const pendingRes = await pool.query(`SELECT t.id as transaction_id, a.email, COALESCE(s.full_name, e.full_name) as member_name, inv.item_name as equipment, 'ใช้งาน' as equipment_status, GREATEST(t.qty, t.original_qty) as amount, t.qty as pending_amount, t.created_at as borrow_date, t.promised_return_date as expected_return_date FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN accounts a ON t.borrower_account_id = a.id LEFT JOIN students s ON t.borrower_account_id = s.account_id LEFT JOIN externals e ON t.borrower_account_id = e.account_id WHERE t.return_date IS NULL ORDER BY t.created_at ASC`);
+    
     const popularRes = await pool.query(`SELECT c.name as category_name, inv.item_name as equipment, COUNT(t.id) as borrow_count FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN equipment_categories c ON inv.category_id = c.id GROUP BY c.name, inv.item_name ORDER BY borrow_count DESC LIMIT 10`);
     const fitnessRes = await pool.query(`SELECT COALESCE(s.full_name, e.full_name) as member_name, a.account_type as role, f.check_in_time, f.service_fee, f.payment_type FROM fitness_usage f JOIN accounts a ON f.user_account_id = a.id LEFT JOIN students s ON a.id = s.account_id LEFT JOIN externals e ON a.id = e.account_id ORDER BY f.check_in_time DESC LIMIT 50`);
+    
     res.status(200).json({ borrowReport: borrowRes.rows, pendingReport: pendingRes.rows, popularReport: popularRes.rows, fitnessReport: fitnessRes.rows });
   } catch (error) {
     res.status(500).json({ message: 'ดึงข้อมูลรายงานไม่สำเร็จ' });
@@ -732,17 +735,13 @@ app.get('/api/admin/users/:id/detail', async (req, res) => {
   }
 });
 
-// ==========================================
-// ⚙️ API: ดึงข้อมูลการตั้งค่าระบบ (อัปเดตเพิ่มระบบ Auto-Insert ป้องกันตารางว่าง)
-// ==========================================
 app.get('/api/admin/settings', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM system_settings LIMIT 1');
     let data = result.rows[0];
     
-    // 🌟 ถ้าตารางว่างเปล่า (ไม่มีข้อมูลเลย) ให้สร้างแถวแรกขึ้นมาอัตโนมัติ
     if (!data) {
-      const defaultPromptPay = '0994150630'; // เบอร์พร้อมเพย์ตั้งต้น
+      const defaultPromptPay = '0994150630'; 
       await pool.query(
         `INSERT INTO system_settings (id, fitness_fee_student, fitness_fee_external, promptpay_no) 
          VALUES (1, 5, 20, $1)`, 
@@ -755,7 +754,6 @@ app.get('/api/admin/settings', async (req, res) => {
         promptpay_no: defaultPromptPay 
       };
     } else if (!data.promptpay_no) {
-      // ดักจับชื่อคอลัมน์เผื่อตั้งชื่อในฐานข้อมูลไม่ตรงกัน
       data.promptpay_no = data.promptpay || data.promptpay_number || data.phone || '0994150630';
     }
 
@@ -769,18 +767,15 @@ app.get('/api/admin/settings', async (req, res) => {
 app.put('/api/admin/settings', async (req, res) => {
   const { fitness_fee_student, fitness_fee_external, max_borrow_days, max_borrow_items, accept_qr, promptpay_no } = req.body;
   try {
-    // เช็กว่ามีข้อมูลอยู่แล้วหรือไม่
     const check = await pool.query('SELECT id FROM system_settings LIMIT 1');
     
     if (check.rows.length === 0) {
-       // ถ้าไม่มีข้อมูลเลย ให้สร้างใหม่ (ป้องกันตารางว่าง)
        await pool.query(
          `INSERT INTO system_settings (id, fitness_fee_student, fitness_fee_external, max_borrow_days, max_borrow_items, accept_qr, promptpay_no) 
           VALUES (1, $1, $2, $3, $4, $5, $6)`, 
          [fitness_fee_student, fitness_fee_external, max_borrow_days, max_borrow_items, accept_qr, promptpay_no]
        );
     } else {
-       // ถ้ามีอยู่แล้ว ให้อัปเดตแถวแรกนั้น
        const rowId = check.rows[0].id;
        await pool.query(
          `UPDATE system_settings 
@@ -796,14 +791,10 @@ app.put('/api/admin/settings', async (req, res) => {
   }
 });
 
-// ===========================================================================
-// 🔔 API: ดึงประวัติการทำรายการล่าสุด (สำหรับแสดงในกระดิ่งแจ้งเตือน)
-// ===========================================================================
 app.get('/api/recent-activities', async (req, res) => {
   try {
     let allActivities = [];
 
-    // 1. ดึงประวัติเข้าฟิตเนส
     try {
       const fitRes = await pool.query(`
         SELECT f.*, COALESCE(s.full_name, a.email, 'สมาชิก') as member_name 
@@ -826,7 +817,6 @@ app.get('/api/recent-activities', async (req, res) => {
       console.log('⚠️ Fitness Error:', err.message);
     }
 
-    // 2. ดึงประวัติยืม และ คืนอุปกรณ์
     try {
       const transRes = await pool.query(`
         SELECT t.*, i.item_name as equipment_name, COALESCE(s.full_name, a.email, 'สมาชิก') as member_name 
@@ -844,7 +834,6 @@ app.get('/api/recent-activities', async (req, res) => {
         const totalReturned = normalQty + brokenQty;
         const equipName = row.equipment_name || row.item_name || 'อุปกรณ์';
 
-        // ประวัติยืม
         allActivities.push({
           type: 'borrow',
           id: `bor_${row.transaction_id || row.id || Math.random()}`,
@@ -854,13 +843,11 @@ app.get('/api/recent-activities', async (req, res) => {
           staffName: 'เจ้าหน้าที่'
         });
 
-        // ประวัติการคืน
         if (row.return_date) {
           let notifType = 'return';
           let notifTitle = `คืนอุปกรณ์: ${row.member_name}`;
           let notifDetail = `คืน ${equipName} (ปกติ ${normalQty}, ชำรุด ${brokenQty})`;
 
-          // ถ้าคืนน้อยกว่าที่ยืม = คืนบางส่วน
           if (totalReturned > 0 && totalReturned < borrowQty) {
             notifType = 'partial_return';
             notifTitle = `คืนบางส่วน: ${row.member_name}`;
@@ -895,7 +882,37 @@ app.post('/api/admin/create-staff', async (req, res) => { res.status(201).json({
 app.delete('/api/admin/users/:id', async (req, res) => { res.status(200).json({ message: 'ลบผู้ใช้งานสำเร็จ' }); });
 app.get('/api/notifications/:account_id', async (req, res) => { res.status(200).json([]); });
 
-// 🌟 API แจ้งเตือนเมื่อเกินกำหนด
-app.post('/api/notify-overdue', async (req, res) => { res.status(200).json({ message: 'ส่งแจ้งเตือนสำเร็จ' }); });
+// 🌟 แก้ไขตรงนี้: เขียน API แจ้งเตือนของจริงเพื่อส่งเข้าอีเมล
+app.post('/api/notify-overdue', async (req, res) => {
+  const { transaction_id, email, memberName, equipment } = req.body;
 
-app.listen(3000, () => console.log('✅ Backend รันที่ http://localhost:3000'));
+  if (!email) {
+    return res.status(400).json({ message: 'ไม่พบอีเมลของผู้ใช้ในระบบ' });
+  }
+
+  try {
+    const mailOptions = {
+      from: '"ระบบศูนย์กีฬา RMUTK" <655021000097@mail.rmutk.ac.th>',
+      to: email,
+      subject: `[แจ้งเตือน] เกินกำหนดส่งคืนอุปกรณ์กีฬา (${equipment})`,
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ccc; border-radius: 10px;">
+          <h2 style="color: #EF4444;">แจ้งเตือนอุปกรณ์ค้างส่ง</h2>
+          <p>เรียนคุณ <b>${memberName}</b>,</p>
+          <p>ระบบพบว่าท่านยังไม่ได้ทำการส่งคืนอุปกรณ์ <b>${equipment}</b> ซึ่งขณะนี้เกินกำหนดระยะเวลาแล้ว</p>
+          <p>รบกวนนำอุปกรณ์มาติดต่อคืนที่ศูนย์กีฬาโดยเร็วที่สุดครับ</p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: 'ส่งแจ้งเตือนสำเร็จ' });
+  } catch (error) {
+    console.error('Notify Error:', error);
+    res.status(500).json({ message: 'ระบบส่งอีเมลขัดข้อง กรุณาลองใหม่' });
+  }
+});
+
+// พอร์ตสำหรับรันเซิร์ฟเวอร์
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`✅ Backend รันที่พอร์ต ${PORT}`));
