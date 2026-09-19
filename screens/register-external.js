@@ -94,7 +94,7 @@ export default function RegisterOutsider({ navigation }) {
   // 🌟 ฟังก์ชันจัดการข้อมูล OCR (ส่งรูปไป Backend และดึงข้อความกลับมา)
   const processOcrData = async (base64Image) => {
     try {
-      const response = await fetch('https://app-rmutk-sports.onrender.com/api/ocr', {
+      const response = await fetch('https://rmutk-sport.onrender.com/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: base64Image })
@@ -208,7 +208,7 @@ export default function RegisterOutsider({ navigation }) {
     };
 
     try {
-      const response = await fetch('https://app-rmutk-sports.onrender.com/api/register/outsider', {
+      const response = await fetch('https://rmutk-sport.onrender.com/api/register/outsider', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(outsiderData),
