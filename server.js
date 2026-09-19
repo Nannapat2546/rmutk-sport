@@ -56,8 +56,8 @@ const transporter = nodemailer.createTransport({
 
 const otpStorage = {};
 
-// ตั้งค่า Resend (แนะนำให้ใส่ API Key เป็น Environment Variable ใน Render เช่น RESEND_API_KEY)
-const resend = new Resend(process.env.RESEND_API_KEY || 'rnd_M6tBXGLO37Io7TBXOvlhQocwGt3F');
+// ตั้งค่า Resend โดยดึง API Key จาก Environment Variable ของ Render
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ===========================================================================
 // [1] API สำหรับจัดการ หมวดหมู่อุปกรณ์ และ คลังอุปกรณ์
@@ -182,7 +182,7 @@ app.get('/api/inventory/manage', async (req, res) => {
 });
 
 // ===========================================================================
-// [2] API ระบบสมาชิกและการเข้าสู่ระบบ (พร้อมระบบตรวจสอบความถูกต้องรหัสนักศึกษา)
+// [2] API ระบบสมาชิกและการเข้าสู่ระบบ (ส่ง OTP ผ่าน Resend จริง 100%)
 // ===========================================================================
 app.post('/api/request-otp', async (req, res) => {
   const { email, type, studentId } = req.body; 
@@ -193,13 +193,11 @@ app.post('/api/request-otp', async (req, res) => {
       return res.status(400).json({ message: 'นักศึกษาต้องใช้อีเมลของมหาวิทยาลัย (@mail.rmutk.ac.th) เท่านั้น' });
     }
 
-    // ตรวจสอบความถูกต้องของรหัสนักศึกษาที่ส่งมากับหน้าอีเมล
     const emailPrefix = email.split('@')[0];
     if (studentId && emailPrefix !== studentId) {
       return res.status(400).json({ message: 'รหัสนักศึกษาไม่ตรงกับอีเมลที่ใช้งาน' });
     }
 
-    // ตรวจสอบความยาวรหัสนักศึกษา (ปกติของ มทร.กรุงเทพ จะมีความยาว 10 หรือ 13 หลัก)
     if (emailPrefix.length !== 10 && emailPrefix.length !== 13) {
       return res.status(400).json({ message: 'รูปแบบรหัสนักศึกษาในอีเมลไม่ถูกต้อง' });
     }
@@ -207,8 +205,6 @@ app.post('/api/request-otp', async (req, res) => {
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   otpStorage[email] = { otp, expires: Date.now() + 5 * 60000 };
-
-  console.log(`🔑 OTP สำหรับ ${email} คือ: [ ${otp} ]`);
 
   const emailHtmlTemplate = `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 0; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
@@ -232,17 +228,17 @@ app.post('/api/request-otp', async (req, res) => {
 
   try {
     await resend.emails.send({
-      from: 'RMUTK Sports <onboarding@resend.dev>',
+      from: 'RMUTK Sports <onboarding@resend.dev>', // หรือใช้อีเมลที่ตั้งค่าโดเมนบน Resend
       to: email,
       subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} - RMUTK Sports`,
       html: emailHtmlTemplate
     });
-    // 🌟 เพิ่ม debugOtp เข้าไปในข้อมูลที่ส่งกลับ เพื่อให้หน้าบ้านดึงไปแสดงผลได้
-    res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลแล้ว', debugOtp: otp });
+    
+    // ส่งข้อความสำเร็จปกติแบบไม่มี debugOtp
+    res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลเรียบร้อยแล้ว' });
   } catch (error) {
     console.error('Email Error:', error);
-    // 🌟 กรณีส่งเมลผ่าน Resend ไม่ผ่าน ให้ส่ง debugOtp กลับไปหน้าบ้านด้วยเช่นกัน
-    res.status(200).json({ message: 'สร้างรหัส OTP สำเร็จ', debugOtp: otp });
+    res.status(500).json({ message: 'ไม่สามารถส่งอีเมลได้ กรุณาตรวจสอบการตั้งค่าระบบ' });
   }
 });
 
