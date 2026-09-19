@@ -57,7 +57,7 @@ const transporter = nodemailer.createTransport({
 const otpStorage = {};
 
 // ตั้งค่า Resend โดยดึง API Key จาก Environment Variable ของ Render
-const resend = new Resend('rnd_M6tBXGLO37Io7TBXOvlhQocwGt3F');
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ===========================================================================
 // [1] API สำหรับจัดการ หมวดหมู่อุปกรณ์ และ คลังอุปกรณ์
