@@ -42,7 +42,7 @@ const CustomDropdown = ({ label, options, selectedValue, onSelect }) => {
 
 export default function ReturnScreen({ navigation, route }) {
   const qrData = route.params?.qrData || '';
-  const API_URL = 'http://localhost:3000'; 
+  const API_URL = 'https://app-rmutk-sports.onrender.com'; 
   
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState(null);
