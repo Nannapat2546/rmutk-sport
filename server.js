@@ -3,6 +3,7 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt'); 
 const nodemailer = require('nodemailer'); 
+const { Resend } = require('resend');
 
 const app = express();
 app.use(cors());
@@ -54,6 +55,9 @@ const transporter = nodemailer.createTransport({
 });
 
 const otpStorage = {};
+
+// ตั้งค่า Resend (แนะนำให้ใส่ API Key เป็น Environment Variable ใน Render เช่น RESEND_API_KEY)
+const resend = new Resend(process.env.RESEND_API_KEY || 'rnd_M6tBXGLO37Io7TBXOvlhQocwGt3F');
 
 // ===========================================================================
 // [1] API สำหรับจัดการ หมวดหมู่อุปกรณ์ และ คลังอุปกรณ์
@@ -178,19 +182,32 @@ app.get('/api/inventory/manage', async (req, res) => {
 });
 
 // ===========================================================================
-// [2] API ระบบสมาชิกและการเข้าสู่ระบบ
+// [2] API ระบบสมาชิกและการเข้าสู่ระบบ (พร้อมระบบตรวจสอบความถูกต้องรหัสนักศึกษา)
 // ===========================================================================
 app.post('/api/request-otp', async (req, res) => {
-  const { email, type } = req.body; 
+  const { email, type, studentId } = req.body; 
   if (!email) return res.status(400).json({ message: 'กรุณาระบุอีเมล' });
-  if (type === 'student' && !email.endsWith('@mail.rmutk.ac.th')) {
-    return res.status(400).json({ message: 'นักศึกษาต้องใช้อีเมลของมหาวิทยาลัย (@mail.rmutk.ac.th) เท่านั้น' });
+  
+  if (type === 'student') {
+    if (!email.endsWith('@mail.rmutk.ac.th')) {
+      return res.status(400).json({ message: 'นักศึกษาต้องใช้อีเมลของมหาวิทยาลัย (@mail.rmutk.ac.th) เท่านั้น' });
+    }
+
+    // ตรวจสอบความถูกต้องของรหัสนักศึกษาที่ส่งมากับหน้าอีเมล
+    const emailPrefix = email.split('@')[0];
+    if (studentId && emailPrefix !== studentId) {
+      return res.status(400).json({ message: 'รหัสนักศึกษาไม่ตรงกับอีเมลที่ใช้งาน' });
+    }
+
+    // ตรวจสอบความยาวรหัสนักศึกษา (ปกติของ มทร.กรุงเทพ จะมีความยาว 10 หรือ 13 หลัก)
+    if (emailPrefix.length !== 10 && emailPrefix.length !== 13) {
+      return res.status(400).json({ message: 'รูปแบบรหัสนักศึกษาในอีเมลไม่ถูกต้อง' });
+    }
   }
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   otpStorage[email] = { otp, expires: Date.now() + 5 * 60000 };
 
-  // 🌟 พิมพ์รหัส OTP ออกมาดูที่หน้า Logs ของ Render เพื่อความสะดวกรวดเร็วในการทดสอบ
   console.log(`🔑 OTP สำหรับ ${email} คือ: [ ${otp} ]`);
 
   const emailHtmlTemplate = `
@@ -213,22 +230,17 @@ app.post('/api/request-otp', async (req, res) => {
     </div>
   `;
 
-  const mailOptions = {
-    from: `"ระบบศูนย์กีฬา RMUTK" <${process.env.EMAIL_USER}>`,
-    to: email,
-    subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} - RMUTK Sports`,
-    html: emailHtmlTemplate
-  };
-
   try {
-    // พยายามส่งเมลแบบไม่ให้บล็อกการทำงาน (ถ้าพอร์ตบน Render บล็อก จะได้ไม่หมุนค้าง)
-    transporter.sendMail(mailOptions).catch(err => console.log('Mail send skipped:', err.message));
-
-    // ตอบกลับหน้าบ้านทันทีโดยส่ง debugOtp ไปด้วย เพื่อความสะดวกในการเทสระบบ
-    res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลแล้ว', debugOtp: otp });
+    await resend.emails.send({
+      from: 'RMUTK Sports <onboarding@resend.dev>', // หรือใช้อีเมลที่คุณ verify ในระบบ Resend
+      to: email,
+      subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} - RMUTK Sports`,
+      html: emailHtmlTemplate
+    });
+    res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลแล้ว' });
   } catch (error) {
-    console.error('Email Send Error:', error.message);
-    res.status(200).json({ message: 'สร้างรหัส OTP สำเร็จ', debugOtp: otp });
+    console.error('Email Error:', error);
+    res.status(500).json({ message: 'ไม่สามารถส่งอีเมลได้ กรุณาตรวจสอบการตั้งค่าระบบ' });
   }
 });
 
@@ -582,12 +594,10 @@ app.get('/api/members', async (req, res) => {
   }
 });
 
-// 🌟 แก้ไขตรงนี้: เพิ่มการดึง t.id as transaction_id และ a.email เพื่อนำไปใช้ส่งแจ้งเตือน
 app.get('/api/reports/dashboard', async (req, res) => {
   try {
     const borrowRes = await pool.query(`SELECT t.id as transaction_id, a.email, COALESCE(s.full_name, e.full_name) as member_name, inv.item_name as equipment, COALESCE(t.return_condition, 'ใช้งาน') as equipment_status, GREATEST(t.qty, t.original_qty) as amount, t.created_at as borrow_date, t.return_date as return_date, t.promised_return_date as expected_return_date FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN accounts a ON t.borrower_account_id = a.id LEFT JOIN students s ON t.borrower_account_id = s.account_id LEFT JOIN externals e ON t.borrower_account_id = e.account_id WHERE t.return_date IS NOT NULL ORDER BY t.return_date DESC LIMIT 50`);
     
-    // 🌟 ดึงข้อมูล t.id และ a.email ออกมาใช้งานในตารางคงค้าง
     const pendingRes = await pool.query(`SELECT t.id as transaction_id, a.email, COALESCE(s.full_name, e.full_name) as member_name, inv.item_name as equipment, 'ใช้งาน' as equipment_status, GREATEST(t.qty, t.original_qty) as amount, t.qty as pending_amount, t.created_at as borrow_date, t.promised_return_date as expected_return_date FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN accounts a ON t.borrower_account_id = a.id LEFT JOIN students s ON t.borrower_account_id = s.account_id LEFT JOIN externals e ON t.borrower_account_id = e.account_id WHERE t.return_date IS NULL ORDER BY t.created_at ASC`);
     
     const popularRes = await pool.query(`SELECT c.name as category_name, inv.item_name as equipment, COUNT(t.id) as borrow_count FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN equipment_categories c ON inv.category_id = c.id GROUP BY c.name, inv.item_name ORDER BY borrow_count DESC LIMIT 10`);
@@ -899,7 +909,6 @@ app.post('/api/admin/create-staff', async (req, res) => { res.status(201).json({
 app.delete('/api/admin/users/:id', async (req, res) => { res.status(200).json({ message: 'ลบผู้ใช้งานสำเร็จ' }); });
 app.get('/api/notifications/:account_id', async (req, res) => { res.status(200).json([]); });
 
-// 🌟 แก้ไขตรงนี้: เขียน API แจ้งเตือนของจริงเพื่อส่งเข้าอีเมล
 app.post('/api/notify-overdue', async (req, res) => {
   const { transaction_id, email, memberName, equipment } = req.body;
 
