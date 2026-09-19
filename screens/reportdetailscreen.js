@@ -29,7 +29,7 @@ export default function ReportDetailScreen({ navigation, route }) {
   const [webEndDateText, setWebEndDateText] = useState('');
 
   // 🌟 แก้ไข URL ให้ใช้ลิงก์จาก Render
-  const API_URL = 'https://rmutk-sport.onrender.com'; 
+  const API_URL = 'https://app-rmutk-sports.onrender.com'; 
 
   useEffect(() => {
     fetchDashboardReports();
