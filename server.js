@@ -11,11 +11,15 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const pool = new Pool({
-  user: 'postgres',
-  host: 'localhost',
-  database: 'project65',
-  password: '0807780787', 
-  port: 5432,
+  connectionString: process.env.DATABASE_URL, // ใช้สำหรับเชื่อมต่อบน Render อัตโนมัติ
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false, // จำเป็นสำหรับ PostgreSQL บนคลาวด์
+  
+  // เผื่อไว้ใช้ตอนรันในคอมตัวเอง (Local)
+  user: process.env.DB_USER || 'postgres',
+  host: process.env.DB_HOST || 'localhost',
+  database: process.env.DB_NAME || 'project65',
+  password: process.env.DB_PASSWORD || '0807780787',
+  port: process.env.DB_PORT || 5432,
 });
 
 // ===========================================================================
@@ -37,8 +41,8 @@ initDB();
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: '655021000097@mail.rmutk.ac.th', 
-    pass: 'anexstdqwmmtxpiu'     
+    user: process.env.EMAIL_USER, // ดึงค่าจาก Render อัตโนมัติ
+    pass: process.env.EMAIL_PASS  // ดึงค่าจาก Render อัตโนมัติ
   }
 });
 
