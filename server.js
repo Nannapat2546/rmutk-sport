@@ -227,18 +227,18 @@ app.post('/api/request-otp', async (req, res) => {
   `;
 
   try {
-    await resend.emails.send({
-      from: 'RMUTK Sports <onboarding@resend.dev>', // หรือใช้อีเมลที่ตั้งค่าโดเมนบน Resend
-      to: email,
+    const data = await resend.emails.send({
+      from: 'Acme <onboarding@resend.dev>', // บัญชีฟรีต้องใช้โดเมนกลางของ Resend เท่านั้น
+      to: email, // ⚠️ หมายเหตุ: ถ้าใช้บัญชีฟรี จะส่งได้เฉพาะเมลที่ตรงกับตอนสมัคร Resend เท่านั้น
       subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} - RMUTK Sports`,
       html: emailHtmlTemplate
     });
     
-    // ส่งข้อความสำเร็จปกติแบบไม่มี debugOtp
+    console.log('✅ Resend Success:', data);
     res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลเรียบร้อยแล้ว' });
   } catch (error) {
-    console.error('Email Error:', error);
-    res.status(500).json({ message: 'ไม่สามารถส่งอีเมลได้ กรุณาตรวจสอบการตั้งค่าระบบ' });
+    console.error('❌ Resend Error Details:', error);
+    res.status(500).json({ message: 'ไม่สามารถส่งอีเมลได้: ' + (error.message || 'Unknown error') });
   }
 });
 
