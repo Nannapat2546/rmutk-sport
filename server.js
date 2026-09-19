@@ -219,11 +219,13 @@ app.post('/api/request-otp', async (req, res) => {
   };
 
   try {
-    await transporter.sendMail(mailOptions);
-    res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลแล้ว' });
-  } catch (error) {
-    res.status(500).json({ message: 'ไม่สามารถส่งอีเมลได้' });
-  }
+  // ส่งอีเมลโดยเพิ่มการตั้งค่า timeout (หน่วยเป็นมิลลิวินาที เช่น 10 วินาที)
+  await transporter.sendMail(mailOptions);
+  res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลแล้ว' });
+} catch (error) {
+  console.error('Email Send Error:', error.message);
+  res.status(500).json({ message: 'ไม่สามารถส่งอีเมลได้ กรุณาตรวจสอบการตั้งค่าระบบ' });
+}
 });
 
 app.post('/api/verify-otp', (req, res) => {
