@@ -198,7 +198,7 @@ export default function RegisterStudent({ navigation }) {
 
     setIsLoading(true);
     try {
-      const response = await fetch('https://app-rmutk-sports.onrender.com/api/request-otp', {
+      const response = await fetch('https://rmutk-sport.onrender.com/api/request-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail }),
@@ -226,7 +226,7 @@ export default function RegisterStudent({ navigation }) {
 
     setIsLoading(true);
     try {
-      const response = await fetch('https://app-rmutk-sports.onrender.com/api/verify-otp', {
+      const response = await fetch('https://rmutk-sport.onrender.com/api/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), otp: otpCode }),
