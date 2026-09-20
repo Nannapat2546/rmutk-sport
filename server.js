@@ -417,6 +417,7 @@ app.post('/api/login-admin', async (req, res) => {
 app.get('/api/users/scan/:code', async (req, res) => {
   const { code } = req.params;
   try {
+    // 🌟 ปรับปรุง Query ให้ค้นหาครอบคลุมทั้ง รหัสนักศึกษา, บัตรประชาชน และ account_id
     const query = `
       SELECT a.id as account_id, a.account_type, 
              s.student_id, s.full_name as student_name, s.profile_image as student_img,
@@ -424,10 +425,15 @@ app.get('/api/users/scan/:code', async (req, res) => {
       FROM accounts a 
       LEFT JOIN students s ON a.id = s.account_id 
       LEFT JOIN externals e ON a.id = e.account_id
-      WHERE s.student_id = $1 OR e.citizen_id = $1
+      WHERE s.student_id = $1 
+         OR e.citizen_id = $1 
+         OR a.id::text = $1
     `;
     const result = await pool.query(query, [code]);
-    if (result.rows.length === 0) return res.status(404).json({ message: 'ไม่พบข้อมูลสมาชิก' });
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'ไม่พบข้อมูลสมาชิกในระบบ' });
+    }
 
     const user = result.rows[0];
 
@@ -440,9 +446,19 @@ app.get('/api/users/scan/:code', async (req, res) => {
     const fee = user.account_type === 'student' ? settings.fitness_fee_student : settings.fitness_fee_external;
     const profileImg = user.account_type === 'student' ? user.student_img : user.external_img;
 
-    res.status(200).json({ id: user.account_id, name, role: user.account_type, role_th: role, code_id: codeId, fee, avatar: profileImg || '' });
+    res.status(200).json({ 
+      id: user.account_id, 
+      account_id: user.account_id, // 🌟 แนบ account_id ชัดเจน
+      name, 
+      role: user.account_type, 
+      role_th: role, 
+      code_id: codeId, 
+      fee, 
+      avatar: profileImg || '' 
+    });
   } catch (error) {
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูล' });
+    console.error('Scan User Error:', error);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลสมาชิก' });
   }
 });
 
