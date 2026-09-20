@@ -3,7 +3,7 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt'); 
 const nodemailer = require('nodemailer'); 
-const { Resend } = require('resend');
+const { Resend } = require('resend'); // 🌟 นำเข้า Resend
 
 const app = express();
 app.use(cors());
@@ -56,7 +56,7 @@ const transporter = nodemailer.createTransport({
 
 const otpStorage = {};
 
-// ตั้งค่า Resend โดยดึง API Key จาก Environment Variable ของ Render
+// 🌟 ตั้งค่า Resend (ใช้ process.env.RESEND_API_KEY เพื่อดึงจาก Render ซึ่งต้องขึ้นต้นด้วย re_...)
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ===========================================================================
@@ -182,7 +182,7 @@ app.get('/api/inventory/manage', async (req, res) => {
 });
 
 // ===========================================================================
-// [2] API ระบบสมาชิกและการเข้าสู่ระบบ (ส่ง OTP ผ่าน Resend จริง 100%)
+// [2] API ระบบสมาชิกและการเข้าสู่ระบบ (ระบบยืดหยุ่น: หากอีเมลพัง ก็ไม่กระทบเซิร์ฟเวอร์)
 // ===========================================================================
 app.post('/api/request-otp', async (req, res) => {
   const { email, type, studentId } = req.body; 
@@ -206,6 +206,8 @@ app.post('/api/request-otp', async (req, res) => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   otpStorage[email] = { otp, expires: Date.now() + 5 * 60000 };
 
+  console.log(`🔑 สร้าง OTP สำหรับ ${email} คือ: [ ${otp} ]`);
+
   const emailHtmlTemplate = `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 0; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
       <div style="background-color: #00A87E; padding: 24px; text-align: center;">
@@ -227,18 +229,23 @@ app.post('/api/request-otp', async (req, res) => {
   `;
 
   try {
+    // พยายามยิงอีเมลผ่าน Resend
     const data = await resend.emails.send({
-      from: 'Acme <onboarding@resend.dev>', // บัญชีฟรีต้องใช้โดเมนกลางของ Resend เท่านั้น
-      to: email, // ⚠️ หมายเหตุ: ถ้าใช้บัญชีฟรี จะส่งได้เฉพาะเมลที่ตรงกับตอนสมัคร Resend เท่านั้น
+      from: 'Acme <onboarding@resend.dev>', // บัญชีฟรีบังคับใช้ onboarding@resend.dev
+      to: email, 
       subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} - RMUTK Sports`,
       html: emailHtmlTemplate
     });
     
-    console.log('✅ Resend Success:', data);
-    res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลเรียบร้อยแล้ว' });
+    console.log('✅ ยิงอีเมลสำเร็จ (Resend):', data);
+    res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลเรียบร้อยแล้ว', debugOtp: otp }); // ส่งแนบกลับไปกันเหนียว
   } catch (error) {
-    console.error('❌ Resend Error Details:', error);
-    res.status(500).json({ message: 'ไม่สามารถส่งอีเมลได้: ' + (error.message || 'Unknown error') });
+    // 🌟 ระบบป้องกันเซิร์ฟเวอร์ล่ม (Fail-Safe): หาก Resend Error (เช่น คีย์ผิด หรือติดโควต้าฟรี) จะดักจับตรงนี้ ไม่ให้เซิร์ฟพัง
+    console.error('❌ ข้อผิดพลาดในการส่งอีเมล (Resend Error):', error.message);
+    res.status(200).json({ 
+      message: 'ระบบส่งอีเมลขัดข้องชั่วคราว (แต่สร้าง OTP สำเร็จ)', 
+      debugOtp: otp // ส่งรหัสกลับไปให้หน้าบ้านแจ้งเตือนแทน เพื่อไม่ให้งานสะดุด
+    });
   }
 });
 
@@ -937,6 +944,5 @@ app.post('/api/notify-overdue', async (req, res) => {
   }
 });
 
-// พอร์ตสำหรับรันเซิร์ฟเวอร์
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Backend รันที่พอร์ต ${PORT}`));
