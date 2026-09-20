@@ -3,7 +3,7 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt'); 
 const nodemailer = require('nodemailer'); 
-const { Resend } = require('resend'); // 🌟 นำเข้า Resend
+const { Resend } = require('resend');
 
 const app = express();
 app.use(cors());
@@ -20,9 +20,7 @@ app.get('/', (req, res) => {
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL, // ใช้สำหรับเชื่อมต่อบน Render อัตโนมัติ
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false, // จำเป็นสำหรับ PostgreSQL บนคลาวด์
-  
-  // เผื่อไว้ใช้ตอนรันในคอมตัวเอง (Local)
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false, 
   user: process.env.DB_USER || 'postgres',
   host: process.env.DB_HOST || 'localhost',
   database: process.env.DB_NAME || 'project65',
@@ -31,7 +29,7 @@ const pool = new Pool({
 });
 
 // ===========================================================================
-// 🌟 สคริปต์อัปเดตฐานข้อมูลอัตโนมัติ
+// 🌟 สคริปต์อัปเดตฐานข้อมูลอัตโนมัติ (เพิ่มตาราง Staffs หากไม่มี)
 // ===========================================================================
 const initDB = async () => {
   try {
@@ -39,6 +37,27 @@ const initDB = async () => {
     await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS is_partial BOOLEAN DEFAULT false;`);
     await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS return_condition VARCHAR(50) DEFAULT 'ใช้งาน';`);
     await pool.query(`UPDATE transactions SET original_qty = qty WHERE original_qty = 0 OR original_qty IS NULL;`);
+    
+    // สร้างตาราง staffs หากยังไม่มี (สำหรับเพิ่มเจ้าหน้าที่)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS staffs (
+        id SERIAL PRIMARY KEY,
+        account_id INT REFERENCES accounts(id) ON DELETE CASCADE,
+        full_name VARCHAR(100) NOT NULL,
+        department VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // สร้างตาราง admins หากยังไม่มี
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS admins (
+        id SERIAL PRIMARY KEY,
+        account_id INT REFERENCES accounts(id) ON DELETE CASCADE,
+        full_name VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
     console.log('✅ Database schema verified.');
   } catch (err) {
     console.error('DB Init Error:', err.message);
@@ -49,20 +68,19 @@ initDB();
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER, // ดึงค่าจาก Render อัตโนมัติ
-    pass: process.env.EMAIL_PASS  // ดึงค่าจาก Render อัตโนมัติ
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
   }
 });
 
 const otpStorage = {};
 
-// 🌟 ตั้งค่า Resend (ใช้ process.env.RESEND_API_KEY เพื่อดึงจาก Render ซึ่งต้องขึ้นต้นด้วย re_...)
+// 🌟 ตั้งค่า Resend (ใช้ process.env.RESEND_API_KEY)
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ===========================================================================
 // [1] API สำหรับจัดการ หมวดหมู่อุปกรณ์ และ คลังอุปกรณ์
 // ===========================================================================
-
 app.get('/api/categories', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM equipment_categories ORDER BY created_at ASC');
@@ -118,7 +136,6 @@ app.get('/api/inventory', async (req, res) => {
   }
 });
 
-// 🌟 เพิ่มส่วนที่ขาดหายไป: API สำหรับเพิ่มอุปกรณ์ใหม่ (POST)
 app.post('/api/inventory', async (req, res) => {
   const { equipment_code, category_id, item_name, stock, status, image_url } = req.body;
   try {
@@ -199,7 +216,7 @@ app.get('/api/inventory/manage', async (req, res) => {
 });
 
 // ===========================================================================
-// [2] API ระบบสมาชิกและการเข้าสู่ระบบ (ระบบยืดหยุ่น: หากอีเมลพัง ก็ไม่กระทบเซิร์ฟเวอร์)
+// [2] API ระบบสมาชิกและการเข้าสู่ระบบ
 // ===========================================================================
 app.post('/api/request-otp', async (req, res) => {
   const { email, type, studentId } = req.body; 
@@ -209,21 +226,14 @@ app.post('/api/request-otp', async (req, res) => {
     if (!email.endsWith('@mail.rmutk.ac.th')) {
       return res.status(400).json({ message: 'นักศึกษาต้องใช้อีเมลของมหาวิทยาลัย (@mail.rmutk.ac.th) เท่านั้น' });
     }
-
     const emailPrefix = email.split('@')[0];
     if (studentId && emailPrefix !== studentId) {
       return res.status(400).json({ message: 'รหัสนักศึกษาไม่ตรงกับอีเมลที่ใช้งาน' });
-    }
-
-    if (emailPrefix.length !== 10 && emailPrefix.length !== 13) {
-      return res.status(400).json({ message: 'รูปแบบรหัสนักศึกษาในอีเมลไม่ถูกต้อง' });
     }
   }
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   otpStorage[email] = { otp, expires: Date.now() + 5 * 60000 };
-
-  console.log(`🔑 สร้าง OTP สำหรับ ${email} คือ: [ ${otp} ]`);
 
   const emailHtmlTemplate = `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 0; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
@@ -246,23 +256,15 @@ app.post('/api/request-otp', async (req, res) => {
   `;
 
   try {
-    // พยายามยิงอีเมลผ่าน Resend
     const data = await resend.emails.send({
-      from: 'Acme <onboarding@resend.dev>', // บัญชีฟรีบังคับใช้ onboarding@resend.dev
+      from: 'Acme <onboarding@resend.dev>', 
       to: email, 
       subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} - RMUTK Sports`,
       html: emailHtmlTemplate
     });
-    
-    console.log('✅ ยิงอีเมลสำเร็จ (Resend):', data);
-    res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลเรียบร้อยแล้ว', debugOtp: otp }); // ส่งแนบกลับไปกันเหนียว
+    res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลเรียบร้อยแล้ว', debugOtp: otp }); 
   } catch (error) {
-    // 🌟 ระบบป้องกันเซิร์ฟเวอร์ล่ม (Fail-Safe): หาก Resend Error (เช่น คีย์ผิด หรือติดโควต้าฟรี) จะดักจับตรงนี้ ไม่ให้เซิร์ฟพัง
-    console.error('❌ ข้อผิดพลาดในการส่งอีเมล (Resend Error):', error.message);
-    res.status(200).json({ 
-      message: 'ระบบส่งอีเมลขัดข้องชั่วคราว (แต่สร้าง OTP สำเร็จ)', 
-      debugOtp: otp // ส่งรหัสกลับไปให้หน้าบ้านแจ้งเตือนแทน เพื่อไม่ให้งานสะดุด
-    });
+    res.status(200).json({ message: 'ระบบส่งอีเมลขัดข้องชั่วคราว (แต่สร้าง OTP สำเร็จ)', debugOtp: otp });
   }
 });
 
@@ -319,7 +321,6 @@ app.post('/api/register/outsider', async (req, res) => {
     await pool.query(query, [email, passwordHash, citizenId, name, phone, idCardImage, profileImage]);
     res.status(201).json({ message: 'สมัครสมาชิกบุคคลภายนอกสำเร็จเรียบร้อย' });
   } catch (error) {
-    console.error('Register Error:', error); 
     res.status(500).json({ message: 'อีเมล/รหัสบัตรประชาชน นี้ถูกใช้ไปแล้ว หรือไม่สามารถบันทึกได้' });
   }
 });
@@ -417,7 +418,6 @@ app.post('/api/login-admin', async (req, res) => {
 app.get('/api/users/scan/:code', async (req, res) => {
   const { code } = req.params;
   try {
-    // 🌟 ปรับปรุง Query ให้ค้นหาครอบคลุมทั้ง รหัสนักศึกษา, บัตรประชาชน และ account_id
     const query = `
       SELECT a.id as account_id, a.account_type, 
              s.student_id, s.full_name as student_name, s.profile_image as student_img,
@@ -425,15 +425,10 @@ app.get('/api/users/scan/:code', async (req, res) => {
       FROM accounts a 
       LEFT JOIN students s ON a.id = s.account_id 
       LEFT JOIN externals e ON a.id = e.account_id
-      WHERE s.student_id = $1 
-         OR e.citizen_id = $1 
-         OR a.id::text = $1
+      WHERE s.student_id = $1 OR e.citizen_id = $1 OR a.id::text = $1
     `;
     const result = await pool.query(query, [code]);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'ไม่พบข้อมูลสมาชิกในระบบ' });
-    }
+    if (result.rows.length === 0) return res.status(404).json({ message: 'ไม่พบข้อมูลสมาชิก' });
 
     const user = result.rows[0];
 
@@ -446,19 +441,9 @@ app.get('/api/users/scan/:code', async (req, res) => {
     const fee = user.account_type === 'student' ? settings.fitness_fee_student : settings.fitness_fee_external;
     const profileImg = user.account_type === 'student' ? user.student_img : user.external_img;
 
-    res.status(200).json({ 
-      id: user.account_id, 
-      account_id: user.account_id, // 🌟 แนบ account_id ชัดเจน
-      name, 
-      role: user.account_type, 
-      role_th: role, 
-      code_id: codeId, 
-      fee, 
-      avatar: profileImg || '' 
-    });
+    res.status(200).json({ id: user.account_id, account_id: user.account_id, name, role: user.account_type, role_th: role, code_id: codeId, fee, avatar: profileImg || '' });
   } catch (error) {
-    console.error('Scan User Error:', error);
-    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูลสมาชิก' });
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูล' });
   }
 });
 
@@ -942,9 +927,36 @@ app.get('/api/recent-activities', async (req, res) => {
   }
 });
 
+// 🌟 เพิ่ม Route สำหรับสร้างบัญชีเจ้าหน้าที่ (POST /api/admin/create-staff)
+app.post('/api/admin/create-staff', async (req, res) => {
+  const { name, email, password, role } = req.body;
+  try {
+    const passwordHash = await bcrypt.hash(password, 10);
+    const query = `
+      WITH new_account AS (
+        INSERT INTO accounts (account_type, email, password_hash) VALUES ($1, $2, $3) RETURNING id
+      )
+      INSERT INTO staffs (account_id, full_name, department) 
+      SELECT id, $4, 'เจ้าหน้าที่ทั่วไป' FROM new_account RETURNING *;
+    `;
+    await pool.query(query, [role || 'staff', email, passwordHash, name]);
+    res.status(201).json({ message: 'สร้างบัญชีเจ้าหน้าที่เรียบร้อยแล้ว' });
+  } catch (error) {
+    res.status(500).json({ message: 'อีเมลนี้ถูกใช้งานไปแล้ว หรือเกิดข้อผิดพลาด' });
+  }
+});
+
+// 🌟 เพิ่ม Route สำหรับลบผู้ใช้งาน (DELETE /api/admin/users/:id)
+app.delete('/api/admin/users/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM accounts WHERE id = $1', [req.params.id]);
+    res.status(200).json({ message: 'ลบผู้ใช้งานสำเร็จ' });
+  } catch (error) {
+    res.status(500).json({ message: 'ไม่สามารถลบผู้ใช้งานได้' });
+  }
+});
+
 app.post('/api/ocr', async (req, res) => { res.status(200).json({ text: '' }); });
-app.post('/api/admin/create-staff', async (req, res) => { res.status(201).json({ message: 'สร้างบัญชีเรียบร้อยแล้ว' }); });
-app.delete('/api/admin/users/:id', async (req, res) => { res.status(200).json({ message: 'ลบผู้ใช้งานสำเร็จ' }); });
 app.get('/api/notifications/:account_id', async (req, res) => { res.status(200).json([]); });
 
 app.post('/api/notify-overdue', async (req, res) => {
