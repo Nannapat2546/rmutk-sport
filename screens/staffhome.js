@@ -20,12 +20,7 @@ export default function StaffDashboard({ route, navigation }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSavingPwd, setIsSavingPwd] = useState(false);
 
-  const [hasNewNotification, setHasNewNotification] = useState(true);
-  const [isNotifVisible, setIsNotifVisible] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [loadingNotif, setLoadingNotif] = useState(false);
-
-  const API_URL = 'https://app-rmutk-sports.onrender.com'; 
+  const API_URL = 'https://rmutk-sport.onrender.com'; 
   const currentUser = route.params?.user || {};
 
   const menuItems = [
@@ -93,99 +88,6 @@ export default function StaffDashboard({ route, navigation }) {
     }
   };
 
-  const fetchNotifications = async () => {
-    setLoadingNotif(true);
-    try {
-      const response = await fetch(`${API_URL}/api/recent-activities`);
-      const data = await response.json();
-      
-      if (response.ok && Array.isArray(data)) {
-        const formattedNotifs = data.map(item => {
-          let notifIcon, notifColor, notifBg;
-          
-          if (item.type === 'fitness') {
-            notifIcon = 'barbell'; notifColor = '#0284C7'; notifBg = '#E0F2FE';
-          } else if (item.type === 'borrow' || item.type === 'borrowing') {
-            notifIcon = 'time'; notifColor = '#3B82F6'; notifBg = '#EFF6FF';
-          } else if (item.type === 'partial_return') {
-            notifIcon = 'warning'; notifColor = '#D97706'; notifBg = '#FEF3C7'; // สีส้มสำหรับคืนบางส่วน
-          } else if (item.type === 'return') {
-            notifIcon = 'checkmark-circle'; notifColor = '#10B981'; notifBg = '#D1FAE5';
-          } else {
-            notifIcon = 'notifications'; notifColor = '#64748B'; notifBg = '#F1F5F9';
-          }
-
-          return {
-            id: `${item.type}_${item.id}`,
-            type: item.type,
-            title: item.title,
-            detail: item.detail,
-            staffName: item.staffName || item.staff_name || currentUser.name || 'ไม่ระบุ',
-            date: new Date(item.date),
-            icon: notifIcon,
-            color: notifColor,
-            bg: notifBg
-          };
-        });
-        setNotifications(formattedNotifs);
-      } else {
-        setNotifications([]);
-      }
-    } catch (error) {
-      setNotifications([]);
-    } finally {
-      setLoadingNotif(false);
-    }
-  };
-
-  // 🌟 ฟังก์ชันแบ่งกลุ่มวันที่
-  const groupedNotifications = () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    const groups = { today: [], yesterday: [], older: [] };
-
-    notifications.forEach(notif => {
-      const nDate = new Date(notif.date);
-      nDate.setHours(0, 0, 0, 0);
-      if (nDate.getTime() === today.getTime()) {
-        groups.today.push(notif);
-      } else if (nDate.getTime() === yesterday.getTime()) {
-        groups.yesterday.push(notif);
-      } else {
-        groups.older.push(notif);
-      }
-    });
-    return groups;
-  };
-
-  const renderNotifItem = (notif) => (
-    <View key={notif.id} style={styles.notifCard}>
-      <View style={[styles.notifIconBox, { backgroundColor: notif.bg }]}>
-        <Ionicons name={notif.icon} size={24} color={notif.color} />
-      </View>
-      <View style={styles.notifContent}>
-        <Text style={[styles.notifTitle, notif.type === 'partial_return' && { color: '#D97706' }]}>
-          {notif.title}
-        </Text>
-        <Text style={styles.notifDetail}>{notif.detail}</Text>
-        
-        <View style={styles.staffRow}>
-          <Ionicons name="person-circle-outline" size={14} color="#64748B" />
-          <Text style={styles.notifStaff}>ทำรายการโดย: {notif.staffName}</Text>
-        </View>
-
-        <Text style={styles.notifDate}>
-          {notif.date.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })} น.
-        </Text>
-      </View>
-    </View>
-  );
-
-  const groups = groupedNotifications();
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -194,18 +96,6 @@ export default function StaffDashboard({ route, navigation }) {
         </Text>
         
         <View style={styles.headerIconsContainer}>
-          <TouchableOpacity 
-            style={styles.bellIconButton} 
-            onPress={() => {
-              setHasNewNotification(false);
-              setIsNotifVisible(true);
-              fetchNotifications();
-            }}
-          >
-            <Ionicons name="notifications-outline" size={26} color="#333" />
-            {hasNewNotification && <View style={styles.redDot} />}
-          </TouchableOpacity>
-
           <TouchableOpacity style={styles.iconButton} onPress={() => setMenuVisible(true)}>
             <Ionicons name="menu" size={28} color="#333" />
           </TouchableOpacity>
@@ -225,57 +115,6 @@ export default function StaffDashboard({ route, navigation }) {
           ))}
         </View>
       </ScrollView>
-
-      {/* ================= Modal แจ้งเตือน ================= */}
-      <Modal animationType="fade" transparent={true} visible={isNotifVisible} onRequestClose={() => setIsNotifVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.notifModalContainer}>
-            <View style={styles.notifModalHeader}>
-              <Text style={styles.notifModalTitle}>ประวัติการทำรายการล่าสุด</Text>
-              <TouchableOpacity onPress={() => setIsNotifVisible(false)}>
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-            
-            {loadingNotif ? (
-              <ActivityIndicator size="large" color="#00A87E" style={{ padding: 40 }} />
-            ) : (
-              <ScrollView style={styles.notifScroll} showsVerticalScrollIndicator={false}>
-                {notifications.length > 0 ? (
-                  <>
-                    {/* ส่วนของวันนี้ */}
-                    {groups.today.length > 0 && (
-                      <View>
-                        <Text style={styles.dateGroupHeader}>วันนี้</Text>
-                        {groups.today.map(renderNotifItem)}
-                      </View>
-                    )}
-                    {/* ส่วนของเมื่อวาน */}
-                    {groups.yesterday.length > 0 && (
-                      <View>
-                        <Text style={styles.dateGroupHeader}>เมื่อวาน</Text>
-                        {groups.yesterday.map(renderNotifItem)}
-                      </View>
-                    )}
-                    {/* ส่วนของก่อนหน้า */}
-                    {groups.older.length > 0 && (
-                      <View>
-                        <Text style={styles.dateGroupHeader}>ก่อนหน้า</Text>
-                        {groups.older.map(renderNotifItem)}
-                      </View>
-                    )}
-                  </>
-                ) : (
-                  <View style={styles.emptyNotif}>
-                    <Ionicons name="notifications-off-outline" size={60} color="#D1D5DB" />
-                    <Text style={styles.emptyNotifText}>ยังไม่มีประวัติการทำรายการ</Text>
-                  </View>
-                )}
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      </Modal>
 
       {/* Modal เปลี่ยนรหัสผ่าน */}
       <Modal animationType="fade" transparent={true} visible={isChangePwdVisible} onRequestClose={() => setChangePwdVisible(false)}>
@@ -394,8 +233,6 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 16, fontWeight: 'bold', color: '#1E293B', flex: 1 },
   headerHighlight: { color: '#00A87E' },
   headerIconsContainer: { flexDirection: 'row', alignItems: 'center', gap: 15 },
-  bellIconButton: { position: 'relative', padding: 2 },
-  redDot: { position: 'absolute', top: 2, right: 3, width: 10, height: 10, backgroundColor: '#EF4444', borderRadius: 5, borderWidth: 1.5, borderColor: '#FFF' },
   iconButton: { padding: 2 },
   divider: { height: 1, backgroundColor: '#E2E8F0', width: '100%' },
 
@@ -404,26 +241,6 @@ const styles = StyleSheet.create({
   card: { flexDirection: 'column', width: '46%', maxWidth: 260, height: 160, backgroundColor: '#FFFFFF', borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E2E8F0', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, marginBottom: 5 },
   iconWrapper: { marginBottom: 12, height: 65, width: 65, borderRadius: 32.5, backgroundColor: '#E6F5EF', justifyContent: 'center', alignItems: 'center' },
   cardTitle: { fontSize: 16, fontWeight: '700', color: '#334155' },
-
-  notifModalContainer: { width: '90%', maxWidth: 450, backgroundColor: '#FFF', borderRadius: 12, maxHeight: '80%', elevation: 10, ...Platform.select({ web: { boxShadow: '0px 10px 25px rgba(0,0,0,0.1)' } }) },
-  notifModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  notifModalTitle: { fontSize: 16, fontWeight: 'bold', color: '#111827' },
-  notifScroll: { padding: 15 },
-  
-  // 🌟 สไตล์สำหรับหัวข้อแบ่งกลุ่มวันที่
-  dateGroupHeader: { fontSize: 14, fontWeight: 'bold', color: '#64748B', marginTop: 10, marginBottom: 12, marginLeft: 5 },
-  
-  notifCard: { flexDirection: 'row', backgroundColor: '#FFF', padding: 16, borderRadius: 8, marginBottom: 12, borderWidth: 1, borderColor: '#F1F5F9' },
-  notifIconBox: { width: 45, height: 45, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-  notifContent: { flex: 1, justifyContent: 'center' },
-  notifTitle: { fontSize: 15, fontWeight: 'bold', color: '#1E293B', marginBottom: 4 },
-  notifDetail: { fontSize: 13, color: '#475569', marginBottom: 4, lineHeight: 18 },
-  staffRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  notifStaff: { fontSize: 12, color: '#64748B', marginLeft: 4, fontWeight: '500' },
-  notifDate: { fontSize: 11, color: '#94A3B8' },
-  
-  emptyNotif: { paddingVertical: 60, alignItems: 'center', justifyContent: 'center' },
-  emptyNotifText: { marginTop: 12, color: '#9CA3AF', fontSize: 15, fontWeight: '500' },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'center', alignItems: 'center' },
   modalCard: { width: '90%', maxWidth: 400, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, elevation: 5 },
