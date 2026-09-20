@@ -16,7 +16,6 @@ export default function ReportDetailScreen({ navigation, route }) {
 
   const [searchText, setSearchText] = useState('');
   
-  // State สำหรับเมนูตัวกรอง
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [eqCondition, setEqCondition] = useState('all'); 
   const [statusFilter, setStatusFilter] = useState('all'); 
@@ -28,8 +27,8 @@ export default function ReportDetailScreen({ navigation, route }) {
   const [webStartDateText, setWebStartDateText] = useState('');
   const [webEndDateText, setWebEndDateText] = useState('');
 
-  // 🌟 แก้ไข URL ให้ใช้ลิงก์จาก Render
-  const API_URL = 'https://app-rmutk-sports.onrender.com'; 
+  // 🌟 แก้ไข URL ให้ใช้ลิงก์ที่ถูกต้อง
+  const API_URL = 'https://rmutk-sport.onrender.com'; 
 
   useEffect(() => {
     fetchDashboardReports();
@@ -55,7 +54,6 @@ export default function ReportDetailScreen({ navigation, route }) {
     return new Date(`${year}-${month}-${day}`);
   };
 
-  // 🌟 ฟังก์ชันส่งแจ้งเตือนอีเมล (อัปเดตใหม่ แก้บั๊กกดโดนทุกคน)
   const handleNotifyUser = async (item) => {
     if (!item.email) {
       if(Platform.OS === 'web') window.alert(`ไม่พบข้อมูลอีเมลของ ${item.member_name} ในระบบ`);
@@ -82,7 +80,6 @@ export default function ReportDetailScreen({ navigation, route }) {
           Alert.alert('สำเร็จ', `ส่งอีเมลแจ้งเตือนไปยัง ${item.member_name} เรียบร้อยแล้ว`);
         }
 
-        // แก้บั๊ก: ใช้วิธีเช็กจาก transaction_id ที่ส่งมาจาก Backend เพื่อไม่ให้กดแล้วโดนแถวอื่น
         const updatedPending = reports.pendingReport.map(r => {
           if (r.transaction_id === item.transaction_id) {
             return { ...r, last_notified_date: new Date().toISOString() };
@@ -538,7 +535,7 @@ export default function ReportDetailScreen({ navigation, route }) {
                   </>
                 ) : null}
 
-                {/* ================= 2. 🌟 ตารางคงค้าง (เพิ่มยืมไป และคืนแล้ว) ================= */}
+                {/* ================= 2. ตารางคงค้าง ================= */}
                 {reportType === 'pending' ? (
                   <>
                     <View style={styles.tableHeaderRow}>
@@ -564,7 +561,6 @@ export default function ReportDetailScreen({ navigation, route }) {
                       const isNotifiedToday = lastNotified && lastNotified.getTime() === today.getTime();
                       const showNotifyButton = statusInfo.isLate && !isNotifiedToday;
 
-                      // 🌟 คำนวณยอด ยืมไป, คืนแล้ว, ค้างส่ง
                       const originalAmount = parseInt(item.amount) || 0;
                       const pendingAmount = parseInt(item.pending_amount) || originalAmount;
                       const returnedAmount = originalAmount > pendingAmount ? originalAmount - pendingAmount : 0;
@@ -580,17 +576,14 @@ export default function ReportDetailScreen({ navigation, route }) {
                             </Text>
                           </View>
 
-                          {/* ยืมไป */}
                           <Text style={[styles.dataCell, {width: 50, fontWeight: 'bold', color: '#374151'}]}>
                             {originalAmount}
                           </Text>
 
-                          {/* คืนแล้ว */}
                           <Text style={[styles.dataCell, {width: 60, fontWeight: 'bold', color: '#10B981'}]}>
                             {returnedAmount}
                           </Text>
 
-                          {/* ค้างส่ง */}
                           <Text style={[styles.dataCell, {width: 60, fontWeight: 'bold', color: '#D93025'}]}>
                             {pendingAmount}
                           </Text>

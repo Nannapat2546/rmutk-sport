@@ -58,7 +58,7 @@ export default function FitnessScannerScreen({ navigation }) {
     setLoadingText('กำลังตรวจสอบข้อมูลในระบบ...');
 
     try {
-      const response = await fetch(`https://app-rmutk-sports.onrender.com/api/users/scan/${code}`);
+      const response = await fetch(`https://rmutk-sport.onrender.com/api/users/scan/${code}`);
       const result = await response.json();
 
       if (response.ok) {
@@ -83,7 +83,7 @@ export default function FitnessScannerScreen({ navigation }) {
         // 🌟 ถ้าเป็นบุคคลภายนอก: ดึงรูปมาโชว์ใน Modal ตรวจสอบ
         let idCardImg = null;
         try {
-          const detailRes = await fetch(`https://app-rmutk-sports.onrender.com/api/admin/users/${result.id}/detail`);
+          const detailRes = await fetch(`https://rmutk-sport.onrender.com/api/admin/users/${result.id}/detail`);
           if (detailRes.ok) {
             const detailData = await detailRes.json();
             idCardImg = detailData.id_card_image || detailData.profile_image || null;
@@ -114,7 +114,7 @@ export default function FitnessScannerScreen({ navigation }) {
   // 🌟 ฟังก์ชันส่งรูปไปให้ Backend อ่านตัวหนังสือจากบัตร (OCR)
   const processCardOCR = async (base64Image) => {
     try {
-      const response = await fetch('https://app-rmutk-sports.onrender.com/api/ocr', {
+      const response = await fetch('https://rmutk-sport.onrender.com/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: base64Image })
@@ -154,7 +154,7 @@ export default function FitnessScannerScreen({ navigation }) {
       const citizenId = await processCardOCR(photo.base64);
 
       setLoadingText('กำลังตรวจสอบข้อมูลในระบบ...');
-      const response = await fetch(`https://app-rmutk-sports.onrender.com/api/users/scan/${citizenId}`);
+      const response = await fetch(`https://rmutk-sport.onrender.com/api/users/scan/${citizenId}`);
       const result = await response.json();
 
       if (response.ok) {

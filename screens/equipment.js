@@ -59,7 +59,8 @@ export default function EquipmentScreen({ navigation }) {
   const [editingId, setEditingId] = useState(null);
   const [isSuccessModalVisible, setSuccessModalVisible] = useState(false);
 
-  const API_URL = 'http://https://app-rmutk-sports.onrender.com'; 
+  // 🌟 แก้ไข URL ให้ชี้ไปที่ Backend ที่ถูกต้อง และเอา http://https:// ออก
+  const API_URL = 'https://rmutk-sport.onrender.com'; 
 
   useEffect(() => {
     if (currentView === 'main') fetchEquipment();
@@ -180,7 +181,6 @@ export default function EquipmentScreen({ navigation }) {
     setCurrentView('equipment');
   };
 
-  // 🌟 ฟังก์ชันใหม่: ใช้ล้างยอดของที่ชำรุดให้นำกลับมาใช้งานได้
   const handleRepairEquipment = (id) => {
     const executeRepair = async () => {
       try {

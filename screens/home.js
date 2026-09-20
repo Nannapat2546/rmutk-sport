@@ -24,7 +24,9 @@ const majorNameThai = {
 };
 
 export default function Dashboard({ route, navigation }) {
-  const API_URL = 'https://app-rmutk-sports.onrender.com';
+  // 🌟 แก้ไข URL เรียบร้อย
+  const API_URL = 'https://rmutk-sport.onrender.com';
+  
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [popularEquipment, setPopularEquipment] = useState([]);
@@ -32,7 +34,6 @@ export default function Dashboard({ route, navigation }) {
   const [categories, setCategories] = useState(['ทั้งหมด']);
   const [activeCategory, setActiveCategory] = useState('ทั้งหมด');
 
-  // State สำหรับระบบแจ้งเตือน
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [isLoadingNotif, setIsLoadingNotif] = useState(false);
@@ -67,12 +68,10 @@ export default function Dashboard({ route, navigation }) {
   const fetchEquipmentData = async () => {
     setIsLoading(true);
     try {
-      // 🌟 เปลี่ยนมาเรียกใช้ API สำหรับนักศึกษา
       const response = await fetch(`${API_URL}/api/inventory`); 
       const data = await response.json();
       
       if(Array.isArray(data)) {
-        // 🌟 กรองเอาเฉพาะอุปกรณ์ที่มีจำนวนให้ยืมมากกว่า 0
         const availableItems = data.filter(item => parseInt(item.stock) > 0);
 
         setPopularEquipment(availableItems.slice(0, 4));
@@ -98,7 +97,6 @@ export default function Dashboard({ route, navigation }) {
     try {
       let notifs = [];
 
-      // 1. ดึงประวัติฟิตเนส
       const fitRes = await fetch(`${API_URL}/api/fitness-history/${targetAccountId}`);
       if (fitRes.ok) {
         const fitData = await fitRes.json();
@@ -116,7 +114,6 @@ export default function Dashboard({ route, navigation }) {
         });
       }
 
-      // 2. ดึงประวัติยืม-คืน (เฉพาะนักศึกษา)
       if (role !== 'external') {
         const eqRes = await fetch(`${API_URL}/api/history/${targetAccountId}`);
         if (eqRes.ok) {
@@ -126,13 +123,12 @@ export default function Dashboard({ route, navigation }) {
             const borrowDate = new Date(item.borrow_date);
             const today = new Date();
             
-            // 🌟 แก้ไข: ตัดเวลาออก คำนวณแค่วันที่ข้ามวัน
             borrowDate.setHours(0,0,0,0);
             today.setHours(0,0,0,0);
             
             const diffTime = today - borrowDate;
             const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-            const isOverdue = !isReturned && diffDays > 0; // 🌟 ข้ามวัน 1 วัน = ล่าช้าทันที
+            const isOverdue = !isReturned && diffDays > 0;
 
             let notifType, notifTitle, notifIcon, notifColor, notifBg, notifDetail;
 
@@ -164,7 +160,7 @@ export default function Dashboard({ route, navigation }) {
               type: notifType,
               title: notifTitle,
               detail: notifDetail,
-              date: new Date(item.borrow_date), // ใช้วันที่จริงเรียง
+              date: new Date(item.borrow_date),
               icon: notifIcon,
               color: notifColor,
               bg: notifBg
@@ -173,7 +169,6 @@ export default function Dashboard({ route, navigation }) {
         }
       }
 
-      // 3. ดึงแจ้งเตือนตรงจาก Admin
       try {
         const adminNotifRes = await fetch(`${API_URL}/api/notifications/${targetAccountId}`);
         if (adminNotifRes.ok) {
@@ -195,7 +190,6 @@ export default function Dashboard({ route, navigation }) {
         console.log("Fetch Admin Notifs Error:", e);
       }
 
-      // เรียงลำดับจากใหม่สุดไปเก่าสุด
       notifs.sort((a, b) => b.date - a.date);
       setNotifications(notifs);
 
@@ -264,7 +258,6 @@ export default function Dashboard({ route, navigation }) {
           </Text>
           
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
-            {/* 🌟 เมื่อกดกระดิ่งให้มันโหลดข้อมูลใหม่สดๆ ทันที */}
             <TouchableOpacity style={styles.bellIcon} onPress={() => { setIsNotifOpen(true); fetchNotifications(); }}>
               <Ionicons name="notifications-outline" size={24} color="#333" />
               {notifications.some(n => n.type === 'overdue' || n.type === 'borrowing' || n.type === 'admin_alert') && (
@@ -410,18 +403,14 @@ export default function Dashboard({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F9F8' },
-  
   menuGroup: { backgroundColor: '#FFF', padding: 20, margin: 15, borderRadius: 8, borderWidth: 1, borderColor: '#EEE' },
   menuHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   menuTitleText: { fontSize: 14, fontWeight: 'bold', color: '#00A87E', width: '70%' },
-  
   bellIcon: { position: 'relative', marginRight: 5 },
   redDot: { position: 'absolute', top: -2, right: 0, width: 10, height: 10, backgroundColor: '#EF4444', borderRadius: 5, borderWidth: 1, borderColor: '#FFF' },
-
   menuList: { marginTop: 20, alignItems: 'center' },
   menuLink: { paddingVertical: 10, width: '100%', alignItems: 'center' },
   menuLinkText: { fontSize: 16, color: '#333' },
-
   scrollContent: { padding: 16, paddingBottom: 40 },
   greetingSection: { marginBottom: 20 },
   nameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
@@ -429,21 +418,17 @@ const styles = StyleSheet.create({
   infoCard: { backgroundColor: '#FFF', padding: 15, borderRadius: 10, marginTop: 10, borderWidth: 1, borderColor: '#eee' },
   infoLabel: { fontSize: 12, color: '#888' },
   infoValue: { fontSize: 14, fontWeight: 'bold' },
-  
   sectionContainer: { marginBottom: 24 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 5 },
   qrCard: { backgroundColor: '#FFF', padding: 30, borderRadius: 16, alignItems: 'center', marginTop: 10, elevation: 2, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5 },
   qrId: { fontSize: 16, fontWeight: 'bold', marginTop: 20, letterSpacing: 1 },
-  
   badge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E6F5EF', paddingHorizontal: 8, borderRadius: 12, marginLeft: 10 },
   badgeText: { fontSize: 12, color: '#00A87E', fontWeight: 'bold' },
-
   categoryScroll: { marginBottom: 15 },
   categoryPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#E0E0E0', marginRight: 10, backgroundColor: '#FFF' },
   categoryPillActive: { backgroundColor: '#00A87E', borderColor: '#00A87E' },
   categoryPillText: { color: '#666', fontSize: 14 },
   categoryPillTextActive: { color: '#FFF', fontWeight: 'bold' },
-
   gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   gridCard: { width: '48%', backgroundColor: '#FFF', borderRadius: 12, padding: 15, alignItems: 'center', marginBottom: 15, borderWidth: 1, borderColor: '#F0F0F0', elevation: 1 },
   gridImage: { width: 80, height: 80, marginBottom: 12, borderRadius: 10 },
@@ -453,7 +438,6 @@ const styles = StyleSheet.create({
   gridMetaRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', width: '100%' },
   stockBadgeGrid: { backgroundColor: '#E0F2E9', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
   stockBadgeGridText: { color: '#00A87E', fontSize: 11, fontWeight: 'bold' },
-
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-start', alignItems: 'center', paddingTop: Platform.OS === 'ios' ? 60 : 20 },
   modalContainer: { width: '90%', maxWidth: 400, backgroundColor: '#FFF', borderRadius: 16, maxHeight: '80%', elevation: 10 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: '#EEE' },

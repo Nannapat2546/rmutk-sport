@@ -5,17 +5,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-// --- ตัวแปลงภาษาอังกฤษเป็นไทยสำหรับคณะและสาขา (Mapping) ---
 const facultyNameThai = {
-  'arts': 'คณะศิลปศาสตร์',
-  'science': 'คณะวิทยาศาสตร์และเทคโนโลยี',
-  'industrial_education': 'คณะครุศาสตร์อุตสาหกรรม',
-  'engineering': 'คณะวิศวกรรมศาสตร์',
-  'business': 'คณะบริหารธุรกิจ',
-  'home_economics': 'คณะเทคโนโลยีคหกรรมศาสตร์',
-  'textile': 'คณะอุตสาหกรรมสิ่งทอ',
-  'international_college': 'วิทยาลัยนานาชาติ',
-  'isic': 'สถาบันวิทยาศาสตร์ นวัตกรรมและวัฒนธรรม',
+  'arts': 'คณะศิลปศาสตร์', 'science': 'คณะวิทยาศาสตร์และเทคโนโลยี', 'industrial_education': 'คณะครุศาสตร์อุตสาหกรรม',
+  'engineering': 'คณะวิศวกรรมศาสตร์', 'business': 'คณะบริหารธุรกิจ', 'home_economics': 'คณะเทคโนโลยีคหกรรมศาสตร์',
+  'textile': 'คณะอุตสาหกรรมสิ่งทอ', 'international_college': 'วิทยาลัยนานาชาติ', 'isic': 'สถาบันวิทยาศาสตร์ นวัตกรรมและวัฒนธรรม',
 };
 
 const majorNameThai = {
@@ -26,14 +19,15 @@ const majorNameThai = {
   'acc': 'การบัญชี', 'is': 'ระบบสารสนเทศ', 'marketing': 'การตลาด', 'management': 'การจัดการ', 'finance': 'การเงิน', 'international_business': 'ธุรกิจระหว่างประเทศ',
   'food_nutrition': 'อาหารและโภชนาการ', 'fashion': 'การออกแบบแฟชั่น', 'early_childhood': 'การศึกษาปฐมวัย',
   'textile_eng': 'วิศวกรรมสิ่งทอ', 'textile_design': 'การออกแบบสิ่งทอ', 'garment': 'เทคโนโลยีเสื้อผ้า',
-  'ic_biz': 'บริหารธุรกิจ (นานาชาติ)', 'ic_tourism': 'การท่องเที่ยว (นานาชาติ)',
-  'innovation': 'นวัตกรรมและวัฒนธรรม',
+  'ic_biz': 'บริหารธุรกิจ (นานาชาติ)', 'ic_tourism': 'การท่องเที่ยว (นานาชาติ)', 'innovation': 'นวัตกรรมและวัฒนธรรม',
 };
 
 export default function MemberListScreen({ navigation }) {
   const [isLoading, setIsLoading] = useState(true);
   const [members, setMembers] = useState([]);
-  const API_URL = 'https://app-rmutk-sports.onrender.com';
+  
+  // 🌟 แก้ไข URL เรียบร้อย
+  const API_URL = 'https://rmutk-sport.onrender.com';
 
   useEffect(() => {
     fetchMembers();
@@ -117,7 +111,6 @@ export default function MemberListScreen({ navigation }) {
                     <View style={styles.tableDivider} />
 
                     <View style={{ width: 110, alignItems: 'center', justifyContent: 'center' }}>
-                      {/* 🌟 ปรับ Pill Badge ที่นี่ */}
                       <View style={[styles.roleBadge, item.role === 'นักศึกษา' ? { backgroundColor: '#E6F5EF' } : { backgroundColor: '#FEF3C7' }]}>
                         <Text style={[styles.roleBadgeText, item.role === 'นักศึกษา' ? { color: '#00A87E' } : { color: '#D97706' }]}>
                           {item.role}
@@ -177,7 +170,6 @@ const styles = StyleSheet.create({
   tableDataRow: { flexDirection: 'row', backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingVertical: 14, alignItems: 'center' },
   tableDataText: { fontSize: 13, color: '#334155' },
   tableDivider: { width: 1, backgroundColor: '#E2E8F0', height: '100%' },
-  // 🌟 อัปเดตสไตล์ Pill Badge
   roleBadge: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, alignSelf: 'center' },
   roleBadgeText: { fontSize: 13, fontWeight: 'bold' }
 });

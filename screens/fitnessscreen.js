@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 export default function FitnessScreen({ navigation, route }) {
   const qrData = route.params?.qrData || '';
-  const API_URL = 'https://app-rmutk-sports.onrender.com'; 
+  const API_URL = 'https://rmutk-sport.onrender.com'; 
   
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState(null);
@@ -238,7 +238,6 @@ export default function FitnessScreen({ navigation, route }) {
   );
 }
 
-// ================= STYLES =================
 const styles = StyleSheet.create({
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
   formContainer: { flex: 1, backgroundColor: '#F8FAFC' },

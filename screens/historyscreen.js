@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 export default function HistoryScreen({ navigation, route }) {
   const accountId = route.params?.accountId; 
-  const API_URL = 'https://app-rmutk-sports.onrender.com'; 
+  const API_URL = 'https://rmutk-sport.onrender.com'; 
 
   const [isLoading, setIsLoading] = useState(true);
   const [historyData, setHistoryData] = useState([]);
@@ -270,7 +270,6 @@ const styles = StyleSheet.create({
     color: '#444',
   },
   statusCellContainer: { alignItems: 'center', justifyContent: 'center' },
-  // 🌟 ปรับขนาดป้ายแจ้งเตือนสีแดงให้รองรับข้อความ 2 บรรทัดได้สวยขึ้น
   lateBadge: {
     backgroundColor: '#FFF0F0',
     paddingVertical: 6,
