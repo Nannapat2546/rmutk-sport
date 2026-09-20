@@ -52,7 +52,9 @@ const CustomDropdown = ({ label, options, selectedValue, onSelect, placeholder }
 
 export default function BorrowScreen({ navigation, route }) {
   const qrData = route.params?.qrData || '';
-  const API_URL = 'http://https://app-rmutk-sports.onrender.com'; 
+  
+  // 🌟 แก้ไขลิงก์ API ให้ถูกต้อง 100% ไม่มี http:// ซ้อนกันแล้ว
+  const API_URL = 'https://rmutk-sport.onrender.com'; 
   
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState(null);
@@ -121,7 +123,7 @@ export default function BorrowScreen({ navigation, route }) {
     }
   };
 
-  // 🌟 ฟังก์ชันกดบันทึกการยืมที่ปรับปรุงใหม่ ป้องกันปุ่มค้างและแสดง Error ชัดเจน
+  // 🌟 ฟังก์ชันกดบันทึกการยืม
   const handleBorrowSubmit = async () => {
     if (!selectedEquip) return showPopup('error', 'กรุณาเลือกอุปกรณ์ที่ต้องการยืม');
     if (!borrowQty || parseInt(borrowQty) <= 0) return showPopup('error', 'กรุณาระบุจำนวนที่ต้องการยืม');
