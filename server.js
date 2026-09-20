@@ -118,6 +118,23 @@ app.get('/api/inventory', async (req, res) => {
   }
 });
 
+// 🌟 เพิ่มส่วนที่ขาดหายไป: API สำหรับเพิ่มอุปกรณ์ใหม่ (POST)
+app.post('/api/inventory', async (req, res) => {
+  const { equipment_code, category_id, item_name, stock, status, image_url } = req.body;
+  try {
+    const query = `
+      INSERT INTO inventory (equipment_code, category_id, item_name, stock, status, image_url)
+      VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
+    `;
+    const values = [equipment_code, category_id, item_name, stock, status, image_url];
+    const result = await pool.query(query, values);
+    res.status(201).json({ message: 'เพิ่มอุปกรณ์ใหม่สำเร็จ', data: result.rows[0] });
+  } catch (error) {
+    console.error("Insert Inventory Error:", error);
+    res.status(500).json({ message: 'ไม่สามารถเพิ่มอุปกรณ์ได้ รหัสอุปกรณ์อาจซ้ำกับที่มีอยู่แล้ว' });
+  }
+});
+
 app.delete('/api/inventory/:id', async (req, res) => {
   const { id } = req.params;
   try {
