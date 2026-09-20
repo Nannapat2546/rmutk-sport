@@ -74,30 +74,24 @@ export default function HistoryScreen({ navigation, route }) {
     return `${day}/${month}/${year}`;
   };
 
-  // 🌟 ปรับปรุงเงื่อนไขการคำนวณสถานะล่าช้าแบบข้ามวัน
   const calculateStatus = (borrowDateStr, returnDateStr) => {
     if (returnDateStr) {
       return { status: 'คืนแล้ว', isLate: false };
     }
     
-    // ตั้งค่าเวลาของวันที่ยืมให้เป็น 00:00:00 (เอาแค่วันที่)
     const borrowDate = new Date(borrowDateStr);
     borrowDate.setHours(0, 0, 0, 0);
     
-    // ตั้งค่าเวลาของวันนี้ให้เป็น 00:00:00
     const currentDate = new Date();
     currentDate.setHours(0, 0, 0, 0);
     
-    // คำนวณหาจำนวนวันที่ผ่านไป
     const diffTime = currentDate.getTime() - borrowDate.getTime();
     const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
     
     if (diffDays > 0) {
-      // ถ้าข้ามวันแล้ว (diffDays มากกว่า 0) จะโชว์ป้ายเตือน
       return { status: `กำลังยืม\n(ล่าช้า ${diffDays} วัน โปรดส่งคืน)`, isLate: true };
     }
     
-    // ถ้ายังเป็นวันเดียวกันอยู่
     return { status: 'กำลังยืม', isLate: false };
   };
 
@@ -119,98 +113,100 @@ export default function HistoryScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.container}>
       
-      {/* ---------------- Header Section ---------------- */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
+        <Text style={styles.headerTitle}>ประวัติของฉัน</Text>
+        <View style={{ width: 24 }} />
       </View>
 
-      {/* ---------------- Main Content ---------------- */}
       <ScrollView contentContainerStyle={styles.content}>
         
-        {/* 📍 เงื่อนไข: ถ้า role ไม่ใช่ external (คือนักศึกษา) ถึงจะแสดงตารางนี้ */}
         {route.params?.role !== 'external' && (
           <>
             <Text style={styles.pageTitle}>ประวัติการยืม/คืนอุปกรณ์</Text>
-            <View style={styles.tableContainer}>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.headerCell, { flex: 1.2 }]}>อุปกรณ์</Text>
-                <Text style={[styles.headerCell, { flex: 0.8 }]}>จำนวน</Text>
-                <Text style={styles.headerCell}>ยืมเมื่อ</Text>
-                <Text style={styles.headerCell}>คืนเมื่อ</Text>
-                <Text style={[styles.headerCell, { flex: 1.5 }]}>สถานะ / ดำเนินการ</Text>
-              </View>
-
-              {isLoading ? (
-                <View style={{ padding: 30, alignItems: 'center' }}>
-                  <ActivityIndicator size="small" color="#00A87E" />
-                  <Text style={{ marginTop: 10, color: '#888' }}>กำลังโหลดข้อมูล...</Text>
+            
+            {/* 🌟 จุดแก้ไข: ครอบตารางการยืมด้วย ScrollView แนวนอนเพื่อให้เลื่อนบนมือถือได้ */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ width: '100%', marginBottom: 10 }}>
+              <View style={styles.tableContainer}>
+                <View style={styles.tableHeader}>
+                  <Text style={[styles.headerCell, { width: 140, paddingLeft: 10 }]}>อุปกรณ์</Text>
+                  <Text style={[styles.headerCell, { width: 60 }]}>จำนวน</Text>
+                  <Text style={[styles.headerCell, { width: 90 }]}>ยืมเมื่อ</Text>
+                  <Text style={[styles.headerCell, { width: 90 }]}>คืนเมื่อ</Text>
+                  <Text style={[styles.headerCell, { width: 120 }]}>สถานะ / ดำเนินการ</Text>
                 </View>
-              ) : historyData.length === 0 ? (
-                <Text style={{ textAlign: 'center', padding: 30, color: '#888' }}>ไม่มีประวัติการยืมอุปกรณ์</Text>
-              ) : (
-                historyData.map((item, index) => (
-                  <View 
-                    key={item.id} 
-                    style={[styles.tableRow, index === historyData.length - 1 && { borderBottomWidth: 0 }]}
-                  >
-                    <Text style={[styles.dataCell, { flex: 1.2, fontWeight: 'bold' }]}>{item.equipment}</Text>
-                    <Text style={[styles.dataCell, { flex: 0.8 }]}>{item.amount}</Text>
-                    <Text style={styles.dataCell}>{item.borrowDate}</Text>
-                    <Text style={styles.dataCell}>{item.returnDate}</Text>
-                    
-                    <View style={[styles.dataCell, styles.statusCellContainer, { flex: 1.5 }]}>
-                      {item.isLate ? (
-                        <View style={styles.lateBadge}>
-                          <Text style={styles.lateText}>{item.status}</Text>
-                        </View>
-                      ) : item.status === 'กำลังยืม' ? (
-                        <View style={styles.pendingBadge}>
-                          <Text style={styles.pendingText}>{item.status}</Text>
-                        </View>
-                      ) : (
-                        <Text style={styles.returnedText}>{item.status}</Text>
-                      )}
-                    </View>
+
+                {isLoading ? (
+                  <View style={{ padding: 30, alignItems: 'center' }}>
+                    <ActivityIndicator size="small" color="#00A87E" />
+                    <Text style={{ marginTop: 10, color: '#888' }}>กำลังโหลดข้อมูล...</Text>
                   </View>
-                ))
-              )}
-            </View>
+                ) : historyData.length === 0 ? (
+                  <Text style={{ textAlign: 'center', padding: 30, color: '#888' }}>ไม่มีประวัติการยืมอุปกรณ์</Text>
+                ) : (
+                  historyData.map((item, index) => (
+                    <View key={item.id} style={[styles.tableRow, index === historyData.length - 1 && { borderBottomWidth: 0 }]}>
+                      <Text style={[styles.dataCell, { width: 140, fontWeight: 'bold', paddingLeft: 10, textAlign: 'left' }]} numberOfLines={1}>{item.equipment}</Text>
+                      <Text style={[styles.dataCell, { width: 60 }]}>{item.amount}</Text>
+                      <Text style={[styles.dataCell, { width: 90 }]}>{item.borrowDate}</Text>
+                      <Text style={[styles.dataCell, { width: 90 }]}>{item.returnDate}</Text>
+                      
+                      <View style={[styles.dataCell, styles.statusCellContainer, { width: 120 }]}>
+                        {item.isLate ? (
+                          <View style={styles.lateBadge}>
+                            <Text style={styles.lateText}>{item.status}</Text>
+                          </View>
+                        ) : item.status === 'กำลังยืม' ? (
+                          <View style={styles.pendingBadge}>
+                            <Text style={styles.pendingText}>{item.status}</Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.returnedText}>{item.status}</Text>
+                        )}
+                      </View>
+                    </View>
+                  ))
+                )}
+              </View>
+            </ScrollView>
+            <Text style={styles.swipeHintText}>ปัดซ้าย-ขวาเพื่อดูข้อมูลในตาราง</Text>
           </>
         )}
 
-        {/* ================= 2. ตารางประวัติเข้าฟิตเนส (แสดงสำหรับทุกคน) ================= */}
         <Text style={[styles.pageTitle, route.params?.role !== 'external' ? { marginTop: 30 } : { marginTop: 0 }]}>
           ประวัติเข้าฟิตเนส
         </Text>
-        <View style={styles.tableContainer}>
-          <View style={styles.tableHeader}>
-            <Text style={styles.headerCell}>วันที่เข้าใช้</Text>
-            <Text style={styles.headerCell}>ค่าบริการ</Text>
-            <Text style={styles.headerCell}>วิธีชำระ</Text>
-          </View>
-
-          {isLoading ? (
-            <View style={{ padding: 30, alignItems: 'center' }}>
-              <ActivityIndicator size="small" color="#00A87E" />
-              <Text style={{ marginTop: 10, color: '#888' }}>กำลังโหลดข้อมูล...</Text>
+        
+        {/* 🌟 จุดแก้ไข: ครอบตารางฟิตเนสด้วย ScrollView แนวนอน */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ width: '100%' }}>
+          <View style={[styles.tableContainer, { minWidth: 320 }]}>
+            <View style={styles.tableHeader}>
+              <Text style={[styles.headerCell, { width: 100 }]}>วันที่เข้าใช้</Text>
+              <Text style={[styles.headerCell, { width: 100 }]}>ค่าบริการ</Text>
+              <Text style={[styles.headerCell, { width: 100 }]}>วิธีชำระ</Text>
             </View>
-          ) : fitnessData.length === 0 ? (
-            <Text style={{ textAlign: 'center', padding: 30, color: '#888' }}>ไม่มีประวัติการเข้าใช้ฟิตเนส</Text>
-          ) : (
-            fitnessData.map((item, index) => (
-              <View 
-                key={item.id} 
-                style={[styles.tableRow, index === fitnessData.length - 1 && { borderBottomWidth: 0 }]}
-              >
-                <Text style={[styles.dataCell, { fontWeight: 'bold' }]}>{item.checkInDate}</Text>
-                <Text style={styles.dataCell}>{item.serviceFee}</Text>
-                <Text style={styles.dataCell}>{item.paymentType}</Text>
+
+            {isLoading ? (
+              <View style={{ padding: 30, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color="#00A87E" />
+                <Text style={{ marginTop: 10, color: '#888' }}>กำลังโหลดข้อมูล...</Text>
               </View>
-            ))
-          )}
-        </View>
+            ) : fitnessData.length === 0 ? (
+              <Text style={{ textAlign: 'center', padding: 30, color: '#888' }}>ไม่มีประวัติการเข้าใช้ฟิตเนส</Text>
+            ) : (
+              fitnessData.map((item, index) => (
+                <View key={item.id} style={[styles.tableRow, index === fitnessData.length - 1 && { borderBottomWidth: 0 }]}>
+                  <Text style={[styles.dataCell, { width: 100, fontWeight: 'bold' }]}>{item.checkInDate}</Text>
+                  <Text style={[styles.dataCell, { width: 100 }]}>{item.serviceFee}</Text>
+                  <Text style={[styles.dataCell, { width: 100 }]}>{item.paymentType}</Text>
+                </View>
+              ))
+            )}
+          </View>
+        </ScrollView>
+        <Text style={styles.swipeHintText}>ปัดซ้าย-ขวาเพื่อดูข้อมูลในตาราง</Text>
 
       </ScrollView>
     </SafeAreaView>
@@ -218,43 +214,43 @@ export default function HistoryScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F4F5F6' },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
   header: {
     flexDirection: 'row',
     backgroundColor: '#FFF',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    borderBottomWidth: 0,
-    shadowOpacity: 0,
-    elevation: 0,
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
-  backButton: {
-    padding: 2,
-  },
-  content: { padding: 20, paddingBottom: 40 },
-  pageTitle: { fontSize: 18, fontWeight: 'bold', color: '#555', marginBottom: 12 },
+  headerTitle: { fontSize: 16, fontWeight: 'bold', color: '#1E293B', textAlign: 'center' },
+  backButton: { padding: 5 },
+  content: { padding: 15, paddingBottom: 40 },
+  pageTitle: { fontSize: 16, fontWeight: 'bold', color: '#334155', marginBottom: 12 },
+  
+  // 🌟 ปรับสไตล์ตารางให้เหมาะกับมือถือ
   tableContainer: {
     backgroundColor: '#FFF',
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#E2E6EA',
     overflow: 'hidden',
+    minWidth: 500, // กำหนดความกว้างขั้นต่ำ เพื่อไม่ให้ตารางบีบตัวหนังสือ
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#F4F7FB',
+    backgroundColor: '#F1F5F9',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E6EA',
     paddingVertical: 12,
   },
   headerCell: {
-    flex: 1,
     textAlign: 'center',
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#334155',
   },
   tableRow: {
     flexDirection: 'row',
@@ -264,12 +260,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dataCell: {
-    flex: 1,
     textAlign: 'center',
-    fontSize: 13,
-    color: '#444',
+    fontSize: 12,
+    color: '#475569',
   },
   statusCellContainer: { alignItems: 'center', justifyContent: 'center' },
+  
   lateBadge: {
     backgroundColor: '#FFF0F0',
     paddingVertical: 6,
@@ -279,17 +275,18 @@ const styles = StyleSheet.create({
   },
   lateText: { 
     fontSize: 11, 
-    color: '#FF4D4F', 
+    color: '#EF4444', 
     fontWeight: 'bold',
     textAlign: 'center',
     lineHeight: 16
   },
   pendingBadge: {
-    backgroundColor: '#FFF7E6',
+    backgroundColor: '#FEF3C7',
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 12,
   },
-  pendingText: { fontSize: 11, color: '#FA8C16', fontWeight: 'bold' },
-  returnedText: { fontSize: 12, color: '#00A87E', fontWeight: 'bold' },
+  pendingText: { fontSize: 11, color: '#D97706', fontWeight: 'bold' },
+  returnedText: { fontSize: 12, color: '#10B981', fontWeight: 'bold' },
+  swipeHintText: { textAlign: 'center', fontSize: 11, color: '#94A3B8', marginTop: 8 }
 });
