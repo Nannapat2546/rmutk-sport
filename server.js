@@ -226,14 +226,21 @@ app.post('/api/request-otp', async (req, res) => {
     if (!email.endsWith('@mail.rmutk.ac.th')) {
       return res.status(400).json({ message: 'นักศึกษาต้องใช้อีเมลของมหาวิทยาลัย (@mail.rmutk.ac.th) เท่านั้น' });
     }
+
     const emailPrefix = email.split('@')[0];
     if (studentId && emailPrefix !== studentId) {
       return res.status(400).json({ message: 'รหัสนักศึกษาไม่ตรงกับอีเมลที่ใช้งาน' });
+    }
+
+    if (emailPrefix.length !== 10 && emailPrefix.length !== 13) {
+      return res.status(400).json({ message: 'รูปแบบรหัสนักศึกษาในอีเมลไม่ถูกต้อง' });
     }
   }
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   otpStorage[email] = { otp, expires: Date.now() + 5 * 60000 };
+
+  console.log(`🔑 สร้าง OTP สำหรับ ${email} คือ: [ ${otp} ]`);
 
   const emailHtmlTemplate = `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 0; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
@@ -256,15 +263,25 @@ app.post('/api/request-otp', async (req, res) => {
   `;
 
   try {
-    const data = await resend.emails.send({
-      from: 'Acme <onboarding@resend.dev>', 
+    // 🌟 เปลี่ยนมาใช้ Nodemailer (Gmail) ส่งแทน Resend 
+    const mailOptions = {
+      from: `"ระบบศูนย์กีฬา RMUTK" <${process.env.EMAIL_USER}>`,
       to: email, 
       subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} - RMUTK Sports`,
       html: emailHtmlTemplate
-    });
+    };
+
+    await transporter.sendMail(mailOptions);
+    
+    console.log('✅ ยิงอีเมล OTP ผ่าน Gmail สำเร็จ');
+    // ยังคงส่ง debugOtp กลับไปเผื่อหน้าบ้านต้องการใช้
     res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลเรียบร้อยแล้ว', debugOtp: otp }); 
   } catch (error) {
-    res.status(200).json({ message: 'ระบบส่งอีเมลขัดข้องชั่วคราว (แต่สร้าง OTP สำเร็จ)', debugOtp: otp });
+    console.error('❌ ข้อผิดพลาดในการส่งอีเมล (Gmail Error):', error.message);
+    res.status(200).json({ 
+      message: 'ระบบส่งอีเมลขัดข้องชั่วคราว (แต่สร้าง OTP สำเร็จ)', 
+      debugOtp: otp 
+    });
   }
 });
 
