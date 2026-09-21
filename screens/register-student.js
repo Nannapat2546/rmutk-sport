@@ -10,7 +10,7 @@ import {
   Platform,
   Image, 
   ActivityIndicator,
-  Modal // 🌟 นำเข้า Modal
+  Modal
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker'; 
@@ -150,7 +150,6 @@ export default function RegisterStudent({ navigation }) {
   const [verificationStep, setVerificationStep] = useState(0); 
   const [isLoading, setIsLoading] = useState(false);
 
-  // 🌟 State สำหรับ Pop-up
   const [popupVisible, setPopupVisible] = useState(false);
   const [popupType, setPopupType] = useState('success'); 
   const [popupMessage, setPopupMessage] = useState('');
@@ -174,7 +173,6 @@ export default function RegisterStudent({ navigation }) {
     }
   };
 
-  // 🌟 ฟังก์ชันจัดการ Pop-up
   const showPopup = (type, message) => {
     setPopupType(type);
     setPopupMessage(message);
@@ -183,16 +181,30 @@ export default function RegisterStudent({ navigation }) {
 
   const closePopup = () => {
     setPopupVisible(false);
-    // ถ้าสมัครสำเร็จ พอกดปิด Pop-up ให้เด้งกลับหน้า Login
     if (popupType === 'success' && popupMessage.includes('ระบบได้บันทึกข้อมูล')) {
       navigation.goBack();
     }
   };
 
+  // =======================================================
+  // 🌟 ฟังก์ชันขอ OTP (อัปเดตใหม่ ให้รองรับโหมดทดสอบและส่งพารามิเตอร์)
+  // =======================================================
   const requestOtp = async () => {
     const cleanEmail = email.trim();
     if (!cleanEmail.endsWith('@mail.rmutk.ac.th')) {
       showPopup('error', 'กรุณาใช้อีเมลของมหาวิทยาลัย (@mail.rmutk.ac.th)');
+      return;
+    }
+
+    if (!studentId) {
+      showPopup('error', 'กรุณากรอกรหัสนักศึกษาก่อนขอรหัส OTP');
+      return;
+    }
+
+    // ตรวจสอบเบื้องต้นว่าอีเมลตรงกับรหัสนักศึกษาไหม (ก่อนยิงไปหลังบ้าน)
+    const emailPrefix = cleanEmail.split('@')[0];
+    if (emailPrefix !== studentId) {
+      showPopup('error', 'อีเมลต้องตรงกับรหัสนักศึกษาของคุณ');
       return;
     }
 
@@ -201,18 +213,26 @@ export default function RegisterStudent({ navigation }) {
       const response = await fetch('https://rmutk-sport.onrender.com/api/request-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail }),
+        // 🌟 เพิ่ม type: 'student' และ studentId ไปให้หลังบ้าน
+        body: JSON.stringify({ email: cleanEmail, type: 'student', studentId: studentId }),
       });
       const result = await response.json();
       
       if (response.ok) {
-        showPopup('success', 'ส่งรหัส OTP ไปที่อีเมลของคุณแล้ว กรุณาตรวจสอบกล่องจดหมาย');
+        // 🌟 ถ้าหลังบ้านส่ง debugOtp กลับมา (แปลว่าเชื่อมต่อ Gmail ไม่สำเร็จ)
+        // ระบบจะแจ้งเตือนรหัสให้เลย เพื่อให้คนทดสอบแอปทำงานต่อได้ไม่ค้าง
+        if (result.debugOtp) {
+          showPopup('success', `ระบบอีเมลมีปัญหาชั่วคราว\n\nแต่สามารถใช้รหัสทดสอบ: ${result.debugOtp} เพื่อไปต่อได้เลยครับ`);
+        } else {
+          showPopup('success', 'ส่งรหัส OTP ไปที่อีเมลของคุณแล้ว กรุณาตรวจสอบกล่องจดหมาย (อาจใช้เวลาปลุกเซิร์ฟเวอร์ 30 วินาที)');
+        }
         setVerificationStep(1); 
       } else {
         showPopup('error', result.message || 'ไม่สามารถส่งอีเมลได้');
       }
     } catch (error) {
-      showPopup('error', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+      // 🌟 ดักจับกรณี Render หลับนานเกินจน Time out
+      showPopup('error', 'รอเซิร์ฟเวอร์ตื่น (Render ฟรีอาจใช้เวลา 1 นาที) กรุณากดขอ OTP ใหม่อีกครั้ง');
     } finally {
       setIsLoading(false);
     }
@@ -274,7 +294,6 @@ export default function RegisterStudent({ navigation }) {
       const result = await response.json();
 
       if (response.ok) {
-        // 🌟 เรียก Pop-up สีเขียวเมื่อสำเร็จ
         showPopup('success', 'ระบบได้บันทึกข้อมูลของคุณเรียบร้อยแล้ว คุณสามารถเข้าสู่ระบบได้ทันที');
       } else {
         showPopup('error', result.message || 'มีข้อผิดพลาดบางอย่างเกิดขึ้น กรุณาลองใหม่');
@@ -378,7 +397,7 @@ export default function RegisterStudent({ navigation }) {
                 </TouchableOpacity>
               </View>
               <TouchableOpacity onPress={() => setVerificationStep(0)} style={{ marginTop: 8 }}>
-                <Text style={{ color: '#00A87E', fontSize: 12, textDecorationLine: 'underline' }}>อีเมลผิด? กลับไปแก้ไขอีเมล</Text>
+                <Text style={{ color: '#00A87E', fontSize: 12, textDecorationLine: 'underline' }}>เปลี่ยนอีเมล หรือ ขอรหัส OTP ใหม่</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -473,7 +492,6 @@ const styles = StyleSheet.create({
   registerButton: { width: '100%', height: 55, backgroundColor: '#00A87E', borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 10, marginBottom: 30 },
   registerButtonText: { fontSize: 18, fontWeight: 'bold', color: 'white' },
 
-  // 🌟 Styles สำหรับ Pop-up
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalBox: { width: 300, backgroundColor: '#FFF', borderRadius: 16, padding: 25, alignItems: 'center', elevation: 5 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', marginTop: 10, marginBottom: 8 },
