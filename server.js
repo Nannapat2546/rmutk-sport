@@ -4,6 +4,7 @@ const { Pool } = require('pg');
 const bcrypt = require('bcrypt'); 
 const nodemailer = require('nodemailer'); 
 const { Resend } = require('resend');
+const Tesseract = require('tesseract.js'); // 🌟 เพิ่มไลบรารี OCR ของจริง
 
 const app = express();
 app.use(cors());
@@ -956,7 +957,32 @@ app.delete('/api/admin/users/:id', async (req, res) => {
   }
 });
 
-app.post('/api/ocr', async (req, res) => { res.status(200).json({ text: '' }); });
+// ===========================================================================
+// [5] API สำหรับ OCR (อ่านตัวอักษรจากภาพบัตรประชาชน ของจริง 100%)
+// ===========================================================================
+app.post('/api/ocr', async (req, res) => { 
+  try {
+    // ดึงข้อมูลรูปภาพจาก Request (รองรับกรณีส่งเป็น Base64 เข้ามา)
+    const imageData = req.body.image || req.body.base64 || req.body.uri;
+
+    if (!imageData) {
+      return res.status(400).json({ message: 'ไม่พบข้อมูลรูปภาพ', text: '' });
+    }
+
+    // เริ่มกระบวนการอ่านข้อความจากรูปภาพ (ภาษาไทย + อังกฤษ)
+    const { data: { text } } = await Tesseract.recognize(
+      imageData,
+      'tha+eng' // กำหนดภาษาที่ต้องการอ่าน
+    );
+
+    // ส่งข้อความที่อ่านได้กลับไปให้ Frontend
+    res.status(200).json({ text: text.trim() });
+  } catch (error) {
+    console.error('OCR Process Error:', error);
+    res.status(500).json({ message: 'อ่านข้อความไม่สำเร็จ', text: '' });
+  }
+});
+
 app.get('/api/notifications/:account_id', async (req, res) => { res.status(200).json([]); });
 
 app.post('/api/notify-overdue', async (req, res) => {
