@@ -958,7 +958,7 @@ app.delete('/api/admin/users/:id', async (req, res) => {
 });
 
 // ===========================================================================
-// [5] API สำหรับ OCR (เพิ่มระบบสกัดเลขบัตรและชื่อให้อัตโนมัติและแม่นยำขึ้น)
+// [5] API สำหรับ OCR (เวอร์ชันปรับปรุง ความเร็ว + ความแม่นยำ)
 // ===========================================================================
 app.post('/api/ocr', async (req, res) => { 
   try {
@@ -968,32 +968,40 @@ app.post('/api/ocr', async (req, res) => {
       return res.status(400).json({ message: 'ไม่พบข้อมูลรูปภาพ', text: '' });
     }
 
-    // เริ่มให้ AI อ่านข้อความจากรูปภาพ (ภาษาไทย + อังกฤษ)
+    // 🚀 1. ลดภาระ AI: ใช้แค่ 'tha' (ภาษาไทย) เพื่อให้ทำงานเร็วขึ้น 2 เท่า
+    // (Tesseract ภาษาไทยสามารถอ่านตัวเลข 0-9 ได้อยู่แล้ว ไม่ต้องโหลดภาษาอังกฤษมาเพิ่ม)
     const { data: { text } } = await Tesseract.recognize(
       imageData,
-      'tha+eng' 
+      'tha' 
     );
 
-    // 🌟 แสดงข้อความที่ AI อ่านได้ดิบๆ ใน Log ของ Render (เพื่อให้คุณเช็กได้ว่ามันอ่านว่าอะไร)
     console.log("🔍 ข้อความดิบที่ AI อ่านได้:\n", text);
 
-    // 1. สกัดเลขบัตรประชาชน (ลบช่องว่างและขีดออกให้หมด แล้วหาตัวเลข 13 หลักติดกัน)
-    const textWithoutSpaces = text.replace(/[\s-]/g, ''); 
-    const idMatch = textWithoutSpaces.match(/\d{13}/);
-    const citizenId = idMatch ? idMatch[0] : '';
-
-    // 2. สกัดชื่อ-นามสกุล (หาคำนำหน้า นาย/นาง/นางสาว ตามด้วยชื่อและนามสกุลไทย)
-    let fullName = '';
-    const nameMatch = text.match(/(นาย|นาง|นางสาว)\s*([ก-๙]+)\s+([ก-๙]+)/);
-    if (nameMatch) {
-      // จัดรูปแบบชื่อให้เว้นวรรคแค่ 1 เคาะ
-      fullName = nameMatch[0].replace(/\s+/g, ' '); 
+    // 🚀 2. ปรับสูตรหาเลขบัตร: หาเลข 13 ตัวที่อาจจะมีเว้นวรรคหรือขีดคั่นกลาง
+    let citizenId = '';
+    const idMatch = text.match(/(?:\d[ \.\-\_]*){13}/); 
+    if (idMatch) {
+        citizenId = idMatch[0].replace(/[^\d]/g, ''); // กรองเอาเฉพาะตัวเลขล้วนๆ
+        if (citizenId.length > 13) citizenId = citizenId.substring(0, 13); // ถ้าเกินเอาแค่ 13 ตัวแรก
     }
 
-    // 3. จัดรูปประโยคใหม่เอาข้อมูลที่สกัดได้ไปแปะไว้หน้าสุด หน้าบ้านจะได้ดึงข้อมูลไปใช้ง่ายๆ
+    // 🚀 3. ปรับสูตรหาชื่อ: ยืดหยุ่นขึ้น เผื่อลายน้ำบังคำนำหน้าชื่อ
+    let fullName = '';
+    // สเตปที่ 1: พยายามหาชื่อแบบมีคำนำหน้า (นาย/นาง/นางสาว)
+    const nameMatch = text.match(/(นาย|นาง|นางสาว|น\.ส\.)[\s\.\-\_]*([ก-๙]+)[\s\.\-\_]+([ก-๙]+)/);
+    
+    if (nameMatch) {
+      fullName = `${nameMatch[1].replace(/[\s\.\-\_]/g, '')} ${nameMatch[2]} ${nameMatch[3]}`;
+    } else {
+      // สเตปที่ 2: ถ้า AI อ่านคำนำหน้าไม่ออก ให้หาคำภาษาไทยยาวๆ 2 คำที่เว้นวรรคกัน (ชื่อ นามสกุล)
+      const fallbackMatch = text.match(/([ก-๙]{3,})[\s\.\-\_]+([ก-๙]{3,})/);
+      if (fallbackMatch && !['ศาสนา', 'เกิดวันที่', 'ประเทศไทย', 'ชื่อตัว'].includes(fallbackMatch[1])) {
+         fullName = `${fallbackMatch[1]} ${fallbackMatch[2]}`;
+      }
+    }
+
     const cleanText = `CitizenID: ${citizenId} Name: ${fullName} \n\n${text}`;
 
-    // ส่งข้อมูลกลับไปทั้งแบบ text จัดทรงแล้ว และแบบแยกฟิลด์
     res.status(200).json({ 
       text: cleanText, 
       citizenId: citizenId,
