@@ -3,6 +3,7 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt'); 
 const nodemailer = require('nodemailer'); 
+const { Resend } = require('resend');
 
 const app = express();
 app.use(cors());
@@ -18,7 +19,7 @@ app.get('/', (req, res) => {
 });
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL, 
+  connectionString: process.env.DATABASE_URL, // ใช้สำหรับเชื่อมต่อบน Render อัตโนมัติ
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false, 
   user: process.env.DB_USER || 'postgres',
   host: process.env.DB_HOST || 'localhost',
@@ -28,7 +29,7 @@ const pool = new Pool({
 });
 
 // ===========================================================================
-// 🌟 สคริปต์อัปเดตฐานข้อมูลอัตโนมัติ
+// 🌟 สคริปต์อัปเดตฐานข้อมูลอัตโนมัติ (เพิ่มตาราง Staffs หากไม่มี)
 // ===========================================================================
 const initDB = async () => {
   try {
@@ -73,6 +74,9 @@ const transporter = nodemailer.createTransport({
 });
 
 const otpStorage = {};
+
+// 🌟 ตั้งค่า Resend (ใช้ process.env.RESEND_API_KEY)
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ===========================================================================
 // [1] API สำหรับจัดการ หมวดหมู่อุปกรณ์ และ คลังอุปกรณ์
@@ -252,18 +256,14 @@ app.post('/api/request-otp', async (req, res) => {
   `;
 
   try {
-    const mailOptions = {
-      from: `"ระบบศูนย์กีฬา RMUTK" <${process.env.EMAIL_USER}>`,
+    const data = await resend.emails.send({
+      from: 'Acme <onboarding@resend.dev>', 
       to: email, 
       subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} - RMUTK Sports`,
       html: emailHtmlTemplate
-    };
-
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ ส่งอีเมลสำเร็จไปที่: ${email}`);
+    });
     res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลเรียบร้อยแล้ว', debugOtp: otp }); 
   } catch (error) {
-    console.log(`❌ ส่งอีเมลล้มเหลว: ${error.message}`);
     res.status(200).json({ message: 'ระบบส่งอีเมลขัดข้องชั่วคราว (แต่สร้าง OTP สำเร็จ)', debugOtp: otp });
   }
 });
@@ -321,7 +321,6 @@ app.post('/api/register/outsider', async (req, res) => {
     await pool.query(query, [email, passwordHash, citizenId, name, phone, idCardImage, profileImage]);
     res.status(201).json({ message: 'สมัครสมาชิกบุคคลภายนอกสำเร็จเรียบร้อย' });
   } catch (error) {
-    console.error('Register Error:', error); 
     res.status(500).json({ message: 'อีเมล/รหัสบัตรประชาชน นี้ถูกใช้ไปแล้ว หรือไม่สามารถบันทึกได้' });
   }
 });
@@ -992,4 +991,3 @@ app.post('/api/notify-overdue', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Backend รันที่พอร์ต ${PORT}`));
-
