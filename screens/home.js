@@ -26,6 +26,8 @@ export default function Dashboard({ route, navigation }) {
   const [allEquipment, setAllEquipment] = useState([]);
   const [categories, setCategories] = useState(['ทั้งหมด']);
   const [activeCategory, setActiveCategory] = useState('ทั้งหมด');
+  
+  // 🌟 State สำหรับเก็บคำค้นหา
   const [searchQuery, setSearchQuery] = useState('');
 
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -193,6 +195,7 @@ export default function Dashboard({ route, navigation }) {
     setIsLoadingNotif(false);
   };
 
+  // 🌟 ฟังก์ชันกรองอุปกรณ์ ควบรวมการค้นหาทั้งแบบ พิมพ์ค้นหา และ กดเลือกหมวดหมู่
   const filteredEquipment = allEquipment.filter(item => {
     const matchCategory = activeCategory === 'ทั้งหมด' || (item.category_name || 'ทั่วไป') === activeCategory;
     const matchSearch = item.item_name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -246,23 +249,22 @@ export default function Dashboard({ route, navigation }) {
         </View>
       </Modal>
 
-      {/* 🌟 Header Menu */}
       <View style={styles.menuGroup}>
         <View style={styles.menuHeaderRow}>
           <Text style={styles.menuTitleText} numberOfLines={1}>
             {role === 'external' ? 'ระบบเข้าใช้ฟิตเนส' : 'ระบบยืม-คืน อุปกรณ์กีฬาและการเข้าใช้ฟิตเนส'}
           </Text>
           
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
             <TouchableOpacity style={styles.bellIcon} onPress={() => { setIsNotifOpen(true); fetchNotifications(); }}>
-              <Ionicons name="notifications-outline" size={22} color="#1E293B" />
+              <Ionicons name="notifications-outline" size={24} color="#333" />
               {notifications.some(n => n.type === 'overdue' || n.type === 'borrowing' || n.type === 'admin_alert') && (
                 <View style={styles.redDot} />
               )}
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => setIsMenuOpen(!isMenuOpen)}>
-              <Ionicons name={isMenuOpen ? "close" : "menu"} size={24} color="#1E293B" />
+              <Ionicons name={isMenuOpen ? "close" : "menu"} size={24} color="#333" />
             </TouchableOpacity>
           </View>
         </View>
@@ -272,6 +274,7 @@ export default function Dashboard({ route, navigation }) {
             <TouchableOpacity style={styles.menuLink} onPress={() => setIsMenuOpen(false)}>
               <Text style={styles.menuLinkText}>หน้าแรก</Text>
             </TouchableOpacity>
+            
             <TouchableOpacity 
               style={styles.menuLink} 
               onPress={() => {
@@ -288,6 +291,7 @@ export default function Dashboard({ route, navigation }) {
             >
               <Text style={styles.menuLinkText}>ประวัติของฉัน</Text>
             </TouchableOpacity>
+
             <TouchableOpacity style={styles.menuLink} onPress={() => navigation.replace('Login')}>
               <Text style={[styles.menuLinkText, {color: '#EF4444'}]}>ออกจากระบบ</Text>
             </TouchableOpacity>
@@ -297,7 +301,6 @@ export default function Dashboard({ route, navigation }) {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
-        {/* ================= 1. ส่วนทักทาย & ข้อมูลส่วนตัว ================= */}
         <View style={styles.greetingSection}>
           <View style={styles.nameRow}>
             <Text style={styles.greetingText}>สวัสดี, {userName}</Text>
@@ -318,7 +321,6 @@ export default function Dashboard({ route, navigation }) {
           </View>
         </View>
 
-        {/* ================= 2. ส่วน QR Code ================= */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>QR Code ของฉัน</Text>
           <Text style={styles.sectionSubtitle}>
@@ -334,14 +336,13 @@ export default function Dashboard({ route, navigation }) {
           </View>
         </View>
 
-        {/* ================= 3. ส่วนรายการอุปกรณ์ ================= */}
         {role !== 'external' && (
           <View style={styles.sectionContainer}>
             
             <View style={styles.eqHeaderRow}>
               <Text style={styles.sectionTitle}>อุปกรณ์ทั้งหมด</Text>
               
-              {/* ช่องค้นหา */}
+              {/* 🌟 ช่องค้นหาอุปกรณ์ */}
               <View style={styles.searchBox}>
                 <TextInput 
                   placeholder="ค้นหา..." 
@@ -390,7 +391,10 @@ export default function Dashboard({ route, navigation }) {
                     </View>
                   ))
                 ) : (
-                  <Text style={{ color: '#888', textAlign: 'center', width: '100%', marginTop: 20 }}>ไม่พบอุปกรณ์ที่ค้นหา</Text>
+                  <View style={{ width: '100%', padding: 20, alignItems: 'center' }}>
+                    <Ionicons name="search-outline" size={40} color="#CBD5E1" />
+                    <Text style={{ color: '#888', textAlign: 'center', marginTop: 10 }}>ไม่พบอุปกรณ์ที่ค้นหา</Text>
+                  </View>
                 )}
               </View>
             )}
