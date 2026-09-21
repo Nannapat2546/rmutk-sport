@@ -34,6 +34,8 @@ export default function HistoryScreen({ navigation, route }) {
           amount: item.amount,
           borrowDate: formatDate(item.borrow_date),
           returnDate: item.return_date ? formatDate(item.return_date) : '-',
+          // 🌟 เช็กให้แสดงผลคำว่า "ปกติ" แทน "ใช้งาน" (ตามหน้าอื่นๆ)
+          equipmentStatus: (item.equipment_status === 'ใช้งาน' || item.equipment_status === 'ปกติ') ? 'ปกติ' : (item.equipment_status || 'ปกติ'),
           ...calculateStatus(item.borrow_date, item.return_date)
         }));
         setHistoryData(formattedBorrow);
@@ -127,11 +129,11 @@ export default function HistoryScreen({ navigation, route }) {
           <>
             <Text style={styles.pageTitle}>ประวัติการยืม/คืนอุปกรณ์</Text>
             
-            {/* 🌟 จุดแก้ไข: ครอบตารางการยืมด้วย ScrollView แนวนอนเพื่อให้เลื่อนบนมือถือได้ */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ width: '100%', marginBottom: 10 }}>
               <View style={styles.tableContainer}>
                 <View style={styles.tableHeader}>
-                  <Text style={[styles.headerCell, { width: 140, paddingLeft: 10 }]}>อุปกรณ์</Text>
+                  <Text style={[styles.headerCell, { width: 140, paddingLeft: 10, textAlign: 'left' }]}>อุปกรณ์</Text>
+                  <Text style={[styles.headerCell, { width: 60 }]}>สภาพ</Text>
                   <Text style={[styles.headerCell, { width: 60 }]}>จำนวน</Text>
                   <Text style={[styles.headerCell, { width: 90 }]}>ยืมเมื่อ</Text>
                   <Text style={[styles.headerCell, { width: 90 }]}>คืนเมื่อ</Text>
@@ -149,6 +151,12 @@ export default function HistoryScreen({ navigation, route }) {
                   historyData.map((item, index) => (
                     <View key={item.id} style={[styles.tableRow, index === historyData.length - 1 && { borderBottomWidth: 0 }]}>
                       <Text style={[styles.dataCell, { width: 140, fontWeight: 'bold', paddingLeft: 10, textAlign: 'left' }]} numberOfLines={1}>{item.equipment}</Text>
+                      
+                      {/* 🌟 แสดงคำว่า ปกติ แทน ใช้งาน */}
+                      <Text style={[styles.dataCell, { width: 60, fontWeight: 'bold', color: item.equipmentStatus === 'ปกติ' ? '#10B981' : '#EF4444' }]}>
+                        {item.equipmentStatus}
+                      </Text>
+                      
                       <Text style={[styles.dataCell, { width: 60 }]}>{item.amount}</Text>
                       <Text style={[styles.dataCell, { width: 90 }]}>{item.borrowDate}</Text>
                       <Text style={[styles.dataCell, { width: 90 }]}>{item.returnDate}</Text>
@@ -179,7 +187,6 @@ export default function HistoryScreen({ navigation, route }) {
           ประวัติเข้าฟิตเนส
         </Text>
         
-        {/* 🌟 จุดแก้ไข: ครอบตารางฟิตเนสด้วย ScrollView แนวนอน */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ width: '100%' }}>
           <View style={[styles.tableContainer, { minWidth: 320 }]}>
             <View style={styles.tableHeader}>
@@ -216,76 +223,24 @@ export default function HistoryScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
   header: {
-    flexDirection: 'row',
-    backgroundColor: '#FFF',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    flexDirection: 'row', backgroundColor: '#FFF', paddingHorizontal: 16, paddingVertical: 16,
+    alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#E2E8F0',
   },
   headerTitle: { fontSize: 16, fontWeight: 'bold', color: '#1E293B', textAlign: 'center' },
   backButton: { padding: 5 },
   content: { padding: 15, paddingBottom: 40 },
   pageTitle: { fontSize: 16, fontWeight: 'bold', color: '#334155', marginBottom: 12 },
   
-  // 🌟 ปรับสไตล์ตารางให้เหมาะกับมือถือ
-  tableContainer: {
-    backgroundColor: '#FFF',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E2E6EA',
-    overflow: 'hidden',
-    minWidth: 500, // กำหนดความกว้างขั้นต่ำ เพื่อไม่ให้ตารางบีบตัวหนังสือ
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E6EA',
-    paddingVertical: 12,
-  },
-  headerCell: {
-    textAlign: 'center',
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#334155',
-  },
-  tableRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E6EA',
-    paddingVertical: 15,
-    alignItems: 'center',
-  },
-  dataCell: {
-    textAlign: 'center',
-    fontSize: 12,
-    color: '#475569',
-  },
+  tableContainer: { backgroundColor: '#FFF', borderRadius: 8, borderWidth: 1, borderColor: '#E2E6EA', overflow: 'hidden', minWidth: 550 },
+  tableHeader: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderBottomWidth: 1, borderBottomColor: '#E2E6EA', paddingVertical: 12 },
+  headerCell: { textAlign: 'center', fontSize: 12, fontWeight: 'bold', color: '#334155' },
+  tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#E2E6EA', paddingVertical: 15, alignItems: 'center' },
+  dataCell: { textAlign: 'center', fontSize: 12, color: '#475569' },
   statusCellContainer: { alignItems: 'center', justifyContent: 'center' },
   
-  lateBadge: {
-    backgroundColor: '#FFF0F0',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  lateText: { 
-    fontSize: 11, 
-    color: '#EF4444', 
-    fontWeight: 'bold',
-    textAlign: 'center',
-    lineHeight: 16
-  },
-  pendingBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-  },
+  lateBadge: { backgroundColor: '#FFF0F0', paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8, alignItems: 'center' },
+  lateText: { fontSize: 11, color: '#EF4444', fontWeight: 'bold', textAlign: 'center', lineHeight: 16 },
+  pendingBadge: { backgroundColor: '#FEF3C7', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12 },
   pendingText: { fontSize: 11, color: '#D97706', fontWeight: 'bold' },
   returnedText: { fontSize: 12, color: '#10B981', fontWeight: 'bold' },
   swipeHintText: { textAlign: 'center', fontSize: 11, color: '#94A3B8', marginTop: 8 }
