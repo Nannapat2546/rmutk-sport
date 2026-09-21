@@ -52,24 +52,19 @@ const CustomDropdown = ({ label, options, selectedValue, onSelect, placeholder }
 
 export default function BorrowScreen({ navigation, route }) {
   const qrData = route.params?.qrData || '';
-  
-  // 🌟 แก้ไขลิงก์ API ให้ถูกต้อง 100% ไม่มี http:// ซ้อนกันแล้ว
   const API_URL = 'https://rmutk-sport.onrender.com'; 
   
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState(null);
   
-  // ข้อมูลฟอร์ม
   const [equipmentList, setEquipmentList] = useState([]);
   const [selectedEquip, setSelectedEquip] = useState(null);
   const [borrowQty, setBorrowQty] = useState('1');
   
-  // Pop-up แจ้งเตือน
   const [popupVisible, setPopupVisible] = useState(false);
   const [popupType, setPopupType] = useState('success'); 
   const [popupMessage, setPopupMessage] = useState('');
 
-  // ฟอร์แมตวันที่ปัจจุบัน
   const today = new Date();
   const currentDateString = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth()+1).padStart(2, '0')}/${today.getFullYear()+543}`;
 
@@ -110,10 +105,7 @@ export default function BorrowScreen({ navigation, route }) {
       const equipRes = await fetch(`${API_URL}/api/inventory/manage`);
       if (equipRes.ok) {
         const equipData = await equipRes.json();
-        const availableItems = equipData.filter(item => {
-          const qty = parseInt(item.available_qty ?? item.qty ?? item.amount ?? 0);
-          return qty > 0;
-        });
+        const availableItems = equipData.filter(item => parseInt(item.available_qty ?? item.qty ?? item.amount ?? 0) > 0);
         setEquipmentList(availableItems);
       }
     } catch (error) {
@@ -123,7 +115,6 @@ export default function BorrowScreen({ navigation, route }) {
     }
   };
 
-  // 🌟 ฟังก์ชันกดบันทึกการยืม
   const handleBorrowSubmit = async () => {
     if (!selectedEquip) return showPopup('error', 'กรุณาเลือกอุปกรณ์ที่ต้องการยืม');
     if (!borrowQty || parseInt(borrowQty) <= 0) return showPopup('error', 'กรุณาระบุจำนวนที่ต้องการยืม');
@@ -140,7 +131,6 @@ export default function BorrowScreen({ navigation, route }) {
     }
 
     try {
-      // ดึง ID ผู้ใช้และอุปกรณ์ รองรับทุกรูปแบบตัวแปร
       const borrowerId = userData.account_id || userData.id || userData.user_id || qrData;
       const invId = selectedEquip.id || selectedEquip.inventory_id || selectedEquip.item_id;
 
@@ -237,6 +227,14 @@ export default function BorrowScreen({ navigation, route }) {
                 keyboardType="numeric"
               />
               <Text style={styles.unitText}>/ ชิ้น</Text>
+            </View>
+          </View>
+
+          {/* 🌟 แสดงช่องสภาพอุปกรณ์อัตโนมัติ (ปกติ) */}
+          <View style={[styles.inputGroup, { zIndex: 0 }]}>
+            <Text style={styles.inputLabel}>สภาพอุปกรณ์</Text>
+            <View style={[styles.readOnlyInput, { backgroundColor: '#E6F5EF', borderColor: '#A7F3D0' }]}>
+              <Text style={[styles.readOnlyText, { color: '#059669', fontWeight: 'bold' }]}>ปกติ</Text>
             </View>
           </View>
 
