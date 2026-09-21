@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, 
-  TouchableOpacity, Platform, Image, ActivityIndicator, Alert, Modal
+  TouchableOpacity, Platform, Image, ActivityIndicator, Alert, Modal, TextInput
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
@@ -26,6 +26,7 @@ export default function Dashboard({ route, navigation }) {
   const [allEquipment, setAllEquipment] = useState([]);
   const [categories, setCategories] = useState(['ทั้งหมด']);
   const [activeCategory, setActiveCategory] = useState('ทั้งหมด');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -193,9 +194,9 @@ export default function Dashboard({ route, navigation }) {
   };
 
   const filteredEquipment = allEquipment.filter(item => {
-    if (activeCategory === 'ทั้งหมด') return true;
-    const catName = item.category_name || 'ทั่วไป';
-    return catName === activeCategory;
+    const matchCategory = activeCategory === 'ทั้งหมด' || (item.category_name || 'ทั่วไป') === activeCategory;
+    const matchSearch = item.item_name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchCategory && matchSearch;
   });
 
   return (
@@ -245,23 +246,23 @@ export default function Dashboard({ route, navigation }) {
         </View>
       </Modal>
 
-      {/* 🌟 Top Menu Bar */}
+      {/* 🌟 Header Menu */}
       <View style={styles.menuGroup}>
         <View style={styles.menuHeaderRow}>
-          <Text style={styles.menuTitleText}>
-            {role === 'external' ? 'ระบบเข้าใช้ฟิตเนส' : 'ระบบยืมอุปกรณ์ & ฟิตเนส'}
+          <Text style={styles.menuTitleText} numberOfLines={1}>
+            {role === 'external' ? 'ระบบเข้าใช้ฟิตเนส' : 'ระบบยืม-คืน อุปกรณ์กีฬาและการเข้าใช้ฟิตเนส'}
           </Text>
           
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <TouchableOpacity style={styles.bellIcon} onPress={() => { setIsNotifOpen(true); fetchNotifications(); }}>
-              <Ionicons name="notifications-outline" size={24} color="#333" />
+              <Ionicons name="notifications-outline" size={22} color="#1E293B" />
               {notifications.some(n => n.type === 'overdue' || n.type === 'borrowing' || n.type === 'admin_alert') && (
                 <View style={styles.redDot} />
               )}
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => setIsMenuOpen(!isMenuOpen)}>
-              <Ionicons name={isMenuOpen ? "close" : "menu"} size={24} color="#333" />
+              <Ionicons name={isMenuOpen ? "close" : "menu"} size={24} color="#1E293B" />
             </TouchableOpacity>
           </View>
         </View>
@@ -271,7 +272,6 @@ export default function Dashboard({ route, navigation }) {
             <TouchableOpacity style={styles.menuLink} onPress={() => setIsMenuOpen(false)}>
               <Text style={styles.menuLinkText}>หน้าแรก</Text>
             </TouchableOpacity>
-            
             <TouchableOpacity 
               style={styles.menuLink} 
               onPress={() => {
@@ -288,7 +288,6 @@ export default function Dashboard({ route, navigation }) {
             >
               <Text style={styles.menuLinkText}>ประวัติของฉัน</Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={styles.menuLink} onPress={() => navigation.replace('Login')}>
               <Text style={[styles.menuLinkText, {color: '#EF4444'}]}>ออกจากระบบ</Text>
             </TouchableOpacity>
@@ -298,41 +297,36 @@ export default function Dashboard({ route, navigation }) {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
-        {/* ================= แบบเก่า: การ์ดทักทายสีขาว ================= */}
+        {/* ================= 1. ส่วนทักทาย & ข้อมูลส่วนตัว ================= */}
         <View style={styles.greetingSection}>
           <View style={styles.nameRow}>
             <Text style={styles.greetingText}>สวัสดี, {userName}</Text>
+            <View style={[styles.roleBadge, role === 'external' ? {backgroundColor: '#FEF3C7'} : {backgroundColor: '#E6F5EF'}]}>
+              <Ionicons name={role === 'student' ? 'school' : 'person'} size={12} color={role === 'student' ? '#00A87E' : '#D97706'} />
+              <Text style={[styles.roleBadgeText, role === 'external' ? {color: '#D97706'} : {color: '#00A87E'}]}> {roleText}</Text>
+            </View>
           </View>
 
           <View style={styles.infoCard}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <Text style={styles.infoLabel}>ข้อมูลส่วนตัว</Text>
-              <View style={[styles.badge, role === 'external' && { backgroundColor: '#FEF3C7' }]}>
-                <Text style={[styles.badgeText, role === 'external' && { color: '#D97706' }]}>
-                  {roleText}
-                </Text>
-              </View>
-            </View>
-            
+            <Text style={styles.infoLabel}>อีเมล</Text>
             <Text style={styles.infoValue}>{userEmail}</Text>
-            
-            {role === 'student' ? (
-              <Text style={[styles.infoValue, { marginTop: 5, color: '#64748B' }]}>{userFaculty}</Text>
-            ) : (
-              <Text style={[styles.infoValue, { marginTop: 5, color: '#64748B' }]}>{userData?.phone || '-'}</Text>
-            )}
+          </View>
+          
+          <View style={styles.infoCard}>
+            <Text style={styles.infoLabel}>{role === 'student' ? 'คณะ/สาขา' : 'เบอร์โทรศัพท์'}</Text>
+            <Text style={styles.infoValue}>{role === 'student' ? userFaculty : (userData?.phone || '-')}</Text>
           </View>
         </View>
 
-        {/* ================= แบบเก่า: กล่อง QR Code สีขาว ================= */}
+        {/* ================= 2. ส่วน QR Code ================= */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>QR Code ของฉัน</Text>
-          <Text style={{ fontSize: 13, color: '#666', marginBottom: 10 }}>
-            {role === 'external' ? 'ใช้สำหรับสแกนเข้าใช้บริการฟิตเนส' : 'ใช้สำหรับสแกนยืม-คืนอุปกรณ์ และเข้าฟิตเนส'}
+          <Text style={styles.sectionSubtitle}>
+            {role === 'external' ? 'ใช้สำหรับสแกนเข้าใช้บริการฟิตเนส' : 'ใช้สำหรับสแกนยืม-คืนอุปกรณ์ และเข้าใช้ฟิตเนส'}
           </Text>
           <View style={styles.qrCard}>
             {userId !== '-' ? (
-              <QRCode value={userId} size={160} color="black" backgroundColor="white" />
+              <QRCode value={userId} size={150} color="black" backgroundColor="white" />
             ) : (
               <Ionicons name="qr-code" size={150} color="#CCC" />
             )}
@@ -340,9 +334,26 @@ export default function Dashboard({ route, navigation }) {
           </View>
         </View>
 
+        {/* ================= 3. ส่วนรายการอุปกรณ์ ================= */}
         {role !== 'external' && (
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>อุปกรณ์ทั้งหมด</Text>
+            
+            <View style={styles.eqHeaderRow}>
+              <Text style={styles.sectionTitle}>อุปกรณ์ทั้งหมด</Text>
+              
+              {/* ช่องค้นหา */}
+              <View style={styles.searchBox}>
+                <TextInput 
+                  placeholder="ค้นหา..." 
+                  style={styles.searchInput}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+                <TouchableOpacity style={styles.searchBtn}>
+                  <Ionicons name="search" size={16} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+            </View>
             
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
               {categories.map((cat, index) => (
@@ -351,38 +362,35 @@ export default function Dashboard({ route, navigation }) {
                   style={[styles.categoryPill, activeCategory === cat && styles.categoryPillActive]}
                   onPress={() => setActiveCategory(cat)}
                 >
-                  <Text style={[styles.categoryPillText, activeCategory === cat && styles.categoryPillTextActive]}>
-                    {cat}
-                  </Text>
+                  <Text style={[styles.categoryPillText, activeCategory === cat && styles.categoryPillTextActive]}>{cat}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
             {isLoading ? (
-              <ActivityIndicator size="small" color="#00A87E" style={{ marginTop: 20 }} />
+              <ActivityIndicator size="large" color="#00A87E" style={{ marginTop: 20 }} />
             ) : (
               <View style={styles.gridContainer}>
                 {filteredEquipment.length > 0 ? (
                   filteredEquipment.map((item) => (
                     <View key={item.id} style={styles.gridCard}>
-                      {item.image_url ? (
-                        <Image source={{ uri: item.image_url }} style={styles.gridImage} resizeMode="cover" />
-                      ) : (
-                        <View style={[styles.gridImage, styles.noImagePlaceholder]}>
-                          <Ionicons name="image-outline" size={30} color="#CCC" />
-                        </View>
-                      )}
+                      <View style={styles.gridImageBox}>
+                        {item.image_url ? (
+                          <Image source={{ uri: item.image_url }} style={styles.gridImage} resizeMode="contain" />
+                        ) : (
+                          <Ionicons name="image-outline" size={35} color="#CBD5E1" />
+                        )}
+                      </View>
                       <Text style={styles.gridItemName} numberOfLines={1}>{item.item_name}</Text>
-                      <Text style={styles.gridItemCategory} numberOfLines={1}>{item.category_name || 'ทั่วไป'}</Text>
-                      <View style={styles.gridMetaRow}>
-                        <View style={styles.stockBadgeGrid}>
-                          <Text style={styles.stockBadgeGridText}>ว่าง {item.stock}</Text>
-                        </View>
+                      <Text style={styles.gridItemCategory} numberOfLines={1}>{item.category_name || 'ลูกบอล'}</Text>
+                      
+                      <View style={styles.stockBadgeGrid}>
+                        <Text style={styles.stockBadgeGridText}>ว่าง {item.stock}</Text>
                       </View>
                     </View>
                   ))
                 ) : (
-                  <Text style={{ color: '#888', textAlign: 'center', width: '100%', marginTop: 20 }}>ไม่มีอุปกรณ์ในหมวดหมู่นี้</Text>
+                  <Text style={{ color: '#888', textAlign: 'center', width: '100%', marginTop: 20 }}>ไม่พบอุปกรณ์ที่ค้นหา</Text>
                 )}
               </View>
             )}
@@ -395,14 +403,14 @@ export default function Dashboard({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: '#F3F4F6' },
   
-  menuGroup: { backgroundColor: '#FFF', paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', zIndex: 10 },
+  menuGroup: { backgroundColor: '#FFF', paddingHorizontal: 20, paddingVertical: 15, borderWidth: 1, borderColor: '#E5E7EB', zIndex: 10 },
   menuHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  menuTitleText: { fontSize: 16, fontWeight: 'bold', color: '#1E293B', flex: 1 },
+  menuTitleText: { fontSize: 16, fontWeight: 'bold', color: '#00A87E', flex: 1, marginRight: 10 },
   
   bellIcon: { position: 'relative', marginRight: 5 },
-  redDot: { position: 'absolute', top: -2, right: 0, width: 10, height: 10, backgroundColor: '#EF4444', borderRadius: 5, borderWidth: 1, borderColor: '#FFF' },
+  redDot: { position: 'absolute', top: -2, right: 0, width: 8, height: 8, backgroundColor: '#EF4444', borderRadius: 4, borderWidth: 1, borderColor: '#FFF' },
 
   menuList: { marginTop: 15, backgroundColor: '#F8FAFC', borderRadius: 8, padding: 10 },
   menuLink: { paddingVertical: 12, width: '100%', paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
@@ -410,44 +418,51 @@ const styles = StyleSheet.create({
 
   scrollContent: { padding: 16, paddingBottom: 40, alignSelf: 'center', width: '100%', maxWidth: 600 },
   
-  greetingSection: { marginBottom: 20 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  greetingText: { fontSize: 22, fontWeight: 'bold', color: '#0F172A' },
+  greetingSection: { marginBottom: 25 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+  greetingText: { fontSize: 20, fontWeight: 'bold', color: '#111827', marginRight: 10 },
+  roleBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 16 },
+  roleBadgeText: { fontSize: 12, fontWeight: 'bold' },
   
-  infoCard: { backgroundColor: '#FFF', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', elevation: 1 },
-  infoLabel: { fontSize: 12, color: '#64748B', fontWeight: 'bold' },
-  infoValue: { fontSize: 15, fontWeight: '500', color: '#1E293B' },
+  infoCard: { backgroundColor: '#FFF', paddingHorizontal: 16, paddingVertical: 14, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 10 },
+  infoLabel: { fontSize: 12, color: '#6B7280', marginBottom: 4 },
+  infoValue: { fontSize: 15, fontWeight: 'bold', color: '#111827' },
   
-  sectionContainer: { marginBottom: 24 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#0F172A', marginBottom: 5 },
-  qrCard: { backgroundColor: '#FFF', padding: 30, borderRadius: 16, alignItems: 'center', marginTop: 10, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, borderWidth: 1, borderColor: '#E2E8F0' },
-  qrId: { fontSize: 16, fontWeight: 'bold', marginTop: 20, letterSpacing: 1, color: '#334155' },
+  sectionContainer: { marginBottom: 30 },
+  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#111827', marginBottom: 4 },
+  sectionSubtitle: { fontSize: 12, color: '#6B7280', marginBottom: 15 },
   
-  badge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E6F5EF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  badgeText: { fontSize: 11, color: '#00A87E', fontWeight: 'bold' },
+  qrCard: { backgroundColor: '#FFF', paddingVertical: 35, paddingHorizontal: 20, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
+  qrCodeBox: { padding: 10, backgroundColor: '#FFF' },
+  qrId: { fontSize: 16, fontWeight: 'bold', color: '#111827', marginTop: 15, letterSpacing: 1 },
+  
+  eqHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 6, width: 140, height: 36, overflow: 'hidden' },
+  searchInput: { flex: 1, paddingHorizontal: 10, fontSize: 12, color: '#111827', outlineStyle: 'none' },
+  searchBtn: { backgroundColor: '#00A87E', width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
 
   categoryScroll: { marginBottom: 15 },
-  categoryPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#E2E8F0', marginRight: 10, backgroundColor: '#FFF' },
+  categoryPill: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#E5E7EB', marginRight: 10, backgroundColor: '#FFF' },
   categoryPillActive: { backgroundColor: '#00A87E', borderColor: '#00A87E' },
-  categoryPillText: { color: '#64748B', fontSize: 13, fontWeight: '500' },
-  categoryPillTextActive: { color: '#FFF', fontWeight: 'bold' },
+  categoryPillText: { color: '#6B7280', fontSize: 13, fontWeight: '500' },
+  categoryPillTextActive: { color: '#FFF' },
 
   gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  gridCard: { width: '48%', backgroundColor: '#FFF', borderRadius: 12, padding: 12, alignItems: 'center', marginBottom: 15, borderWidth: 1, borderColor: '#E2E8F0', elevation: 1 },
-  gridImage: { width: 70, height: 70, marginBottom: 10, borderRadius: 8 },
-  noImagePlaceholder: { backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
-  gridItemName: { fontSize: 13, fontWeight: 'bold', color: '#1E293B', textAlign: 'center', marginBottom: 4 },
-  gridItemCategory: { fontSize: 11, color: '#64748B', textAlign: 'center', marginBottom: 8 },
-  gridMetaRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', width: '100%' },
-  stockBadgeGrid: { backgroundColor: '#E6F5EF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  stockBadgeGridText: { color: '#00A87E', fontSize: 10, fontWeight: 'bold' },
+  gridCard: { width: '48%', backgroundColor: '#FFF', borderRadius: 8, padding: 15, alignItems: 'center', marginBottom: 15, borderWidth: 1, borderColor: '#E5E7EB' },
+  gridImageBox: { width: '100%', height: 90, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  gridImage: { width: 80, height: 80 },
+  noImagePlaceholder: { backgroundColor: '#F1F5F9', width: 80, height: 80, borderRadius: 40 },
+  gridItemName: { fontSize: 14, fontWeight: 'bold', color: '#111827', textAlign: 'center', marginBottom: 4 },
+  gridItemCategory: { fontSize: 11, color: '#9CA3AF', textAlign: 'center', marginBottom: 12 },
+  stockBadgeGrid: { backgroundColor: '#ECFDF5', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 16 },
+  stockBadgeGridText: { color: '#059669', fontSize: 11, fontWeight: 'bold' },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContainer: { width: '100%', maxWidth: 400, backgroundColor: '#FFF', borderRadius: 16, maxHeight: '80%', elevation: 10 },
+  modalContainer: { width: '100%', maxWidth: 400, backgroundColor: '#FFF', borderRadius: 12, maxHeight: '80%', elevation: 5 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
   modalTitle: { fontSize: 16, fontWeight: 'bold', color: '#1E293B' },
   notifScroll: { padding: 15 },
-  notifCard: { flexDirection: 'row', backgroundColor: '#F8FAFC', padding: 15, borderRadius: 10, marginBottom: 10, borderWidth: 1, borderColor: '#E2E8F0' },
+  notifCard: { flexDirection: 'row', backgroundColor: '#F8FAFC', padding: 15, borderRadius: 8, marginBottom: 10, borderWidth: 1, borderColor: '#E2E8F0' },
   notifIconBox: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   notifContent: { flex: 1, justifyContent: 'center' },
   notifTitle: { fontSize: 14, fontWeight: 'bold', color: '#1E293B', marginBottom: 4 },
