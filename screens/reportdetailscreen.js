@@ -27,7 +27,6 @@ export default function ReportDetailScreen({ navigation, route }) {
   const [webStartDateText, setWebStartDateText] = useState('');
   const [webEndDateText, setWebEndDateText] = useState('');
 
-  // 🌟 แก้ไข URL ให้ใช้ลิงก์ที่ถูกต้อง
   const API_URL = 'https://rmutk-sport.onrender.com'; 
 
   useEffect(() => {
@@ -138,7 +137,8 @@ export default function ReportDetailScreen({ navigation, route }) {
 
     if (reportType === 'borrow' || reportType === 'pending') {
       currentData = currentData.filter(item => {
-        if (eqCondition === 'normal') return item.equipment_status === 'ปกติ';
+        // 🌟 เปลี่ยนเงื่อนไขตัวกรองให้ค้นหาทั้ง 'ใช้งาน' (ข้อมูลเดิม) และ 'ปกติ'
+        if (eqCondition === 'normal') return item.equipment_status === 'ปกติ' || item.equipment_status === 'ใช้งาน';
         if (eqCondition === 'broken') return item.equipment_status === 'ชำรุด' || item.equipment_status === 'ส่งซ่อม';
         return true;
       });
@@ -201,7 +201,7 @@ export default function ReportDetailScreen({ navigation, route }) {
         }
 
         return [
-          `"${item.member_name || '-'}"`, `"${item.equipment || '-'}"`, `"${item.equipment_status || 'ปกติ'}"`, 
+          `"${item.member_name || '-'}"`, `"${item.equipment || '-'}"`, `"${item.equipment_status === 'ใช้งาน' ? 'ปกติ' : (item.equipment_status || 'ปกติ')}"`, 
           item.amount, formatDate(item.borrow_date), formatDate(item.expected_return_date), formatDate(item.return_date), `"${statusText}"`
         ];
       });
@@ -222,7 +222,7 @@ export default function ReportDetailScreen({ navigation, route }) {
         const returnedAmount = originalAmount > pendingAmount ? originalAmount - pendingAmount : 0;
 
         return [
-          `"${item.member_name || '-'}"`, `"${item.equipment || '-'}"`, `"${item.equipment_status || 'ปกติ'}"`, 
+          `"${item.member_name || '-'}"`, `"${item.equipment || '-'}"`, `"${item.equipment_status === 'ใช้งาน' ? 'ปกติ' : (item.equipment_status || 'ปกติ')}"`, 
           originalAmount, returnedAmount, pendingAmount, formatDate(item.borrow_date), formatDate(item.expected_return_date), `"${statusText}"`
         ];
       });
@@ -517,8 +517,9 @@ export default function ReportDetailScreen({ navigation, route }) {
                           <Text style={[styles.dataCell, {width: 140}]} numberOfLines={1}>{item.equipment}</Text>
                           
                           <View style={[styles.dataCell, {width: 80, alignItems: 'center'}]}>
-                            <Text style={{ fontSize: 13, fontWeight: 'bold', color: item.equipment_status === 'ปกติ' ? '#10B981' : '#EF4444' }}>
-                              {item.equipment_status || 'ปกติ'}
+                            {/* 🌟 เปลี่ยนคำว่า 'ใช้งาน' เป็น 'ปกติ' */}
+                            <Text style={{ fontSize: 13, fontWeight: 'bold', color: (item.equipment_status === 'ปกติ' || item.equipment_status === 'ใช้งาน') ? '#10B981' : '#EF4444' }}>
+                              {item.equipment_status === 'ใช้งาน' ? 'ปกติ' : (item.equipment_status || 'ปกติ')}
                             </Text>
                           </View>
 
@@ -571,8 +572,9 @@ export default function ReportDetailScreen({ navigation, route }) {
                           <Text style={[styles.dataCell, {width: 130}]} numberOfLines={1}>{item.equipment}</Text>
                           
                           <View style={[styles.dataCell, {width: 70, alignItems: 'center'}]}>
-                            <Text style={{ fontSize: 13, fontWeight: 'bold', color: item.equipment_status === 'ปกติ' ? '#10B981' : '#EF4444' }}>
-                              {item.equipment_status || 'ปกติ'}
+                            {/* 🌟 เปลี่ยนคำว่า 'ใช้งาน' เป็น 'ปกติ' */}
+                            <Text style={{ fontSize: 13, fontWeight: 'bold', color: (item.equipment_status === 'ปกติ' || item.equipment_status === 'ใช้งาน') ? '#10B981' : '#EF4444' }}>
+                              {item.equipment_status === 'ใช้งาน' ? 'ปกติ' : (item.equipment_status || 'ปกติ')}
                             </Text>
                           </View>
 
