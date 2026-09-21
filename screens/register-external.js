@@ -60,7 +60,6 @@ export default function RegisterOutsider({ navigation }) {
   const cameraRef = useRef(null);
   const [facing, setFacing] = useState('front'); 
 
-  // ฟังก์ชันเลือกรูปโปรไฟล์ (อัปโหลดเอง)
   const pickProfileImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['image'], 
@@ -91,7 +90,7 @@ export default function RegisterOutsider({ navigation }) {
     setIsCameraVisible(true);
   };
 
-  // 🌟 ฟังก์ชันจัดการข้อมูล OCR (ส่งรูปไป Backend และดึงข้อความกลับมา)
+  // 🌟 ฟังก์ชันจัดการข้อมูล OCR (อัปเดตให้รองรับค่าที่ส่งมาจาก Backend ตัวใหม่)
   const processOcrData = async (base64Image) => {
     try {
       const response = await fetch('https://rmutk-sport.onrender.com/api/ocr', {
@@ -106,31 +105,18 @@ export default function RegisterOutsider({ navigation }) {
         throw new Error(result.message || 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์');
       }
 
-      if (!result.text) {
-        throw new Error('ไม่พบข้อความในรูปภาพ');
-      }
-
-      const extractedText = result.text;
-
-      // 1. ดึงข้อความเลขบัตรประชาชน
-      const idRegex = /\b\d\s?\d{4}\s?\d{5}\s?\d{2}\s?\d\b|\b\d{13}\b/;
-      const idMatch = extractedText.match(idRegex);
-      if (idMatch) {
-        const cleanId = idMatch[0].replace(/\s/g, ''); 
-        setCitizenId(cleanId);
-      }
-
-      // 2. ดึงข้อความชื่อ-นามสกุล
-      const nameRegex = /(นาย|นาง|นางสาว|น\.ส\.|น\.ส\s|ด\.ช\.|ด\.ญ\.)\s*([ก-๙]+)\s+([ก-๙]+)/;
-      const nameMatch = extractedText.match(nameRegex);
-      if (nameMatch) {
-        const title = nameMatch[1].replace(/\s/g, ''); 
-        const cleanName = `${title} ${nameMatch[2]} ${nameMatch[3]}`;
-        setName(cleanName);
-      }
-
       setIsCameraVisible(false);
-      showPopup('success', 'สแกนข้อมูลบัตรประชาชนสำเร็จ');
+
+      // ตรวจสอบว่า Backend สกัดข้อมูล citizenId และ fullName ส่งมาให้หรือไม่
+      if (result.citizenId || result.fullName) {
+        if (result.citizenId) setCitizenId(result.citizenId);
+        if (result.fullName) setName(result.fullName);
+        
+        showPopup('success', 'สแกนสำเร็จ กรุณาตรวจสอบและแก้ไขข้อมูลให้ถูกต้องอีกครั้ง');
+      } else {
+        // กรณีภาพสะท้อนแสง จน AI หาข้อความไม่เจอเลย
+        showPopup('error', 'ระบบ AI อ่านข้อความไม่ชัดเจน เนื่องจากภาพอาจมีแสงสะท้อน กรุณากรอกข้อมูลด้วยตนเอง');
+      }
 
     } catch (error) {
       console.error("OCR Error: ", error);
@@ -150,7 +136,6 @@ export default function RegisterOutsider({ navigation }) {
           ? rawBase64 
           : `data:image/jpeg;base64,${rawBase64}`;
         
-        // เซ็ตรูปหน้าบัตร
         setIdCardImage(base64Uri);
         
         // ส่งรูปรวมถึงขนาด width/height ไปให้ฟังก์ชันตัดรูปทำงาน
@@ -187,12 +172,9 @@ export default function RegisterOutsider({ navigation }) {
 
     setIsLoading(true);
 
-    // 🌟 ดักตัดเครื่องหมายขีด (-) หรือช่องว่าง ออกจากตัวเลขก่อนส่งเข้า DB
-    // เพราะคอลัมน์ citizen_id เก็บได้แค่ 13 ตัว ถ้าส่งขีดไปด้วย DB จะพัง
     const cleanCitizenId = citizenId.replace(/[^0-9]/g, '');
     const cleanPhone = phone.replace(/[^0-9]/g, '');
 
-    // 🌟 ส่ง Key ไปทั้งแบบเก่าและแบบใหม่ เผื่อ Backend รับแบบใดแบบหนึ่งอยู่ จะได้ไม่มี Error
     const outsiderData = {
       profileImage: profileImage, 
       profile_image: profileImage, 
@@ -363,6 +345,7 @@ export default function RegisterOutsider({ navigation }) {
           <View style={styles.loadingBox}>
             <ActivityIndicator size="large" color="#00A87E" />
             <Text style={styles.loadingText}>กำลังอ่านข้อมูลจากบัตร...</Text>
+            <Text style={{ fontSize: 12, color: '#666', marginTop: 5 }}>อาจใช้เวลา 5-15 วินาที</Text>
           </View>
         </View>
       </Modal>
@@ -376,12 +359,12 @@ export default function RegisterOutsider({ navigation }) {
               color={popupType === 'success' ? '#1E8E3E' : '#D93025'} 
             />
             <Text style={styles.modalTitle}>
-              {popupType === 'success' ? 'สำเร็จ' : 'ข้อผิดพลาด'}
+              {popupType === 'success' ? 'สำเร็จ' : 'แจ้งเตือน'}
             </Text>
             <Text style={styles.modalMessage}>{popupMessage}</Text>
             
             <TouchableOpacity 
-              style={[styles.btnModalOK, popupType === 'error' && { backgroundColor: '#D93025' }]} 
+              style={[styles.btnModalOK, popupType === 'error' && { backgroundColor: '#F59E0B' }]} 
               onPress={closePopup}
             >
               <Text style={styles.btnModalOKText}>ตกลง</Text>
