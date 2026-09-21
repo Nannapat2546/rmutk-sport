@@ -3,6 +3,7 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt'); 
 const nodemailer = require('nodemailer'); 
+// 🌟 (สามารถลบ Resend ออกได้เลย แต่ผมคงไว้ให้เพื่อไม่ให้โค้ดเก่าพัง)
 const { Resend } = require('resend');
 
 const app = express();
@@ -19,7 +20,7 @@ app.get('/', (req, res) => {
 });
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL, // ใช้สำหรับเชื่อมต่อบน Render อัตโนมัติ
+  connectionString: process.env.DATABASE_URL, 
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false, 
   user: process.env.DB_USER || 'postgres',
   host: process.env.DB_HOST || 'localhost',
@@ -29,7 +30,7 @@ const pool = new Pool({
 });
 
 // ===========================================================================
-// 🌟 สคริปต์อัปเดตฐานข้อมูลอัตโนมัติ (เพิ่มตาราง Staffs หากไม่มี)
+// 🌟 สคริปต์อัปเดตฐานข้อมูลอัตโนมัติ
 // ===========================================================================
 const initDB = async () => {
   try {
@@ -38,7 +39,6 @@ const initDB = async () => {
     await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS return_condition VARCHAR(50) DEFAULT 'ใช้งาน';`);
     await pool.query(`UPDATE transactions SET original_qty = qty WHERE original_qty = 0 OR original_qty IS NULL;`);
     
-    // สร้างตาราง staffs หากยังไม่มี (สำหรับเพิ่มเจ้าหน้าที่)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS staffs (
         id SERIAL PRIMARY KEY,
@@ -49,7 +49,6 @@ const initDB = async () => {
       );
     `);
 
-    // สร้างตาราง admins หากยังไม่มี
     await pool.query(`
       CREATE TABLE IF NOT EXISTS admins (
         id SERIAL PRIMARY KEY,
@@ -74,9 +73,6 @@ const transporter = nodemailer.createTransport({
 });
 
 const otpStorage = {};
-
-// 🌟 ตั้งค่า Resend (ใช้ process.env.RESEND_API_KEY)
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ===========================================================================
 // [1] API สำหรับจัดการ หมวดหมู่อุปกรณ์ และ คลังอุปกรณ์
@@ -256,14 +252,19 @@ app.post('/api/request-otp', async (req, res) => {
   `;
 
   try {
-    const data = await resend.emails.send({
-      from: 'Acme <onboarding@resend.dev>', 
+    // 🌟 เปลี่ยนตรงนี้ให้เป็น Gmail (transporter) แทน Resend
+    const mailOptions = {
+      from: `"ระบบศูนย์กีฬา RMUTK" <${process.env.EMAIL_USER}>`,
       to: email, 
       subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} - RMUTK Sports`,
       html: emailHtmlTemplate
-    });
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ ส่งอีเมลผ่าน Gmail สำเร็จไปที่: ${email}`);
     res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลเรียบร้อยแล้ว', debugOtp: otp }); 
   } catch (error) {
+    console.log(`❌ ส่งอีเมลล้มเหลว: ${error.message}`);
     res.status(200).json({ message: 'ระบบส่งอีเมลขัดข้องชั่วคราว (แต่สร้าง OTP สำเร็จ)', debugOtp: otp });
   }
 });
@@ -321,6 +322,7 @@ app.post('/api/register/outsider', async (req, res) => {
     await pool.query(query, [email, passwordHash, citizenId, name, phone, idCardImage, profileImage]);
     res.status(201).json({ message: 'สมัครสมาชิกบุคคลภายนอกสำเร็จเรียบร้อย' });
   } catch (error) {
+    console.error('Register Error:', error); 
     res.status(500).json({ message: 'อีเมล/รหัสบัตรประชาชน นี้ถูกใช้ไปแล้ว หรือไม่สามารถบันทึกได้' });
   }
 });
