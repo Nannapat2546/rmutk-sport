@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
-  ScrollView, TextInput, Alert, ActivityIndicator, Image, Modal, Platform
+  ScrollView, TextInput, Alert, ActivityIndicator, Image, Modal, Platform, Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -59,7 +59,6 @@ export default function EquipmentScreen({ navigation }) {
   const [editingId, setEditingId] = useState(null);
   const [isSuccessModalVisible, setSuccessModalVisible] = useState(false);
 
-  // 🌟 แก้ไข URL ให้ชี้ไปที่ Backend ที่ถูกต้อง และเอา http://https:// ออก
   const API_URL = 'https://rmutk-sport.onrender.com'; 
 
   useEffect(() => {
@@ -286,32 +285,33 @@ export default function EquipmentScreen({ navigation }) {
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.actionRow}>
             <TouchableOpacity style={styles.btnGreen} onPress={() => setCurrentView('category')}>
-              <Text style={styles.btnGreenText}>เพิ่มประเภทอุปกรณ์</Text>
+              <Text style={styles.btnGreenText}>เพิ่มประเภท</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.btnGreen} onPress={handleAddNewClick}>
               <Ionicons name="add-circle-outline" size={16} color="#FFF" style={{ marginRight: 4 }} />
-              <Text style={styles.btnGreenText}>เพิ่มอุปกรณ์ใหม่</Text>
+              <Text style={styles.btnGreenText}>เพิ่มอุปกรณ์</Text>
             </TouchableOpacity>
           </View>
 
-          <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} style={{ width: '100%' }} contentContainerStyle={{ minWidth: '100%' }}>
+          {/* 🌟 จุดที่มีการปรับแก้: ห่อตารางด้วย ScrollView แนวนอนเพื่อให้เลื่อนบนมือถือได้ */}
+          <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} style={{ width: '100%' }}>
             <View style={styles.tableContainer}>
               <View style={styles.tableHeaderRow}>
-                <Text style={[styles.tableHeaderText, { flex: 0.8, textAlign: 'center' }]}>รหัส</Text>
+                <Text style={[styles.tableHeaderText, { width: 80, textAlign: 'center' }]}>รหัส</Text>
                 <View style={styles.tableDivider} />
-                <Text style={[styles.tableHeaderText, { flex: 1.5, textAlign: 'left', paddingLeft: 15 }]}>ชื่ออุปกรณ์</Text>
+                <Text style={[styles.tableHeaderText, { width: 140, paddingLeft: 10 }]}>ชื่ออุปกรณ์</Text>
                 <View style={styles.tableDivider} />
-                <Text style={[styles.tableHeaderText, { flex: 1, textAlign: 'center' }]}>สต็อกจริง</Text>
+                <Text style={[styles.tableHeaderText, { width: 80, textAlign: 'center' }]}>สต็อกจริง</Text>
                 <View style={styles.tableDivider} />
-                <Text style={[styles.tableHeaderText, { flex: 1, textAlign: 'center' }]}>ว่าง</Text>
+                <Text style={[styles.tableHeaderText, { width: 60, textAlign: 'center' }]}>ว่าง</Text>
                 <View style={styles.tableDivider} />
-                <Text style={[styles.tableHeaderText, { flex: 1, textAlign: 'center' }]}>กำลังยืม</Text>
+                <Text style={[styles.tableHeaderText, { width: 80, textAlign: 'center' }]}>กำลังยืม</Text>
                 <View style={styles.tableDivider} />
-                <Text style={[styles.tableHeaderText, { flex: 0.8, textAlign: 'center', color: '#D93025' }]}>ชำรุดสะสม</Text>
+                <Text style={[styles.tableHeaderText, { width: 80, textAlign: 'center', color: '#D93025' }]}>ชำรุดสะสม</Text>
                 <View style={styles.tableDivider} />
-                <Text style={[styles.tableHeaderText, { flex: 1, textAlign: 'center' }]}>สถานะ</Text>
+                <Text style={[styles.tableHeaderText, { width: 80, textAlign: 'center' }]}>สถานะ</Text>
                 <View style={styles.tableDivider} />
-                <Text style={[styles.tableHeaderText, { flex: 1.2, textAlign: 'center' }]}>จัดการ</Text>
+                <Text style={[styles.tableHeaderText, { width: 120, textAlign: 'center' }]}>จัดการ</Text>
               </View>
               
               {isLoading ? (
@@ -328,49 +328,47 @@ export default function EquipmentScreen({ navigation }) {
 
                   return (
                     <View key={item.id} style={[styles.tableDataRow, index === equipList.length - 1 && { borderBottomWidth: 0 }]}>
-                      <View style={{ flex: 0.8, alignItems: 'center', justifyContent: 'center' }}>
+                      <View style={{ width: 80, alignItems: 'center', justifyContent: 'center' }}>
                         <View style={styles.codeBadge}>
                           <Text style={styles.codeBadgeText}>{item.equipment_code || '-'}</Text>
                         </View>
                       </View>
                       <View style={styles.tableDivider} />
                       
-                      <View style={{ flex: 1.5, justifyContent: 'center', paddingLeft: 15 }}>
-                        <Text style={[styles.tableDataText, { fontWeight: 'bold' }]}>{item.item_name}</Text>
+                      <View style={{ width: 140, justifyContent: 'center', paddingLeft: 10 }}>
+                        <Text style={[styles.tableDataText, { fontWeight: 'bold' }]} numberOfLines={2}>{item.item_name}</Text>
                       </View>
                       <View style={styles.tableDivider} />
 
                       {/* สต็อกจริง */}
-                      <Text style={[styles.tableDataText, { flex: 1, textAlign: 'center', fontWeight: 'bold' }]}>{totalStock}</Text>
+                      <Text style={[styles.tableDataText, { width: 80, textAlign: 'center', fontWeight: 'bold' }]}>{totalStock}</Text>
                       <View style={styles.tableDivider} />
 
                       {/* สต็อกว่าง */}
-                      <Text style={[styles.tableDataText, { flex: 1, textAlign: 'center', color: '#1E8E3E', fontWeight: 'bold' }]}>{available}</Text>
+                      <Text style={[styles.tableDataText, { width: 60, textAlign: 'center', color: '#1E8E3E', fontWeight: 'bold' }]}>{available}</Text>
                       <View style={styles.tableDivider} />
 
                       {/* กำลังยืม */}
-                      <Text style={[styles.tableDataText, { flex: 1, textAlign: 'center' }]}>{borrowed}</Text>
+                      <Text style={[styles.tableDataText, { width: 80, textAlign: 'center' }]}>{borrowed}</Text>
                       <View style={styles.tableDivider} />
 
                       {/* ชำรุดสะสม */}
-                      <Text style={[styles.tableDataText, { flex: 0.8, textAlign: 'center', color: '#D93025', fontWeight: 'bold' }]}>{broken}</Text>
+                      <Text style={[styles.tableDataText, { width: 80, textAlign: 'center', color: '#D93025', fontWeight: 'bold' }]}>{broken}</Text>
                       <View style={styles.tableDivider} />
 
-                      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                      <View style={{ width: 80, alignItems: 'center', justifyContent: 'center' }}>
                         <View style={styles.statusBadge}>
                           <Text style={styles.statusBadgeText}>{item.status || 'เปิดใช้งาน'}</Text>
                         </View>
                       </View>
                       <View style={styles.tableDivider} />
 
-                      <View style={{ flex: 1.2, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
+                      <View style={{ width: 120, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
                         <TouchableOpacity style={styles.btnOutlineBlue} onPress={() => handleEditClick(item)}>
                           <Ionicons name="create-outline" size={14} color="#1A73E8" />
-                          <Text style={styles.btnOutlineBlueText}>แก้ไข</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.btnOutlineRed} onPress={() => handleDeleteEquipment(item.id)}>
                           <Ionicons name="trash-outline" size={14} color="#D93025" />
-                          <Text style={styles.btnOutlineRedText}>ลบ</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -448,7 +446,6 @@ export default function EquipmentScreen({ navigation }) {
 
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           
-          {/* 🌟 แสดงกล่องส้ม ถ้าของชิ้นนี้มีการชำรุดค้างอยู่ */}
           {showBroken > 0 && (
             <View style={styles.repairBox}>
               <View style={{ flex: 1 }}>
@@ -459,7 +456,7 @@ export default function EquipmentScreen({ navigation }) {
                 style={styles.repairBtn}
                 onPress={() => handleRepairEquipment(editingId)}
               >
-                <Text style={styles.repairBtnText}>ซ่อมเสร็จแล้ว</Text>
+                <Text style={styles.repairBtnText}>ซ่อมเสร็จ</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -491,7 +488,7 @@ export default function EquipmentScreen({ navigation }) {
               </View>
               {editingId ? (
                 <Text style={{ fontSize: 12, color: '#64748B', marginTop: 8 }}>
-                  ตอนนี้ถูกยืม <Text style={{color: '#1A73E8', fontWeight: 'bold'}}>{showBorrowed}</Text> ชิ้น, ชำรุด <Text style={{color: '#D93025', fontWeight: 'bold'}}>{showBroken}</Text> ชิ้น (ห้ามกรอกเลขรวมน้อยกว่านี้)
+                  ถูกยืม <Text style={{color: '#1A73E8', fontWeight: 'bold'}}>{showBorrowed}</Text> ชิ้น, ชำรุด <Text style={{color: '#D93025', fontWeight: 'bold'}}>{showBroken}</Text> ชิ้น
                 </Text>
               ) : null}
             </View>
@@ -513,7 +510,7 @@ export default function EquipmentScreen({ navigation }) {
 
           <CustomDropdown 
             label="สถานะ"
-            options={[{id: '1', name: 'เปิดใช้งาน'}, {id: '2', name: 'ชำรุด'}]}
+            options={[{id: '1', name: 'เปิดใช้งาน'}, {id: '2', name: 'ชำรุด'}, {id: '3', name: 'สูญหาย'}]}
             selectedValue={{name: equipStatus}}
             onSelect={(item) => setEquipStatus(item.name)}
             placeholder="เปิดใช้งาน"
@@ -555,58 +552,61 @@ export default function EquipmentScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9F9F9' },
   header: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#EEE' },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: '#1A202C' },
-  content: { padding: 20, backgroundColor: '#FFF', margin: 15, borderRadius: 8, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5 },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: 'bold', color: '#1A202C' },
+  content: { padding: 15, backgroundColor: '#FFF', margin: 10, borderRadius: 8, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5 },
+  
   actionRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 15, gap: 10 },
-  btnGreen: { flexDirection: 'row', backgroundColor: '#1E8E3E', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 6, alignItems: 'center' },
-  btnGreenText: { color: '#FFF', fontSize: 13, fontWeight: 'bold' },
+  btnGreen: { flexDirection: 'row', backgroundColor: '#1E8E3E', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 6, alignItems: 'center' },
+  btnGreenText: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
+  
   btnBlue: { backgroundColor: '#1A73E8', height: 45, borderRadius: 6, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
   btnBlueText: { color: '#FFF', fontSize: 15, fontWeight: 'bold' },
-  btnChooseFile: { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#CCC', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 4, marginRight: 8 },
-  btnChooseFileText: { fontSize: 12, color: '#333' },
-  tableContainer: { flex: 1, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, overflow: 'hidden', marginBottom: 15, minWidth: 800 },
+  
+  btnChooseFile: { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#CCC', paddingVertical: 8, paddingHorizontal: 10, borderRadius: 4, marginRight: 8 },
+  btnChooseFileText: { fontSize: 11, color: '#333' },
+
+  // 🌟 ปรับขนาดตารางให้แสดงผลบนมือถือได้
+  tableContainer: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, overflow: 'hidden', marginBottom: 15, minWidth: 700 },
   tableHeaderRow: { flexDirection: 'row', backgroundColor: '#F8FAFC', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingVertical: 12 },
-  tableHeaderText: { fontSize: 13, fontWeight: 'bold', color: '#1E293B' },
-  tableDataRow: { flexDirection: 'row', backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingVertical: 14, alignItems: 'center' },
-  tableDataText: { fontSize: 13, color: '#334155' },
-  tableDivider: { width: 1, backgroundColor: '#E2E8F0' },
-  codeBadge: { backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: '#E2E8F0' },
-  codeBadgeText: { color: '#475569', fontSize: 12, fontWeight: '500' },
-  statusBadge: { backgroundColor: '#1E8E3E', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4 },
-  statusBadgeText: { color: '#FFF', fontSize: 11, fontWeight: 'bold' },
-  btnOutlineBlue: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 4, borderWidth: 1, borderColor: '#1A73E8' },
-  btnOutlineBlueText: { color: '#1A73E8', fontSize: 11, marginLeft: 4, fontWeight: '500' },
-  btnOutlineRed: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 4, borderWidth: 1, borderColor: '#D93025' },
-  btnOutlineRedText: { color: '#D93025', fontSize: 11, marginLeft: 4, fontWeight: '500' },
-  noteText: { fontSize: 12, color: '#64748B', marginTop: 10, paddingHorizontal: 5 },
+  tableHeaderText: { fontSize: 12, fontWeight: 'bold', color: '#1E293B' },
+  tableDataRow: { flexDirection: 'row', backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingVertical: 12, alignItems: 'center' },
+  tableDataText: { fontSize: 12, color: '#334155' },
+  tableDivider: { width: 1, backgroundColor: '#E2E8F0', height: '100%' },
+  
+  codeBadge: { backgroundColor: '#F1F5F9', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 4, borderWidth: 1, borderColor: '#E2E8F0' },
+  codeBadgeText: { color: '#475569', fontSize: 11, fontWeight: '500' },
+  statusBadge: { backgroundColor: '#1E8E3E', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
+  statusBadgeText: { color: '#FFF', fontSize: 10, fontWeight: 'bold' },
+  
+  btnOutlineBlue: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 5, borderRadius: 4, borderWidth: 1, borderColor: '#1A73E8' },
+  btnOutlineRed: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 5, borderRadius: 4, borderWidth: 1, borderColor: '#D93025' },
+  noteText: { fontSize: 11, color: '#64748B', marginTop: 10, textAlign: 'center' },
+  
   inputGroup: { marginBottom: 18, zIndex: 1 },
-  inputLabel: { fontSize: 14, color: '#333', marginBottom: 8, fontWeight: '500' },
+  inputLabel: { fontSize: 13, color: '#333', marginBottom: 8, fontWeight: '500' },
   inputBox: { borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 6, backgroundColor: '#FFF', paddingHorizontal: 12, height: 45, fontSize: 14 },
   rowInputs: { flexDirection: 'row', marginBottom: 18, alignItems: 'flex-start', zIndex: 1 },
-  fileStatusText: { fontSize: 11, color: '#888', flex: 1, alignSelf: 'center' },
+  fileStatusText: { fontSize: 10, color: '#888', flex: 1, alignSelf: 'center' },
   dropdownBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 6, backgroundColor: '#FFF', paddingHorizontal: 12, height: 45 },
   inputText: { fontSize: 14, color: '#333' },
   dropdownList: { position: 'absolute', top: 50, left: 0, right: 0, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 6, maxHeight: 150, elevation: 5 },
   dropdownItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   dropdownItemText: { fontSize: 14, color: '#333' },
-  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 15 },
-  categoryBadge: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 6, paddingVertical: 10, paddingHorizontal: 15, width: '47%', backgroundColor: '#FFF' },
-  categoryBadgeText: { fontSize: 14, color: '#333', flex: 1 },
-  staffRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 25, zIndex: -1 },
-  staffLabel: { fontSize: 13, color: '#333', marginRight: 10 },
-  staffBadge: { backgroundColor: '#E6F4EA', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  staffBadgeText: { color: '#1E8E3E', fontSize: 11, fontWeight: 'bold' },
+  
+  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  categoryBadge: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 6, paddingVertical: 8, paddingHorizontal: 12, width: '47%', backgroundColor: '#FFF' },
+  categoryBadgeText: { fontSize: 13, color: '#333', flex: 1 },
+  
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalBox: { width: 300, backgroundColor: '#FFF', borderRadius: 12, padding: 25, alignItems: 'center', elevation: 5 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', marginTop: 10, marginBottom: 5 },
-  modalText: { fontSize: 16, color: '#666', marginBottom: 20, textAlign: 'center' },
-  btnModalOK: { backgroundColor: '#1A73E8', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 6, width: '100%', alignItems: 'center' },
-  btnModalOKText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+  modalBox: { width: '90%', maxWidth: 350, backgroundColor: '#FFF', borderRadius: 12, padding: 25, alignItems: 'center', elevation: 5 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginTop: 10, marginBottom: 5 },
+  modalText: { fontSize: 14, color: '#666', marginBottom: 20, textAlign: 'center' },
+  btnModalOK: { backgroundColor: '#1A73E8', paddingVertical: 12, borderRadius: 6, width: '100%', alignItems: 'center' },
+  btnModalOKText: { color: '#FFF', fontSize: 15, fontWeight: 'bold' },
 
-  // 🌟 กล่องส้มสำหรับแจ้งซ่อม
-  repairBox: { backgroundColor: '#FEF3C7', padding: 16, borderRadius: 8, marginBottom: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#FCD34D' },
-  repairBoxTitle: { fontSize: 14, fontWeight: 'bold', color: '#D97706' },
-  repairBoxSub: { fontSize: 12, color: '#B45309', marginTop: 4 },
-  repairBtn: { backgroundColor: '#F59E0B', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 6, marginLeft: 10 },
-  repairBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 13 }
+  repairBox: { backgroundColor: '#FEF3C7', padding: 12, borderRadius: 8, marginBottom: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#FCD34D' },
+  repairBoxTitle: { fontSize: 13, fontWeight: 'bold', color: '#D97706' },
+  repairBoxSub: { fontSize: 11, color: '#B45309', marginTop: 2 },
+  repairBtn: { backgroundColor: '#F59E0B', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 6, marginLeft: 10 },
+  repairBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 11 }
 });
