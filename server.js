@@ -34,7 +34,7 @@ const initDB = async () => {
   try {
     await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS original_qty INT DEFAULT 0;`);
     await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS is_partial BOOLEAN DEFAULT false;`);
-    await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS return_condition VARCHAR(50) DEFAULT 'ใช้งาน';`);
+    await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS return_condition VARCHAR(50) DEFAULT 'ปกติ';`);
     await pool.query(`UPDATE transactions SET original_qty = qty WHERE original_qty = 0 OR original_qty IS NULL;`);
     
     await pool.query(`
@@ -62,7 +62,7 @@ const initDB = async () => {
 };
 initDB();
 
-// 🌟 ตั้งค่า Gmail Transporter พร้อมระบบตัดจบ (Timeout) ป้องกันแอปหมุนค้าง
+// 🌟 ตั้งค่า Gmail Transporter พร้อมพอร์ตความปลอดภัย
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 465,
@@ -71,7 +71,7 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
   },
-  connectionTimeout: 10000, // ถ้าเซิร์ฟเวอร์ Gmail ไม่ตอบใน 10 วิ ให้ตัดการเชื่อมต่อ
+  connectionTimeout: 10000,
   greetingTimeout: 10000,
   socketTimeout: 15000
 });
@@ -216,7 +216,7 @@ app.get('/api/inventory/manage', async (req, res) => {
 });
 
 // ===========================================================================
-// [2] API ระบบสมาชิกและการเข้าสู่ระบบ
+// [2] API ระบบสมาชิกและการเข้าสู่ระบบ (ส่ง OTP ผ่าน Gmail จริง)
 // ===========================================================================
 app.post('/api/request-otp', async (req, res) => {
   const { email, type, studentId } = req.body; 
@@ -265,10 +265,10 @@ app.post('/api/request-otp', async (req, res) => {
 
     await transporter.sendMail(mailOptions);
     console.log(`✅ ส่งอีเมลผ่าน Gmail สำเร็จไปที่: ${email}`);
-    res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลเรียบร้อยแล้ว', debugOtp: otp }); 
+    res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลเรียบร้อยแล้ว' }); 
   } catch (error) {
     console.log(`❌ ส่งอีเมลล้มเหลว: ${error.message}`);
-    res.status(200).json({ message: 'ระบบส่งอีเมลขัดข้องชั่วคราว (แต่สร้าง OTP สำเร็จ)', debugOtp: otp });
+    res.status(500).json({ message: 'ไม่สามารถส่งอีเมลได้ กรุณาตรวจสอบการตั้งค่า App Password ของ Gmail' });
   }
 });
 
@@ -996,4 +996,3 @@ app.post('/api/notify-overdue', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Backend รันที่พอร์ต ${PORT}`));
-
