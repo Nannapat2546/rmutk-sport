@@ -49,6 +49,7 @@ export default function Dashboard({ route, navigation }) {
   useEffect(() => {
     if (role !== 'external') fetchEquipmentData();
     else setIsLoading(false);
+    
     if (targetAccountId) fetchNotifications();
   }, [role, targetAccountId]);
 
@@ -70,7 +71,7 @@ export default function Dashboard({ route, navigation }) {
         });
         setCategories(uniqueCategories);
       }
-    } catch (error) { console.error(error); }
+    } catch (error) { console.error("Fetch Data Error:", error); }
     setIsLoading(false);
   };
 
@@ -84,8 +85,14 @@ export default function Dashboard({ route, navigation }) {
         const fitData = await fitRes.json();
         fitData.forEach(item => {
           notifs.push({
-            id: `fit_${item.id}`, type: 'fitness', title: 'เข้าใช้บริการฟิตเนส', detail: `ชำระค่าบริการ ${item.service_fee} บาท`,
-            date: new Date(item.check_in_time), icon: 'barbell', color: '#0EA5E9', bg: '#E0F2FE'
+            id: `fit_${item.id}`,
+            type: 'fitness',
+            title: 'เข้าใช้บริการฟิตเนส',
+            detail: `ชำระค่าบริการ ${item.service_fee} บาท`,
+            date: new Date(item.check_in_time),
+            icon: 'barbell',
+            color: '#0EA5E9', 
+            bg: '#E0F2FE'
           });
         });
       }
@@ -98,7 +105,10 @@ export default function Dashboard({ route, navigation }) {
             const isReturned = !!item.return_date;
             const borrowDate = new Date(item.borrow_date);
             const today = new Date();
-            borrowDate.setHours(0,0,0,0); today.setHours(0,0,0,0);
+            
+            borrowDate.setHours(0,0,0,0);
+            today.setHours(0,0,0,0);
+            
             const diffTime = today - borrowDate;
             const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
             const isOverdue = !isReturned && diffDays > 0;
@@ -106,34 +116,76 @@ export default function Dashboard({ route, navigation }) {
             let notifType, notifTitle, notifIcon, notifColor, notifBg, notifDetail;
 
             if (isReturned) {
-              notifType = 'return'; notifTitle = 'คืนอุปกรณ์เรียบร้อย'; notifDetail = `${item.equipment} จำนวน ${item.amount} ชิ้น`;
-              notifIcon = 'checkmark-circle'; notifColor = '#10B981'; notifBg = '#D1FAE5';
+              notifType = 'return';
+              notifTitle = 'คืนอุปกรณ์เรียบร้อย';
+              notifDetail = `${item.equipment} จำนวน ${item.amount} ชิ้น`;
+              notifIcon = 'checkmark-circle';
+              notifColor = '#10B981';
+              notifBg = '#D1FAE5';
             } else if (isOverdue) {
-              notifType = 'overdue'; notifTitle = 'ค้างคืนอุปกรณ์กีฬา!'; notifDetail = `${item.equipment} ${item.amount} ชิ้น (ล่าช้า ${diffDays} วัน)`;
-              notifIcon = 'alert-circle'; notifColor = '#EF4444'; notifBg = '#FEE2E2';
+              notifType = 'overdue';
+              notifTitle = 'ค้างคืนอุปกรณ์กีฬา! (เลยกำหนด)';
+              notifDetail = `${item.equipment} จำนวน ${item.amount} ชิ้น (ล่าช้า ${diffDays} วัน)`;
+              notifIcon = 'alert-circle';
+              notifColor = '#EF4444'; 
+              notifBg = '#FEE2E2';
             } else {
-              notifType = 'borrowing'; notifTitle = 'กำลังยืมอุปกรณ์'; notifDetail = `${item.equipment} จำนวน ${item.amount} ชิ้น`;
-              notifIcon = 'time'; notifColor = '#3B82F6'; notifBg = '#EFF6FF';
+              notifType = 'borrowing';
+              notifTitle = 'กำลังยืมอุปกรณ์';
+              notifDetail = `${item.equipment} จำนวน ${item.amount} ชิ้น (ยอดค้างส่ง)`;
+              notifIcon = 'time';
+              notifColor = '#3B82F6'; 
+              notifBg = '#EFF6FF';
             }
 
             notifs.push({
-              id: `eq_${item.id}`, type: notifType, title: notifTitle, detail: notifDetail,
-              date: new Date(item.borrow_date), icon: notifIcon, color: notifColor, bg: notifBg
+              id: `eq_${item.id}`,
+              type: notifType,
+              title: notifTitle,
+              detail: notifDetail,
+              date: new Date(item.borrow_date),
+              icon: notifIcon,
+              color: notifColor,
+              bg: notifBg
             });
           });
         }
       }
 
+      try {
+        const adminNotifRes = await fetch(`${API_URL}/api/notifications/${targetAccountId}`);
+        if (adminNotifRes.ok) {
+          const adminNotifsData = await adminNotifRes.json();
+          adminNotifsData.forEach(item => {
+            notifs.push({
+              id: `admin_notif_${item.id}`,
+              type: 'admin_alert', 
+              title: item.title || 'แจ้งเตือนจากระบบ',
+              detail: item.message,
+              date: new Date(item.created_at),
+              icon: 'warning', 
+              color: '#EF4444', 
+              bg: '#FEE2E2' 
+            });
+          });
+        }
+      } catch (e) {
+        console.log("Fetch Admin Notifs Error:", e);
+      }
+
       notifs.sort((a, b) => b.date - a.date);
       setNotifications(notifs);
 
-    } catch (error) { console.error(error); }
+    } catch (error) {
+      console.error("Fetch Notif Error:", error);
+    }
     setIsLoadingNotif(false);
   };
 
   const filteredEquipment = allEquipment.filter(item => {
     if (activeCategory === 'ทั้งหมด') return true;
-    return (item.category_name || 'ทั่วไป') === activeCategory;
+    const catName = item.category_name || 'ทั่วไป';
+    return catName === activeCategory;
   });
 
   return (
@@ -183,12 +235,13 @@ export default function Dashboard({ route, navigation }) {
         </View>
       </Modal>
 
+      {/* 🌟 Top Navigation Bar */}
       <View style={styles.topNav}>
         <Text style={styles.topNavTitle}>RMUTK Sports</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
           <TouchableOpacity style={styles.bellIcon} onPress={() => { setIsNotifOpen(true); fetchNotifications(); }}>
             <Ionicons name="notifications" size={24} color="#1E293B" />
-            {notifications.some(n => n.type === 'overdue' || n.type === 'borrowing') && (
+            {notifications.some(n => n.type === 'overdue' || n.type === 'borrowing' || n.type === 'admin_alert') && (
               <View style={styles.redDot} />
             )}
           </TouchableOpacity>
@@ -198,13 +251,27 @@ export default function Dashboard({ route, navigation }) {
         </View>
       </View>
 
+      {/* 🌟 Dropdown Menu */}
       {isMenuOpen && (
         <View style={styles.menuDropdown}>
           <TouchableOpacity style={styles.menuLink} onPress={() => setIsMenuOpen(false)}>
             <Ionicons name="home-outline" size={20} color="#1E293B" style={{marginRight: 10}}/>
             <Text style={styles.menuLinkText}>หน้าแรก</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuLink} onPress={() => { setIsMenuOpen(false); if(targetAccountId) navigation.navigate('History', { accountId: targetAccountId, role: role || (userData?.citizen_id ? 'external' : 'student') }); }}>
+          <TouchableOpacity 
+            style={styles.menuLink} 
+            onPress={() => {
+              setIsMenuOpen(false); 
+              if (targetAccountId) {
+                navigation.navigate('History', { 
+                  accountId: targetAccountId, 
+                  role: role || (userData?.citizen_id ? 'external' : 'student') 
+                });
+              } else {
+                Alert.alert("ไม่พบข้อมูล", "กรุณาออกจากระบบแล้วล็อกอินใหม่", [{ text: "ตกลง" }]);
+              }
+            }}
+          >
             <Ionicons name="time-outline" size={20} color="#1E293B" style={{marginRight: 10}}/>
             <Text style={styles.menuLinkText}>ประวัติของฉัน</Text>
           </TouchableOpacity>
@@ -246,7 +313,7 @@ export default function Dashboard({ route, navigation }) {
           <View style={styles.qrCard}>
             <View style={styles.qrTicketTop}>
               <Text style={styles.qrDescText}>
-                {role === 'external' ? 'สแกนเพื่อเข้าใช้บริการฟิตเนส' : 'สแกนเพื่อยืม-คืนอุปกรณ์ และฟิตเนส'}
+                {role === 'external' ? 'สแกนเพื่อเข้าใช้บริการฟิตเนส' : 'สแกนเพื่อยืม-คืนอุปกรณ์ และเข้าฟิตเนส'}
               </Text>
             </View>
             <View style={styles.qrCodeBox}>
@@ -260,6 +327,7 @@ export default function Dashboard({ route, navigation }) {
           </View>
         </View>
 
+        {/* ================= Equipment List ================= */}
         {role !== 'external' && (
           <View style={styles.sectionContainer}>
             <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}}>
@@ -321,18 +389,20 @@ export default function Dashboard({ route, navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
   
+  // Navigation
   topNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFF', paddingHorizontal: 20, paddingVertical: 15, zIndex: 20, elevation: 2, shadowColor: '#000', shadowOffset: {width:0, height:2}, shadowOpacity: 0.05, shadowRadius: 3 },
   topNavTitle: { fontSize: 18, fontWeight: 'bold', color: '#00A87E' },
   bellIcon: { position: 'relative' },
   redDot: { position: 'absolute', top: 0, right: 0, width: 10, height: 10, backgroundColor: '#EF4444', borderRadius: 5, borderWidth: 1.5, borderColor: '#FFF' },
 
+  // Dropdown Menu
   menuDropdown: { position: 'absolute', top: 60, right: 20, backgroundColor: '#FFF', borderRadius: 12, padding: 10, width: 200, zIndex: 15, elevation: 5, shadowColor: '#000', shadowOffset: {width:0, height:4}, shadowOpacity: 0.1, shadowRadius: 8 },
   menuLink: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 15, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
   menuLinkText: { fontSize: 15, color: '#1E293B', fontWeight: '600' },
 
   scrollContent: { padding: 16, paddingBottom: 40, alignSelf: 'center', width: '100%', maxWidth: 600 },
   
-  // 🌟 Banner ทักทาย
+  // Banner ทักทาย
   bannerSection: { backgroundColor: '#00A87E', borderRadius: 20, padding: 24, marginBottom: 25, elevation: 4, shadowColor: '#00A87E', shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, shadowRadius: 8 },
   bannerGreeting: { fontSize: 14, color: '#D1FAE5', marginBottom: 2 },
   bannerName: { fontSize: 26, fontWeight: 'bold', color: '#FFF', marginBottom: 12 },
@@ -344,7 +414,7 @@ const styles = StyleSheet.create({
   sectionContainer: { marginBottom: 30 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1E293B' },
   
-  // 🌟 บัตร QR Code คล้ายตั๋ว
+  // บัตร QR Code (แบบตั๋ว)
   qrCard: { backgroundColor: '#FFF', borderRadius: 20, alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, borderStyle: 'dashed', borderWidth: 2, borderColor: '#E2E8F0' },
   qrTicketTop: { backgroundColor: '#F8FAFC', width: '100%', borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
   qrDescText: { textAlign: 'center', fontSize: 13, color: '#64748B', fontWeight: '500' },
@@ -357,7 +427,7 @@ const styles = StyleSheet.create({
   categoryPillText: { color: '#64748B', fontSize: 13, fontWeight: '600' },
   categoryPillTextActive: { color: '#FFF' },
 
-  // 🌟 การ์ดอุปกรณ์
+  // การ์ดอุปกรณ์
   gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   gridCard: { width: '48%', backgroundColor: '#FFF', borderRadius: 16, padding: 12, alignItems: 'center', marginBottom: 15, elevation: 1.5, shadowColor: '#000', shadowOffset: {width:0, height:2}, shadowOpacity: 0.05, shadowRadius: 4 },
   gridImageBox: { width: '100%', height: 100, backgroundColor: '#F8FAFC', borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
@@ -368,7 +438,7 @@ const styles = StyleSheet.create({
   stockDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981', marginRight: 6 },
   stockBadgeGridText: { color: '#15803D', fontSize: 11, fontWeight: 'bold' },
 
-  // 🌟 Modal แจ้งเตือน
+  // Modal แจ้งเตือน
   modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContainer: { width: '100%', maxWidth: 400, backgroundColor: '#FFF', borderRadius: 20, maxHeight: '80%', elevation: 10 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
