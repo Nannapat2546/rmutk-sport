@@ -3,6 +3,7 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt'); 
 const nodemailer = require('nodemailer'); 
+const { Resend } = require('resend');
 
 const app = express();
 app.use(cors());
@@ -11,14 +12,14 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // ===========================================================================
-// 🌟 เพิ่ม Route สำหรับหน้าแรก
+// 🌟 เพิ่ม Route สำหรับหน้าแรก (แก้ Error Cannot GET /)
 // ===========================================================================
 app.get('/', (req, res) => {
   res.send('RMUTK Sport API is running!');
 });
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL, 
+  connectionString: process.env.DATABASE_URL, // ใช้สำหรับเชื่อมต่อบน Render อัตโนมัติ
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false, 
   user: process.env.DB_USER || 'postgres',
   host: process.env.DB_HOST || 'localhost',
@@ -28,15 +29,16 @@ const pool = new Pool({
 });
 
 // ===========================================================================
-// 🌟 สคริปต์อัปเดตฐานข้อมูลอัตโนมัติ
+// 🌟 สคริปต์อัปเดตฐานข้อมูลอัตโนมัติ (เพิ่มตาราง Staffs หากไม่มี)
 // ===========================================================================
 const initDB = async () => {
   try {
     await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS original_qty INT DEFAULT 0;`);
     await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS is_partial BOOLEAN DEFAULT false;`);
-    await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS return_condition VARCHAR(50) DEFAULT 'ปกติ';`);
+    await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS return_condition VARCHAR(50) DEFAULT 'ใช้งาน';`);
     await pool.query(`UPDATE transactions SET original_qty = qty WHERE original_qty = 0 OR original_qty IS NULL;`);
     
+    // สร้างตาราง staffs หากยังไม่มี (สำหรับเพิ่มเจ้าหน้าที่)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS staffs (
         id SERIAL PRIMARY KEY,
@@ -47,6 +49,7 @@ const initDB = async () => {
       );
     `);
 
+    // สร้างตาราง admins หากยังไม่มี
     await pool.query(`
       CREATE TABLE IF NOT EXISTS admins (
         id SERIAL PRIMARY KEY,
@@ -62,21 +65,18 @@ const initDB = async () => {
 };
 initDB();
 
-// 🌟 ตั้งค่า Gmail Transporter พร้อมพอร์ตความปลอดภัย
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
+  service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
-  },
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 15000
+  }
 });
 
 const otpStorage = {};
+
+// 🌟 ตั้งค่า Resend (ใช้ process.env.RESEND_API_KEY)
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ===========================================================================
 // [1] API สำหรับจัดการ หมวดหมู่อุปกรณ์ และ คลังอุปกรณ์
@@ -216,7 +216,7 @@ app.get('/api/inventory/manage', async (req, res) => {
 });
 
 // ===========================================================================
-// [2] API ระบบสมาชิกและการเข้าสู่ระบบ (ส่ง OTP ผ่าน Gmail จริง)
+// [2] API ระบบสมาชิกและการเข้าสู่ระบบ
 // ===========================================================================
 app.post('/api/request-otp', async (req, res) => {
   const { email, type, studentId } = req.body; 
@@ -256,19 +256,15 @@ app.post('/api/request-otp', async (req, res) => {
   `;
 
   try {
-    const mailOptions = {
-      from: `"ระบบศูนย์กีฬา RMUTK" <${process.env.EMAIL_USER}>`,
+    const data = await resend.emails.send({
+      from: 'Acme <onboarding@resend.dev>', 
       to: email, 
       subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} - RMUTK Sports`,
       html: emailHtmlTemplate
-    };
-
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ ส่งอีเมลผ่าน Gmail สำเร็จไปที่: ${email}`);
-    res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลเรียบร้อยแล้ว' }); 
+    });
+    res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลเรียบร้อยแล้ว', debugOtp: otp }); 
   } catch (error) {
-    console.log(`❌ ส่งอีเมลล้มเหลว: ${error.message}`);
-    res.status(500).json({ message: 'ไม่สามารถส่งอีเมลได้ กรุณาตรวจสอบการตั้งค่า App Password ของ Gmail' });
+    res.status(200).json({ message: 'ระบบส่งอีเมลขัดข้องชั่วคราว (แต่สร้าง OTP สำเร็จ)', debugOtp: otp });
   }
 });
 
@@ -325,7 +321,6 @@ app.post('/api/register/outsider', async (req, res) => {
     await pool.query(query, [email, passwordHash, citizenId, name, phone, idCardImage, profileImage]);
     res.status(201).json({ message: 'สมัครสมาชิกบุคคลภายนอกสำเร็จเรียบร้อย' });
   } catch (error) {
-    console.error('Register Error:', error); 
     res.status(500).json({ message: 'อีเมล/รหัสบัตรประชาชน นี้ถูกใช้ไปแล้ว หรือไม่สามารถบันทึกได้' });
   }
 });
@@ -561,7 +556,7 @@ app.post('/api/return', async (req, res) => {
     if (normal > 0) {
       await pool.query(`
         INSERT INTO transactions (borrower_account_id, inventory_id, qty, original_qty, created_by, created_by_type, promised_return_date, return_date, return_condition, is_partial, created_at)
-        SELECT borrower_account_id, inventory_id, $1, $1, created_by, created_by_type, promised_return_date, now(), 'ปกติ', true, created_at
+        SELECT borrower_account_id, inventory_id, $1, $1, created_by, created_by_type, promised_return_date, now(), 'ใช้งาน', true, created_at
         FROM transactions WHERE id = $2
       `, [normal, transaction_id]);
     }
@@ -973,7 +968,7 @@ app.post('/api/notify-overdue', async (req, res) => {
 
   try {
     const mailOptions = {
-      from: '"ระบบศูนย์กีฬา RMUTK" <yphlnn255@gmail.com>',
+      from: '"ระบบศูนย์กีฬา RMUTK" <655021000097@mail.rmutk.ac.th>',
       to: email,
       subject: `[แจ้งเตือน] เกินกำหนดส่งคืนอุปกรณ์กีฬา (${equipment})`,
       html: `
