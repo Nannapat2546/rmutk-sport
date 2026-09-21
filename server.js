@@ -958,25 +958,48 @@ app.delete('/api/admin/users/:id', async (req, res) => {
 });
 
 // ===========================================================================
-// [5] API สำหรับ OCR (อ่านตัวอักษรจากภาพบัตรประชาชน ของจริง 100%)
+// [5] API สำหรับ OCR (เพิ่มระบบสกัดเลขบัตรและชื่อให้อัตโนมัติและแม่นยำขึ้น)
 // ===========================================================================
 app.post('/api/ocr', async (req, res) => { 
   try {
-    // ดึงข้อมูลรูปภาพจาก Request (รองรับกรณีส่งเป็น Base64 เข้ามา)
     const imageData = req.body.image || req.body.base64 || req.body.uri;
 
     if (!imageData) {
       return res.status(400).json({ message: 'ไม่พบข้อมูลรูปภาพ', text: '' });
     }
 
-    // เริ่มกระบวนการอ่านข้อความจากรูปภาพ (ภาษาไทย + อังกฤษ)
+    // เริ่มให้ AI อ่านข้อความจากรูปภาพ (ภาษาไทย + อังกฤษ)
     const { data: { text } } = await Tesseract.recognize(
       imageData,
-      'tha+eng' // กำหนดภาษาที่ต้องการอ่าน
+      'tha+eng' 
     );
 
-    // ส่งข้อความที่อ่านได้กลับไปให้ Frontend
-    res.status(200).json({ text: text.trim() });
+    // 🌟 แสดงข้อความที่ AI อ่านได้ดิบๆ ใน Log ของ Render (เพื่อให้คุณเช็กได้ว่ามันอ่านว่าอะไร)
+    console.log("🔍 ข้อความดิบที่ AI อ่านได้:\n", text);
+
+    // 1. สกัดเลขบัตรประชาชน (ลบช่องว่างและขีดออกให้หมด แล้วหาตัวเลข 13 หลักติดกัน)
+    const textWithoutSpaces = text.replace(/[\s-]/g, ''); 
+    const idMatch = textWithoutSpaces.match(/\d{13}/);
+    const citizenId = idMatch ? idMatch[0] : '';
+
+    // 2. สกัดชื่อ-นามสกุล (หาคำนำหน้า นาย/นาง/นางสาว ตามด้วยชื่อและนามสกุลไทย)
+    let fullName = '';
+    const nameMatch = text.match(/(นาย|นาง|นางสาว)\s*([ก-๙]+)\s+([ก-๙]+)/);
+    if (nameMatch) {
+      // จัดรูปแบบชื่อให้เว้นวรรคแค่ 1 เคาะ
+      fullName = nameMatch[0].replace(/\s+/g, ' '); 
+    }
+
+    // 3. จัดรูปประโยคใหม่เอาข้อมูลที่สกัดได้ไปแปะไว้หน้าสุด หน้าบ้านจะได้ดึงข้อมูลไปใช้ง่ายๆ
+    const cleanText = `CitizenID: ${citizenId} Name: ${fullName} \n\n${text}`;
+
+    // ส่งข้อมูลกลับไปทั้งแบบ text จัดทรงแล้ว และแบบแยกฟิลด์
+    res.status(200).json({ 
+      text: cleanText, 
+      citizenId: citizenId,
+      fullName: fullName
+    });
+
   } catch (error) {
     console.error('OCR Process Error:', error);
     res.status(500).json({ message: 'อ่านข้อความไม่สำเร็จ', text: '' });
