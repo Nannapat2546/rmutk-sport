@@ -26,8 +26,6 @@ export default function Dashboard({ route, navigation }) {
   const [allEquipment, setAllEquipment] = useState([]);
   const [categories, setCategories] = useState(['ทั้งหมด']);
   const [activeCategory, setActiveCategory] = useState('ทั้งหมด');
-  
-  // 🌟 State สำหรับเก็บคำค้นหา
   const [searchQuery, setSearchQuery] = useState('');
 
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -195,7 +193,6 @@ export default function Dashboard({ route, navigation }) {
     setIsLoadingNotif(false);
   };
 
-  // 🌟 ฟังก์ชันกรองอุปกรณ์ ควบรวมการค้นหาทั้งแบบ พิมพ์ค้นหา และ กดเลือกหมวดหมู่
   const filteredEquipment = allEquipment.filter(item => {
     const matchCategory = activeCategory === 'ทั้งหมด' || (item.category_name || 'ทั่วไป') === activeCategory;
     const matchSearch = item.item_name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -301,12 +298,12 @@ export default function Dashboard({ route, navigation }) {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
+        {/* ================= 1. ส่วนทักทาย ================= */}
         <View style={styles.greetingSection}>
           <View style={styles.nameRow}>
             <Text style={styles.greetingText}>สวัสดี, {userName}</Text>
             <View style={[styles.roleBadge, role === 'external' ? {backgroundColor: '#FEF3C7'} : {backgroundColor: '#E6F5EF'}]}>
-              <Ionicons name={role === 'student' ? 'school' : 'person'} size={12} color={role === 'student' ? '#00A87E' : '#D97706'} />
-              <Text style={[styles.roleBadgeText, role === 'external' ? {color: '#D97706'} : {color: '#00A87E'}]}> {roleText}</Text>
+              <Text style={[styles.roleBadgeText, role === 'external' ? {color: '#D97706'} : {color: '#00A87E'}]}>{roleText}</Text>
             </View>
           </View>
 
@@ -321,6 +318,7 @@ export default function Dashboard({ route, navigation }) {
           </View>
         </View>
 
+        {/* ================= 2. ส่วน QR Code ================= */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>QR Code ของฉัน</Text>
           <Text style={styles.sectionSubtitle}>
@@ -336,22 +334,24 @@ export default function Dashboard({ route, navigation }) {
           </View>
         </View>
 
+        {/* ================= 3. ส่วนรายการอุปกรณ์ ================= */}
         {role !== 'external' && (
           <View style={styles.sectionContainer}>
             
             <View style={styles.eqHeaderRow}>
               <Text style={styles.sectionTitle}>อุปกรณ์ทั้งหมด</Text>
               
-              {/* 🌟 ช่องค้นหาอุปกรณ์ */}
-              <View style={styles.searchBox}>
+              {/* 🌟 ช่องค้นหาอุปกรณ์ที่ปรับปรุงให้ตรงกับภาพอ้างอิง */}
+              <View style={styles.searchContainer}>
                 <TextInput 
                   placeholder="ค้นหา..." 
                   style={styles.searchInput}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
+                  placeholderTextColor="#9CA3AF"
                 />
                 <TouchableOpacity style={styles.searchBtn}>
-                  <Ionicons name="search" size={16} color="#FFF" />
+                  <Ionicons name="search-outline" size={20} color="#FFF" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -391,10 +391,7 @@ export default function Dashboard({ route, navigation }) {
                     </View>
                   ))
                 ) : (
-                  <View style={{ width: '100%', padding: 20, alignItems: 'center' }}>
-                    <Ionicons name="search-outline" size={40} color="#CBD5E1" />
-                    <Text style={{ color: '#888', textAlign: 'center', marginTop: 10 }}>ไม่พบอุปกรณ์ที่ค้นหา</Text>
-                  </View>
+                  <Text style={{ color: '#888', textAlign: 'center', width: '100%', marginTop: 20 }}>ไม่พบอุปกรณ์ที่ค้นหา</Text>
                 )}
               </View>
             )}
@@ -441,9 +438,11 @@ const styles = StyleSheet.create({
   qrId: { fontSize: 16, fontWeight: 'bold', color: '#111827', marginTop: 15, letterSpacing: 1 },
   
   eqHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 6, width: 140, height: 36, overflow: 'hidden' },
-  searchInput: { flex: 1, paddingHorizontal: 10, fontSize: 12, color: '#111827', outlineStyle: 'none' },
-  searchBtn: { backgroundColor: '#00A87E', width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
+  
+  // 🌟 สไตล์ช่องค้นหาอุปกรณ์ใหม่ (ให้ตรงกับรูป)
+  searchContainer: { flexDirection: 'row', alignItems: 'center' },
+  searchInput: { width: 140, height: 38, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, paddingHorizontal: 15, fontSize: 13, color: '#1E293B', outlineStyle: 'none', marginRight: 8 },
+  searchBtn: { backgroundColor: '#00A87E', width: 38, height: 38, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
 
   categoryScroll: { marginBottom: 15 },
   categoryPill: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#E5E7EB', marginRight: 10, backgroundColor: '#FFF' },
