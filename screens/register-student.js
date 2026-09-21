@@ -187,7 +187,7 @@ export default function RegisterStudent({ navigation }) {
   };
 
   // =======================================================
-  // 🌟 ฟังก์ชันขอ OTP (อัปเดตใหม่ ให้รองรับโหมดทดสอบและส่งพารามิเตอร์)
+  // 🌟 ฟังก์ชันขอ OTP (พร้อมระบบ Timeout ป้องกันหมุนค้าง)
   // =======================================================
   const requestOtp = async () => {
     const cleanEmail = email.trim();
@@ -201,7 +201,6 @@ export default function RegisterStudent({ navigation }) {
       return;
     }
 
-    // ตรวจสอบเบื้องต้นว่าอีเมลตรงกับรหัสนักศึกษาไหม (ก่อนยิงไปหลังบ้าน)
     const emailPrefix = cleanEmail.split('@')[0];
     if (emailPrefix !== studentId) {
       showPopup('error', 'อีเมลต้องตรงกับรหัสนักศึกษาของคุณ');
@@ -209,30 +208,40 @@ export default function RegisterStudent({ navigation }) {
     }
 
     setIsLoading(true);
+
+    // สร้างตัวจับเวลา 15 วินาที
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     try {
       const response = await fetch('https://rmutk-sport.onrender.com/api/request-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // 🌟 เพิ่ม type: 'student' และ studentId ไปให้หลังบ้าน
         body: JSON.stringify({ email: cleanEmail, type: 'student', studentId: studentId }),
+        signal: controller.signal // ส่ง signal ไปหยุดการทำงานถ้าเกินเวลา
       });
+      
+      clearTimeout(timeoutId); // ปิดการจับเวลาเมื่อได้รับการตอบกลับ
       const result = await response.json();
       
       if (response.ok) {
-        // 🌟 ถ้าหลังบ้านส่ง debugOtp กลับมา (แปลว่าเชื่อมต่อ Gmail ไม่สำเร็จ)
-        // ระบบจะแจ้งเตือนรหัสให้เลย เพื่อให้คนทดสอบแอปทำงานต่อได้ไม่ค้าง
         if (result.debugOtp) {
-          showPopup('success', `ระบบอีเมลมีปัญหาชั่วคราว\n\nแต่สามารถใช้รหัสทดสอบ: ${result.debugOtp} เพื่อไปต่อได้เลยครับ`);
+          showPopup('success', `(โหมดทดสอบ) รหัส OTP ของคุณคือ: ${result.debugOtp}`);
         } else {
-          showPopup('success', 'ส่งรหัส OTP ไปที่อีเมลของคุณแล้ว กรุณาตรวจสอบกล่องจดหมาย (อาจใช้เวลาปลุกเซิร์ฟเวอร์ 30 วินาที)');
+          showPopup('success', 'ส่งรหัส OTP ไปที่อีเมลของคุณแล้ว กรุณาตรวจสอบกล่องจดหมาย');
         }
         setVerificationStep(1); 
       } else {
         showPopup('error', result.message || 'ไม่สามารถส่งอีเมลได้');
       }
     } catch (error) {
-      // 🌟 ดักจับกรณี Render หลับนานเกินจน Time out
-      showPopup('error', 'รอเซิร์ฟเวอร์ตื่น (Render ฟรีอาจใช้เวลา 1 นาที) กรุณากดขอ OTP ใหม่อีกครั้ง');
+      clearTimeout(timeoutId);
+      // ตรวจสอบว่าเป็น Error จากการ Timeout หรือไม่
+      if (error.name === 'AbortError') {
+        showPopup('error', 'เซิร์ฟเวอร์ตอบกลับช้า (อาจกำลังตื่นจากโหมดประหยัดพลังงาน)\n\nกรุณารอประมาณ 30 วินาที แล้วกด "ขอรหัส OTP" ใหม่อีกครั้งครับ');
+      } else {
+        showPopup('error', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต');
+      }
     } finally {
       setIsLoading(false);
     }
