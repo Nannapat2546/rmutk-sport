@@ -513,7 +513,7 @@ export default function EquipmentScreen({ navigation }) {
 
           <CustomDropdown 
             label="สถานะ"
-            options={[{id: '1', name: 'เปิดใช้งาน'}, {id: '2', name: 'ชำรุด'}, {id: '3', name: 'สูญหาย'}]}
+            options={[{id: '1', name: 'เปิดใช้งาน'}, {id: '2', name: 'ชำรุด'}]}
             selectedValue={{name: equipStatus}}
             onSelect={(item) => setEquipStatus(item.name)}
             placeholder="เปิดใช้งาน"
