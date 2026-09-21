@@ -3,7 +3,6 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt'); 
 const nodemailer = require('nodemailer'); 
-const { Resend } = require('resend');
 
 const app = express();
 app.use(cors());
@@ -19,7 +18,7 @@ app.get('/', (req, res) => {
 });
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL, // ใช้สำหรับเชื่อมต่อบน Render อัตโนมัติ
+  connectionString: process.env.DATABASE_URL, 
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false, 
   user: process.env.DB_USER || 'postgres',
   host: process.env.DB_HOST || 'localhost',
@@ -29,7 +28,7 @@ const pool = new Pool({
 });
 
 // ===========================================================================
-// 🌟 สคริปต์อัปเดตฐานข้อมูลอัตโนมัติ (เพิ่มตาราง Staffs หากไม่มี)
+// 🌟 สคริปต์อัปเดตฐานข้อมูลอัตโนมัติ
 // ===========================================================================
 const initDB = async () => {
   try {
@@ -74,9 +73,6 @@ const transporter = nodemailer.createTransport({
 });
 
 const otpStorage = {};
-
-// 🌟 ตั้งค่า Resend (ใช้ process.env.RESEND_API_KEY)
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ===========================================================================
 // [1] API สำหรับจัดการ หมวดหมู่อุปกรณ์ และ คลังอุปกรณ์
@@ -226,21 +222,14 @@ app.post('/api/request-otp', async (req, res) => {
     if (!email.endsWith('@mail.rmutk.ac.th')) {
       return res.status(400).json({ message: 'นักศึกษาต้องใช้อีเมลของมหาวิทยาลัย (@mail.rmutk.ac.th) เท่านั้น' });
     }
-
     const emailPrefix = email.split('@')[0];
     if (studentId && emailPrefix !== studentId) {
       return res.status(400).json({ message: 'รหัสนักศึกษาไม่ตรงกับอีเมลที่ใช้งาน' });
-    }
-
-    if (emailPrefix.length !== 10 && emailPrefix.length !== 13) {
-      return res.status(400).json({ message: 'รูปแบบรหัสนักศึกษาในอีเมลไม่ถูกต้อง' });
     }
   }
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   otpStorage[email] = { otp, expires: Date.now() + 5 * 60000 };
-
-  console.log(`🔑 สร้าง OTP สำหรับ ${email} คือ: [ ${otp} ]`);
 
   const emailHtmlTemplate = `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 0; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
@@ -263,7 +252,6 @@ app.post('/api/request-otp', async (req, res) => {
   `;
 
   try {
-    // 🌟 เปลี่ยนมาใช้ Nodemailer (Gmail) ส่งแทน Resend 
     const mailOptions = {
       from: `"ระบบศูนย์กีฬา RMUTK" <${process.env.EMAIL_USER}>`,
       to: email, 
@@ -272,16 +260,11 @@ app.post('/api/request-otp', async (req, res) => {
     };
 
     await transporter.sendMail(mailOptions);
-    
-    console.log('✅ ยิงอีเมล OTP ผ่าน Gmail สำเร็จ');
-    // ยังคงส่ง debugOtp กลับไปเผื่อหน้าบ้านต้องการใช้
+    console.log(`✅ ส่งอีเมลสำเร็จไปที่: ${email}`);
     res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลเรียบร้อยแล้ว', debugOtp: otp }); 
   } catch (error) {
-    console.error('❌ ข้อผิดพลาดในการส่งอีเมล (Gmail Error):', error.message);
-    res.status(200).json({ 
-      message: 'ระบบส่งอีเมลขัดข้องชั่วคราว (แต่สร้าง OTP สำเร็จ)', 
-      debugOtp: otp 
-    });
+    console.log(`❌ ส่งอีเมลล้มเหลว: ${error.message}`);
+    res.status(200).json({ message: 'ระบบส่งอีเมลขัดข้องชั่วคราว (แต่สร้าง OTP สำเร็จ)', debugOtp: otp });
   }
 });
 
@@ -338,6 +321,7 @@ app.post('/api/register/outsider', async (req, res) => {
     await pool.query(query, [email, passwordHash, citizenId, name, phone, idCardImage, profileImage]);
     res.status(201).json({ message: 'สมัครสมาชิกบุคคลภายนอกสำเร็จเรียบร้อย' });
   } catch (error) {
+    console.error('Register Error:', error); 
     res.status(500).json({ message: 'อีเมล/รหัสบัตรประชาชน นี้ถูกใช้ไปแล้ว หรือไม่สามารถบันทึกได้' });
   }
 });
@@ -1008,3 +992,5 @@ app.post('/api/notify-overdue', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Backend รันที่พอร์ต ${PORT}`));
+
+เปลี่ยนเป็นอันนี้ให้ทีเอาเหมือนเดิมนะ
