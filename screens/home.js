@@ -47,10 +47,15 @@ export default function Dashboard({ route, navigation }) {
   const roleText = role === 'student' ? 'นักศึกษา' : 'บุคคลภายนอก';
 
   useEffect(() => {
-    if (role !== 'external') fetchEquipmentData();
-    else setIsLoading(false);
+    if (role !== 'external') {
+      fetchEquipmentData();
+    } else {
+      setIsLoading(false);
+    }
     
-    if (targetAccountId) fetchNotifications();
+    if (targetAccountId) {
+      fetchNotifications();
+    }
   }, [role, targetAccountId]);
 
   const fetchEquipmentData = async () => {
@@ -61,17 +66,22 @@ export default function Dashboard({ route, navigation }) {
       
       if(Array.isArray(data)) {
         const availableItems = data.filter(item => parseInt(item.stock) > 0);
+
         setPopularEquipment(availableItems.slice(0, 4));
         setAllEquipment(availableItems);
 
         const uniqueCategories = ['ทั้งหมด'];
         availableItems.forEach(item => {
           const catName = item.category_name || 'ทั่วไป';
-          if (!uniqueCategories.includes(catName)) uniqueCategories.push(catName);
+          if (!uniqueCategories.includes(catName)) {
+            uniqueCategories.push(catName);
+          }
         });
         setCategories(uniqueCategories);
       }
-    } catch (error) { console.error("Fetch Data Error:", error); }
+    } catch (error) {
+      console.error("Fetch Data Error:", error);
+    }
     setIsLoading(false);
   };
 
@@ -91,8 +101,8 @@ export default function Dashboard({ route, navigation }) {
             detail: `ชำระค่าบริการ ${item.service_fee} บาท`,
             date: new Date(item.check_in_time),
             icon: 'barbell',
-            color: '#0EA5E9', 
-            bg: '#E0F2FE'
+            color: '#F59E0B', 
+            bg: '#FEF3C7'
           });
         });
       }
@@ -196,9 +206,9 @@ export default function Dashboard({ route, navigation }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>การแจ้งเตือนล่าสุด</Text>
+              <Text style={styles.modalTitle}>การแจ้งเตือน</Text>
               <TouchableOpacity onPress={() => setIsNotifOpen(false)}>
-                <Ionicons name="close-circle" size={28} color="#94A3B8" />
+                <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
             
@@ -210,7 +220,7 @@ export default function Dashboard({ route, navigation }) {
                   notifications.map(notif => (
                     <View key={notif.id} style={styles.notifCard}>
                       <View style={[styles.notifIconBox, { backgroundColor: notif.bg }]}>
-                        <Ionicons name={notif.icon} size={22} color={notif.color} />
+                        <Ionicons name={notif.icon} size={24} color={notif.color} />
                       </View>
                       <View style={styles.notifContent}>
                         <Text style={[styles.notifTitle, (notif.type === 'overdue' || notif.type === 'admin_alert') && { color: '#EF4444' }]}>
@@ -225,8 +235,8 @@ export default function Dashboard({ route, navigation }) {
                   ))
                 ) : (
                   <View style={styles.emptyNotif}>
-                    <Ionicons name="notifications-off-outline" size={60} color="#CBD5E1" />
-                    <Text style={styles.emptyNotifText}>ไม่มีรายการใหม่</Text>
+                    <Ionicons name="notifications-off-outline" size={50} color="#CCC" />
+                    <Text style={styles.emptyNotifText}>ไม่มีการแจ้งเตือนใหม่</Text>
                   </View>
                 )}
               </ScrollView>
@@ -235,105 +245,104 @@ export default function Dashboard({ route, navigation }) {
         </View>
       </Modal>
 
-      {/* 🌟 Top Navigation Bar */}
-      <View style={styles.topNav}>
-        <Text style={styles.topNavTitle}>RMUTK Sports</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
-          <TouchableOpacity style={styles.bellIcon} onPress={() => { setIsNotifOpen(true); fetchNotifications(); }}>
-            <Ionicons name="notifications" size={24} color="#1E293B" />
-            {notifications.some(n => n.type === 'overdue' || n.type === 'borrowing' || n.type === 'admin_alert') && (
-              <View style={styles.redDot} />
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setIsMenuOpen(!isMenuOpen)}>
-            <Ionicons name={isMenuOpen ? "close" : "grid"} size={24} color="#1E293B" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      {/* 🌟 Top Menu Bar */}
+      <View style={styles.menuGroup}>
+        <View style={styles.menuHeaderRow}>
+          <Text style={styles.menuTitleText}>
+            {role === 'external' ? 'ระบบเข้าใช้ฟิตเนส' : 'ระบบยืมอุปกรณ์ & ฟิตเนส'}
+          </Text>
+          
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
+            <TouchableOpacity style={styles.bellIcon} onPress={() => { setIsNotifOpen(true); fetchNotifications(); }}>
+              <Ionicons name="notifications-outline" size={24} color="#333" />
+              {notifications.some(n => n.type === 'overdue' || n.type === 'borrowing' || n.type === 'admin_alert') && (
+                <View style={styles.redDot} />
+              )}
+            </TouchableOpacity>
 
-      {/* 🌟 Dropdown Menu */}
-      {isMenuOpen && (
-        <View style={styles.menuDropdown}>
-          <TouchableOpacity style={styles.menuLink} onPress={() => setIsMenuOpen(false)}>
-            <Ionicons name="home-outline" size={20} color="#1E293B" style={{marginRight: 10}}/>
-            <Text style={styles.menuLinkText}>หน้าแรก</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.menuLink} 
-            onPress={() => {
-              setIsMenuOpen(false); 
-              if (targetAccountId) {
-                navigation.navigate('History', { 
-                  accountId: targetAccountId, 
-                  role: role || (userData?.citizen_id ? 'external' : 'student') 
-                });
-              } else {
-                Alert.alert("ไม่พบข้อมูล", "กรุณาออกจากระบบแล้วล็อกอินใหม่", [{ text: "ตกลง" }]);
-              }
-            }}
-          >
-            <Ionicons name="time-outline" size={20} color="#1E293B" style={{marginRight: 10}}/>
-            <Text style={styles.menuLinkText}>ประวัติของฉัน</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.menuLink, {borderBottomWidth: 0}]} onPress={() => navigation.replace('Login')}>
-            <Ionicons name="log-out-outline" size={20} color="#EF4444" style={{marginRight: 10}}/>
-            <Text style={[styles.menuLinkText, {color: '#EF4444'}]}>ออกจากระบบ</Text>
-          </TouchableOpacity>
+            <TouchableOpacity onPress={() => setIsMenuOpen(!isMenuOpen)}>
+              <Ionicons name={isMenuOpen ? "close" : "menu"} size={24} color="#333" />
+            </TouchableOpacity>
+          </View>
         </View>
-      )}
+
+        {isMenuOpen && (
+          <View style={styles.menuList}>
+            <TouchableOpacity style={styles.menuLink} onPress={() => setIsMenuOpen(false)}>
+              <Text style={styles.menuLinkText}>หน้าแรก</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.menuLink} 
+              onPress={() => {
+                setIsMenuOpen(false); 
+                if (targetAccountId) {
+                  navigation.navigate('History', { 
+                    accountId: targetAccountId, 
+                    role: role || (userData?.citizen_id ? 'external' : 'student') 
+                  });
+                } else {
+                  Alert.alert("ไม่พบข้อมูล", "กรุณาออกจากระบบแล้วล็อกอินใหม่", [{ text: "ตกลง" }]);
+                }
+              }} 
+            >
+              <Text style={styles.menuLinkText}>ประวัติของฉัน</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuLink} onPress={() => navigation.replace('Login')}>
+              <Text style={[styles.menuLinkText, {color: '#EF4444'}]}>ออกจากระบบ</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
-        {/* ================= Banner Greeting ================= */}
-        <View style={styles.bannerSection}>
-          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start'}}>
-            <View style={{flex: 1}}>
-              <Text style={styles.bannerGreeting}>สวัสดี,</Text>
-              <Text style={styles.bannerName} numberOfLines={1}>{userName}</Text>
-              <View style={[styles.roleBadge, role === 'external' ? {backgroundColor: '#FEF3C7'} : {backgroundColor: '#D1FAE5'}]}>
-                <Ionicons name={role === 'student' ? 'school' : 'person'} size={12} color={role === 'student' ? '#059669' : '#D97706'} />
-                <Text style={[styles.roleBadgeText, role === 'external' ? {color: '#D97706'} : {color: '#059669'}]}> {roleText}</Text>
+        {/* ================= แบบเก่า: การ์ดทักทายสีขาว ================= */}
+        <View style={styles.greetingSection}>
+          <View style={styles.nameRow}>
+            <Text style={styles.greetingText}>สวัสดี, {userName}</Text>
+          </View>
+
+          <View style={styles.infoCard}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={styles.infoLabel}>ข้อมูลส่วนตัว</Text>
+              <View style={[styles.badge, role === 'external' && { backgroundColor: '#FEF3C7' }]}>
+                <Text style={[styles.badgeText, role === 'external' && { color: '#D97706' }]}>
+                  {roleText}
+                </Text>
               </View>
             </View>
-          </View>
-          
-          <View style={styles.bannerInfoBox}>
-            <Text style={styles.bannerInfoText}><Ionicons name="mail" size={14}/> {userEmail}</Text>
-            <Text style={styles.bannerInfoText}><Ionicons name="call" size={14}/> {role === 'student' ? userFaculty : (userData?.phone || '-')}</Text>
+            
+            <Text style={styles.infoValue}>{userEmail}</Text>
+            
+            {role === 'student' ? (
+              <Text style={[styles.infoValue, { marginTop: 5, color: '#64748B' }]}>{userFaculty}</Text>
+            ) : (
+              <Text style={[styles.infoValue, { marginTop: 5, color: '#64748B' }]}>{userData?.phone || '-'}</Text>
+            )}
           </View>
         </View>
 
-        {/* ================= QR Code Card ================= */}
+        {/* ================= แบบเก่า: กล่อง QR Code สีขาว ================= */}
         <View style={styles.sectionContainer}>
-          <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}}>
-            <Ionicons name="qr-code-outline" size={20} color="#1E293B" style={{marginRight: 8}}/>
-            <Text style={styles.sectionTitle}>QR Code ของฉัน</Text>
-          </View>
-          
+          <Text style={styles.sectionTitle}>QR Code ของฉัน</Text>
+          <Text style={{ fontSize: 13, color: '#666', marginBottom: 10 }}>
+            {role === 'external' ? 'ใช้สำหรับสแกนเข้าใช้บริการฟิตเนส' : 'ใช้สำหรับสแกนยืม-คืนอุปกรณ์ และเข้าฟิตเนส'}
+          </Text>
           <View style={styles.qrCard}>
-            <View style={styles.qrTicketTop}>
-              <Text style={styles.qrDescText}>
-                {role === 'external' ? 'สแกนเพื่อเข้าใช้บริการฟิตเนส' : 'สแกนเพื่อยืม-คืนอุปกรณ์ และเข้าฟิตเนส'}
-              </Text>
-            </View>
-            <View style={styles.qrCodeBox}>
-              {userId !== '-' ? (
-                <QRCode value={userId} size={150} color="#1E293B" backgroundColor="transparent" />
-              ) : (
-                <Ionicons name="qr-code" size={150} color="#CBD5E1" />
-              )}
-            </View>
+            {userId !== '-' ? (
+              <QRCode value={userId} size={160} color="black" backgroundColor="white" />
+            ) : (
+              <Ionicons name="qr-code" size={150} color="#CCC" />
+            )}
             <Text style={styles.qrId}>{userId}</Text>
           </View>
         </View>
 
-        {/* ================= Equipment List ================= */}
         {role !== 'external' && (
           <View style={styles.sectionContainer}>
-            <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}}>
-              <Ionicons name="basketball-outline" size={20} color="#1E293B" style={{marginRight: 8}}/>
-              <Text style={styles.sectionTitle}>รายการอุปกรณ์</Text>
-            </View>
+            <Text style={styles.sectionTitle}>อุปกรณ์ทั้งหมด</Text>
             
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
               {categories.map((cat, index) => (
@@ -342,39 +351,38 @@ export default function Dashboard({ route, navigation }) {
                   style={[styles.categoryPill, activeCategory === cat && styles.categoryPillActive]}
                   onPress={() => setActiveCategory(cat)}
                 >
-                  <Text style={[styles.categoryPillText, activeCategory === cat && styles.categoryPillTextActive]}>{cat}</Text>
+                  <Text style={[styles.categoryPillText, activeCategory === cat && styles.categoryPillTextActive]}>
+                    {cat}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
             {isLoading ? (
-              <ActivityIndicator size="large" color="#00A87E" style={{ marginTop: 30 }} />
+              <ActivityIndicator size="small" color="#00A87E" style={{ marginTop: 20 }} />
             ) : (
               <View style={styles.gridContainer}>
                 {filteredEquipment.length > 0 ? (
                   filteredEquipment.map((item) => (
                     <View key={item.id} style={styles.gridCard}>
-                      <View style={styles.gridImageBox}>
-                        {item.image_url ? (
-                          <Image source={{ uri: item.image_url }} style={styles.gridImage} resizeMode="cover" />
-                        ) : (
-                          <Ionicons name="image-outline" size={35} color="#CBD5E1" />
-                        )}
-                      </View>
+                      {item.image_url ? (
+                        <Image source={{ uri: item.image_url }} style={styles.gridImage} resizeMode="cover" />
+                      ) : (
+                        <View style={[styles.gridImage, styles.noImagePlaceholder]}>
+                          <Ionicons name="image-outline" size={30} color="#CCC" />
+                        </View>
+                      )}
                       <Text style={styles.gridItemName} numberOfLines={1}>{item.item_name}</Text>
                       <Text style={styles.gridItemCategory} numberOfLines={1}>{item.category_name || 'ทั่วไป'}</Text>
-                      
-                      <View style={styles.stockBadgeGrid}>
-                        <View style={styles.stockDot}/>
-                        <Text style={styles.stockBadgeGridText}>ว่าง {item.stock} ชิ้น</Text>
+                      <View style={styles.gridMetaRow}>
+                        <View style={styles.stockBadgeGrid}>
+                          <Text style={styles.stockBadgeGridText}>ว่าง {item.stock}</Text>
+                        </View>
                       </View>
                     </View>
                   ))
                 ) : (
-                  <View style={{width: '100%', padding: 30, alignItems: 'center'}}>
-                    <Ionicons name="folder-open-outline" size={40} color="#CBD5E1"/>
-                    <Text style={{ color: '#94A3B8', marginTop: 10 }}>ไม่มีอุปกรณ์ในหมวดหมู่นี้</Text>
-                  </View>
+                  <Text style={{ color: '#888', textAlign: 'center', width: '100%', marginTop: 20 }}>ไม่มีอุปกรณ์ในหมวดหมู่นี้</Text>
                 )}
               </View>
             )}
@@ -389,67 +397,62 @@ export default function Dashboard({ route, navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
   
-  // Navigation
-  topNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFF', paddingHorizontal: 20, paddingVertical: 15, zIndex: 20, elevation: 2, shadowColor: '#000', shadowOffset: {width:0, height:2}, shadowOpacity: 0.05, shadowRadius: 3 },
-  topNavTitle: { fontSize: 18, fontWeight: 'bold', color: '#00A87E' },
-  bellIcon: { position: 'relative' },
-  redDot: { position: 'absolute', top: 0, right: 0, width: 10, height: 10, backgroundColor: '#EF4444', borderRadius: 5, borderWidth: 1.5, borderColor: '#FFF' },
+  menuGroup: { backgroundColor: '#FFF', paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', zIndex: 10 },
+  menuHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  menuTitleText: { fontSize: 16, fontWeight: 'bold', color: '#1E293B', flex: 1 },
+  
+  bellIcon: { position: 'relative', marginRight: 5 },
+  redDot: { position: 'absolute', top: -2, right: 0, width: 10, height: 10, backgroundColor: '#EF4444', borderRadius: 5, borderWidth: 1, borderColor: '#FFF' },
 
-  // Dropdown Menu
-  menuDropdown: { position: 'absolute', top: 60, right: 20, backgroundColor: '#FFF', borderRadius: 12, padding: 10, width: 200, zIndex: 15, elevation: 5, shadowColor: '#000', shadowOffset: {width:0, height:4}, shadowOpacity: 0.1, shadowRadius: 8 },
-  menuLink: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 15, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  menuLinkText: { fontSize: 15, color: '#1E293B', fontWeight: '600' },
+  menuList: { marginTop: 15, backgroundColor: '#F8FAFC', borderRadius: 8, padding: 10 },
+  menuLink: { paddingVertical: 12, width: '100%', paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
+  menuLinkText: { fontSize: 15, color: '#1E293B', fontWeight: '500' },
 
   scrollContent: { padding: 16, paddingBottom: 40, alignSelf: 'center', width: '100%', maxWidth: 600 },
   
-  // Banner ทักทาย
-  bannerSection: { backgroundColor: '#00A87E', borderRadius: 20, padding: 24, marginBottom: 25, elevation: 4, shadowColor: '#00A87E', shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, shadowRadius: 8 },
-  bannerGreeting: { fontSize: 14, color: '#D1FAE5', marginBottom: 2 },
-  bannerName: { fontSize: 26, fontWeight: 'bold', color: '#FFF', marginBottom: 12 },
-  roleBadge: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  roleBadgeText: { fontSize: 12, fontWeight: 'bold' },
-  bannerInfoBox: { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: 12, marginTop: 15 },
-  bannerInfoText: { color: '#FFF', fontSize: 13, marginBottom: 4 },
+  greetingSection: { marginBottom: 20 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  greetingText: { fontSize: 22, fontWeight: 'bold', color: '#0F172A' },
+  
+  infoCard: { backgroundColor: '#FFF', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', elevation: 1 },
+  infoLabel: { fontSize: 12, color: '#64748B', fontWeight: 'bold' },
+  infoValue: { fontSize: 15, fontWeight: '500', color: '#1E293B' },
+  
+  sectionContainer: { marginBottom: 24 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#0F172A', marginBottom: 5 },
+  qrCard: { backgroundColor: '#FFF', padding: 30, borderRadius: 16, alignItems: 'center', marginTop: 10, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, borderWidth: 1, borderColor: '#E2E8F0' },
+  qrId: { fontSize: 16, fontWeight: 'bold', marginTop: 20, letterSpacing: 1, color: '#334155' },
+  
+  badge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E6F5EF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  badgeText: { fontSize: 11, color: '#00A87E', fontWeight: 'bold' },
 
-  sectionContainer: { marginBottom: 30 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1E293B' },
-  
-  // บัตร QR Code (แบบตั๋ว)
-  qrCard: { backgroundColor: '#FFF', borderRadius: 20, alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, borderStyle: 'dashed', borderWidth: 2, borderColor: '#E2E8F0' },
-  qrTicketTop: { backgroundColor: '#F8FAFC', width: '100%', borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
-  qrDescText: { textAlign: 'center', fontSize: 13, color: '#64748B', fontWeight: '500' },
-  qrCodeBox: { padding: 30, backgroundColor: '#FFF', borderRadius: 16 },
-  qrId: { fontSize: 18, fontWeight: 'bold', color: '#1E293B', letterSpacing: 2, marginBottom: 25 },
-  
   categoryScroll: { marginBottom: 15 },
-  categoryPill: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 25, backgroundColor: '#FFF', marginRight: 10, elevation: 1, shadowColor: '#000', shadowOffset: {width:0, height:1}, shadowOpacity: 0.05, shadowRadius: 2, borderWidth: 1, borderColor: '#F1F5F9' },
+  categoryPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#E2E8F0', marginRight: 10, backgroundColor: '#FFF' },
   categoryPillActive: { backgroundColor: '#00A87E', borderColor: '#00A87E' },
-  categoryPillText: { color: '#64748B', fontSize: 13, fontWeight: '600' },
-  categoryPillTextActive: { color: '#FFF' },
+  categoryPillText: { color: '#64748B', fontSize: 13, fontWeight: '500' },
+  categoryPillTextActive: { color: '#FFF', fontWeight: 'bold' },
 
-  // การ์ดอุปกรณ์
   gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  gridCard: { width: '48%', backgroundColor: '#FFF', borderRadius: 16, padding: 12, alignItems: 'center', marginBottom: 15, elevation: 1.5, shadowColor: '#000', shadowOffset: {width:0, height:2}, shadowOpacity: 0.05, shadowRadius: 4 },
-  gridImageBox: { width: '100%', height: 100, backgroundColor: '#F8FAFC', borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  gridImage: { width: '100%', height: '100%', borderRadius: 12 },
-  gridItemName: { fontSize: 14, fontWeight: 'bold', color: '#1E293B', textAlign: 'center', marginBottom: 4 },
-  gridItemCategory: { fontSize: 11, color: '#94A3B8', textAlign: 'center', marginBottom: 10 },
-  stockBadgeGrid: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: '#BBF7D0' },
-  stockDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981', marginRight: 6 },
-  stockBadgeGridText: { color: '#15803D', fontSize: 11, fontWeight: 'bold' },
+  gridCard: { width: '48%', backgroundColor: '#FFF', borderRadius: 12, padding: 12, alignItems: 'center', marginBottom: 15, borderWidth: 1, borderColor: '#E2E8F0', elevation: 1 },
+  gridImage: { width: 70, height: 70, marginBottom: 10, borderRadius: 8 },
+  noImagePlaceholder: { backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
+  gridItemName: { fontSize: 13, fontWeight: 'bold', color: '#1E293B', textAlign: 'center', marginBottom: 4 },
+  gridItemCategory: { fontSize: 11, color: '#64748B', textAlign: 'center', marginBottom: 8 },
+  gridMetaRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', width: '100%' },
+  stockBadgeGrid: { backgroundColor: '#E6F5EF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  stockBadgeGridText: { color: '#00A87E', fontSize: 10, fontWeight: 'bold' },
 
-  // Modal แจ้งเตือน
   modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContainer: { width: '100%', maxWidth: 400, backgroundColor: '#FFF', borderRadius: 20, maxHeight: '80%', elevation: 10 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1E293B' },
+  modalContainer: { width: '100%', maxWidth: 400, backgroundColor: '#FFF', borderRadius: 16, maxHeight: '80%', elevation: 10 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
+  modalTitle: { fontSize: 16, fontWeight: 'bold', color: '#1E293B' },
   notifScroll: { padding: 15 },
-  notifCard: { flexDirection: 'row', backgroundColor: '#F8FAFC', padding: 16, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: '#F1F5F9' },
-  notifIconBox: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
+  notifCard: { flexDirection: 'row', backgroundColor: '#F8FAFC', padding: 15, borderRadius: 10, marginBottom: 10, borderWidth: 1, borderColor: '#E2E8F0' },
+  notifIconBox: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   notifContent: { flex: 1, justifyContent: 'center' },
-  notifTitle: { fontSize: 15, fontWeight: 'bold', color: '#1E293B', marginBottom: 4 },
-  notifDetail: { fontSize: 13, color: '#475569', marginBottom: 6, lineHeight: 20 },
-  notifDate: { fontSize: 11, color: '#94A3B8', fontWeight: '500' },
-  emptyNotif: { padding: 50, alignItems: 'center' },
-  emptyNotifText: { marginTop: 15, color: '#94A3B8', fontSize: 15, fontWeight: '600' }
+  notifTitle: { fontSize: 14, fontWeight: 'bold', color: '#1E293B', marginBottom: 4 },
+  notifDetail: { fontSize: 12, color: '#475569', marginBottom: 4, lineHeight: 18 },
+  notifDate: { fontSize: 11, color: '#94A3B8' },
+  emptyNotif: { padding: 40, alignItems: 'center' },
+  emptyNotifText: { marginTop: 10, color: '#9CA3AF', fontSize: 14, fontWeight: '500' }
 });
