@@ -256,14 +256,18 @@ app.post('/api/request-otp', async (req, res) => {
   `;
 
   try {
-    const data = await resend.emails.send({
-      from: 'Acme <onboarding@resend.dev>', 
+    const mailOptions = {
+      from: `"ระบบศูนย์กีฬา RMUTK" <${process.env.EMAIL_USER}>`,
       to: email, 
       subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} - RMUTK Sports`,
       html: emailHtmlTemplate
-    });
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ ส่งอีเมลผ่าน Gmail สำเร็จไปที่: ${email}`);
     res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลเรียบร้อยแล้ว', debugOtp: otp }); 
   } catch (error) {
+    console.log(`❌ ส่งอีเมลล้มเหลว: ${error.message}`);
     res.status(200).json({ message: 'ระบบส่งอีเมลขัดข้องชั่วคราว (แต่สร้าง OTP สำเร็จ)', debugOtp: otp });
   }
 });
@@ -321,6 +325,7 @@ app.post('/api/register/outsider', async (req, res) => {
     await pool.query(query, [email, passwordHash, citizenId, name, phone, idCardImage, profileImage]);
     res.status(201).json({ message: 'สมัครสมาชิกบุคคลภายนอกสำเร็จเรียบร้อย' });
   } catch (error) {
+    console.error('Register Error:', error); 
     res.status(500).json({ message: 'อีเมล/รหัสบัตรประชาชน นี้ถูกใช้ไปแล้ว หรือไม่สามารถบันทึกได้' });
   }
 });
@@ -556,7 +561,7 @@ app.post('/api/return', async (req, res) => {
     if (normal > 0) {
       await pool.query(`
         INSERT INTO transactions (borrower_account_id, inventory_id, qty, original_qty, created_by, created_by_type, promised_return_date, return_date, return_condition, is_partial, created_at)
-        SELECT borrower_account_id, inventory_id, $1, $1, created_by, created_by_type, promised_return_date, now(), 'ใช้งาน', true, created_at
+        SELECT borrower_account_id, inventory_id, $1, $1, created_by, created_by_type, promised_return_date, now(), 'ปกติ', true, created_at
         FROM transactions WHERE id = $2
       `, [normal, transaction_id]);
     }
