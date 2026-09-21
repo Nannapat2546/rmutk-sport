@@ -3,7 +3,6 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt'); 
 const nodemailer = require('nodemailer'); 
-const { Resend } = require('resend');
 
 const app = express();
 app.use(cors());
@@ -12,14 +11,14 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // ===========================================================================
-// 🌟 เพิ่ม Route สำหรับหน้าแรก (แก้ Error Cannot GET /)
+// 🌟 เพิ่ม Route สำหรับหน้าแรก
 // ===========================================================================
 app.get('/', (req, res) => {
   res.send('RMUTK Sport API is running!');
 });
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL, // ใช้สำหรับเชื่อมต่อบน Render อัตโนมัติ
+  connectionString: process.env.DATABASE_URL, 
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false, 
   user: process.env.DB_USER || 'postgres',
   host: process.env.DB_HOST || 'localhost',
@@ -29,7 +28,7 @@ const pool = new Pool({
 });
 
 // ===========================================================================
-// 🌟 สคริปต์อัปเดตฐานข้อมูลอัตโนมัติ (เพิ่มตาราง Staffs หากไม่มี)
+// 🌟 สคริปต์อัปเดตฐานข้อมูลอัตโนมัติ
 // ===========================================================================
 const initDB = async () => {
   try {
@@ -38,7 +37,6 @@ const initDB = async () => {
     await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS return_condition VARCHAR(50) DEFAULT 'ใช้งาน';`);
     await pool.query(`UPDATE transactions SET original_qty = qty WHERE original_qty = 0 OR original_qty IS NULL;`);
     
-    // สร้างตาราง staffs หากยังไม่มี (สำหรับเพิ่มเจ้าหน้าที่)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS staffs (
         id SERIAL PRIMARY KEY,
@@ -49,7 +47,6 @@ const initDB = async () => {
       );
     `);
 
-    // สร้างตาราง admins หากยังไม่มี
     await pool.query(`
       CREATE TABLE IF NOT EXISTS admins (
         id SERIAL PRIMARY KEY,
@@ -65,18 +62,21 @@ const initDB = async () => {
 };
 initDB();
 
+// 🌟 ตั้งค่า Gmail Transporter พร้อมระบบตัดจบ (Timeout) ป้องกันแอปหมุนค้าง
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
-  }
+  },
+  connectionTimeout: 10000, // ถ้าเซิร์ฟเวอร์ Gmail ไม่ตอบใน 10 วิ ให้ตัดการเชื่อมต่อ
+  greetingTimeout: 10000,
+  socketTimeout: 15000
 });
 
 const otpStorage = {};
-
-// 🌟 ตั้งค่า Resend (ใช้ process.env.RESEND_API_KEY)
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ===========================================================================
 // [1] API สำหรับจัดการ หมวดหมู่อุปกรณ์ และ คลังอุปกรณ์
@@ -996,3 +996,5 @@ app.post('/api/notify-overdue', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Backend รันที่พอร์ต ${PORT}`));
+
+อันนี้แก้แล้วฝากเติมด้วย
