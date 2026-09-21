@@ -138,7 +138,7 @@ export default function ReportDetailScreen({ navigation, route }) {
 
     if (reportType === 'borrow' || reportType === 'pending') {
       currentData = currentData.filter(item => {
-        if (eqCondition === 'normal') return item.equipment_status === 'ใช้งาน';
+        if (eqCondition === 'normal') return item.equipment_status === 'ปกติ';
         if (eqCondition === 'broken') return item.equipment_status === 'ชำรุด' || item.equipment_status === 'ส่งซ่อม';
         return true;
       });
@@ -407,7 +407,7 @@ export default function ReportDetailScreen({ navigation, route }) {
                       <View style={styles.filterToggleGroup}>
                         <TouchableOpacity style={[styles.filterToggleBtn, eqCondition === 'all' && styles.filterToggleBtnActive]} onPress={() => setEqCondition('all')}><Text style={[styles.filterToggleText, eqCondition === 'all' && styles.filterToggleTextActive]}>ทั้งหมด</Text></TouchableOpacity>
                         <TouchableOpacity style={[styles.filterToggleBtn, eqCondition === 'normal' && styles.filterToggleBtnActive]} onPress={() => setEqCondition('normal')}><Text style={[styles.filterToggleText, eqCondition === 'normal' && styles.filterToggleTextActive]}>ปกติ</Text></TouchableOpacity>
-                        <TouchableOpacity style={[styles.filterToggleBtn, eqCondition === 'broken' && styles.filterToggleBtnActive]} onPress={() => setEqCondition('broken')}><Text style={[styles.filterToggleText, eqCondition === 'broken' && styles.filterToggleTextActive]}>ชำรุด/ส่งซ่อม</Text></TouchableOpacity>
+                        <TouchableOpacity style={[styles.filterToggleBtn, eqCondition === 'broken' && styles.filterToggleBtnActive]} onPress={() => setEqCondition('broken')}><Text style={[styles.filterToggleText, eqCondition === 'broken' && styles.filterToggleTextActive]}>ชำรุด</Text></TouchableOpacity>
                       </View>
                     </View>
 
@@ -517,7 +517,7 @@ export default function ReportDetailScreen({ navigation, route }) {
                           <Text style={[styles.dataCell, {width: 140}]} numberOfLines={1}>{item.equipment}</Text>
                           
                           <View style={[styles.dataCell, {width: 80, alignItems: 'center'}]}>
-                            <Text style={{ fontSize: 13, fontWeight: 'bold', color: item.equipment_status === 'ใช้งาน' ? '#10B981' : '#EF4444' }}>
+                            <Text style={{ fontSize: 13, fontWeight: 'bold', color: item.equipment_status === 'ปกติ' ? '#10B981' : '#EF4444' }}>
                               {item.equipment_status || 'ปกติ'}
                             </Text>
                           </View>
@@ -571,7 +571,7 @@ export default function ReportDetailScreen({ navigation, route }) {
                           <Text style={[styles.dataCell, {width: 130}]} numberOfLines={1}>{item.equipment}</Text>
                           
                           <View style={[styles.dataCell, {width: 70, alignItems: 'center'}]}>
-                            <Text style={{ fontSize: 13, fontWeight: 'bold', color: item.equipment_status === 'ใช้งาน' ? '#10B981' : '#EF4444' }}>
+                            <Text style={{ fontSize: 13, fontWeight: 'bold', color: item.equipment_status === 'ปกติ' ? '#10B981' : '#EF4444' }}>
                               {item.equipment_status || 'ปกติ'}
                             </Text>
                           </View>
