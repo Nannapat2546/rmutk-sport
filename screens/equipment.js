@@ -59,7 +59,7 @@ export default function EquipmentScreen({ navigation }) {
   const [editingId, setEditingId] = useState(null);
   const [isSuccessModalVisible, setSuccessModalVisible] = useState(false);
 
-  const API_URL = 'https://rmutk-sport.onrender.com'; 
+  const API_URL = 'https://envision-stumble-kept.ngrok-free.dev'; 
 
   useEffect(() => {
     if (currentView === 'main') fetchEquipment();
