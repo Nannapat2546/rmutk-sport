@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 export default function HistoryScreen({ navigation, route }) {
   const accountId = route.params?.accountId; 
-  const API_URL = 'https://rmutk-sport.onrender.com'; 
+  const API_URL = 'https://envision-stumble-kept.ngrok-free.dev'; 
 
   const [isLoading, setIsLoading] = useState(true);
   const [historyData, setHistoryData] = useState([]);
