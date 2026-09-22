@@ -3,7 +3,8 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt'); 
 const nodemailer = require('nodemailer'); 
-const Tesseract = require('tesseract.js'); 
+const { Resend } = require('resend');
+const Tesseract = require('tesseract.js'); // 🌟 เพิ่มไลบรารี OCR ของจริง
 
 const app = express();
 app.use(cors());
@@ -12,14 +13,14 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // ===========================================================================
-// 🌟 เพิ่ม Route สำหรับหน้าแรก
+// 🌟 เพิ่ม Route สำหรับหน้าแรก (แก้ Error Cannot GET /)
 // ===========================================================================
 app.get('/', (req, res) => {
   res.send('RMUTK Sport API is running!');
 });
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL, 
+  connectionString: process.env.DATABASE_URL, // ใช้สำหรับเชื่อมต่อบน Render อัตโนมัติ
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false, 
   user: process.env.DB_USER || 'postgres',
   host: process.env.DB_HOST || 'localhost',
@@ -29,7 +30,7 @@ const pool = new Pool({
 });
 
 // ===========================================================================
-// 🌟 สคริปต์อัปเดตฐานข้อมูลอัตโนมัติ
+// 🌟 สคริปต์อัปเดตฐานข้อมูลอัตโนมัติ (เพิ่มตาราง Staffs หากไม่มี)
 // ===========================================================================
 const initDB = async () => {
   try {
@@ -38,6 +39,7 @@ const initDB = async () => {
     await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS return_condition VARCHAR(50) DEFAULT 'ใช้งาน';`);
     await pool.query(`UPDATE transactions SET original_qty = qty WHERE original_qty = 0 OR original_qty IS NULL;`);
     
+    // สร้างตาราง staffs หากยังไม่มี (สำหรับเพิ่มเจ้าหน้าที่)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS staffs (
         id SERIAL PRIMARY KEY,
@@ -48,6 +50,7 @@ const initDB = async () => {
       );
     `);
 
+    // สร้างตาราง admins หากยังไม่มี
     await pool.query(`
       CREATE TABLE IF NOT EXISTS admins (
         id SERIAL PRIMARY KEY,
@@ -63,21 +66,18 @@ const initDB = async () => {
 };
 initDB();
 
-// 🌟 ตั้งค่า Gmail Transporter พร้อมระบบตัดจบป้องกันแอปค้าง
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
+  service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
-  },
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 15000
+  }
 });
 
 const otpStorage = {};
+
+// 🌟 ตั้งค่า Resend (ใช้ process.env.RESEND_API_KEY)
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ===========================================================================
 // [1] API สำหรับจัดการ หมวดหมู่อุปกรณ์ และ คลังอุปกรณ์
@@ -257,18 +257,14 @@ app.post('/api/request-otp', async (req, res) => {
   `;
 
   try {
-    const mailOptions = {
-      from: `"ระบบศูนย์กีฬา RMUTK" <${process.env.EMAIL_USER || 'yphlnn255@gmail.com'}>`,
+    const data = await resend.emails.send({
+      from: 'Acme <onboarding@resend.dev>', 
       to: email, 
       subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} - RMUTK Sports`,
       html: emailHtmlTemplate
-    };
-
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ ส่งอีเมลผ่าน Gmail สำเร็จไปที่: ${email}`);
+    });
     res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลเรียบร้อยแล้ว', debugOtp: otp }); 
   } catch (error) {
-    console.log(`❌ ส่งอีเมลล้มเหลว: ${error.message}`);
     res.status(200).json({ message: 'ระบบส่งอีเมลขัดข้องชั่วคราว (แต่สร้าง OTP สำเร็จ)', debugOtp: otp });
   }
 });
@@ -326,7 +322,6 @@ app.post('/api/register/outsider', async (req, res) => {
     await pool.query(query, [email, passwordHash, citizenId, name, phone, idCardImage, profileImage]);
     res.status(201).json({ message: 'สมัครสมาชิกบุคคลภายนอกสำเร็จเรียบร้อย' });
   } catch (error) {
-    console.error('Register Error:', error); 
     res.status(500).json({ message: 'อีเมล/รหัสบัตรประชาชน นี้ถูกใช้ไปแล้ว หรือไม่สามารถบันทึกได้' });
   }
 });
@@ -974,6 +969,7 @@ app.post('/api/ocr', async (req, res) => {
     }
 
     // 🚀 1. ลดภาระ AI: ใช้แค่ 'tha' (ภาษาไทย) เพื่อให้ทำงานเร็วขึ้น 2 เท่า
+    // (Tesseract ภาษาไทยสามารถอ่านตัวเลข 0-9 ได้อยู่แล้ว ไม่ต้องโหลดภาษาอังกฤษมาเพิ่ม)
     const { data: { text } } = await Tesseract.recognize(
       imageData,
       'tha' 
@@ -985,17 +981,19 @@ app.post('/api/ocr', async (req, res) => {
     let citizenId = '';
     const idMatch = text.match(/(?:\d[ \.\-\_]*){13}/); 
     if (idMatch) {
-        citizenId = idMatch[0].replace(/[^\d]/g, ''); 
-        if (citizenId.length > 13) citizenId = citizenId.substring(0, 13); 
+        citizenId = idMatch[0].replace(/[^\d]/g, ''); // กรองเอาเฉพาะตัวเลขล้วนๆ
+        if (citizenId.length > 13) citizenId = citizenId.substring(0, 13); // ถ้าเกินเอาแค่ 13 ตัวแรก
     }
 
     // 🚀 3. ปรับสูตรหาชื่อ: ยืดหยุ่นขึ้น เผื่อลายน้ำบังคำนำหน้าชื่อ
     let fullName = '';
+    // สเตปที่ 1: พยายามหาชื่อแบบมีคำนำหน้า (นาย/นาง/นางสาว)
     const nameMatch = text.match(/(นาย|นาง|นางสาว|น\.ส\.)[\s\.\-\_]*([ก-๙]+)[\s\.\-\_]+([ก-๙]+)/);
     
     if (nameMatch) {
       fullName = `${nameMatch[1].replace(/[\s\.\-\_]/g, '')} ${nameMatch[2]} ${nameMatch[3]}`;
     } else {
+      // สเตปที่ 2: ถ้า AI อ่านคำนำหน้าไม่ออก ให้หาคำภาษาไทยยาวๆ 2 คำที่เว้นวรรคกัน (ชื่อ นามสกุล)
       const fallbackMatch = text.match(/([ก-๙]{3,})[\s\.\-\_]+([ก-๙]{3,})/);
       if (fallbackMatch && !['ศาสนา', 'เกิดวันที่', 'ประเทศไทย', 'ชื่อตัว'].includes(fallbackMatch[1])) {
          fullName = `${fallbackMatch[1]} ${fallbackMatch[2]}`;
@@ -1027,7 +1025,7 @@ app.post('/api/notify-overdue', async (req, res) => {
 
   try {
     const mailOptions = {
-      from: `"ระบบศูนย์กีฬา RMUTK" <${process.env.EMAIL_USER || 'yphlnn255@gmail.com'}>`,
+      from: '"ระบบศูนย์กีฬา RMUTK" <655021000097@mail.rmutk.ac.th>',
       to: email,
       subject: `[แจ้งเตือน] เกินกำหนดส่งคืนอุปกรณ์กีฬา (${equipment})`,
       html: `
