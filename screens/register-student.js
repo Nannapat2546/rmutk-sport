@@ -210,7 +210,7 @@ export default function RegisterStudent({ navigation }) {
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
-      const response = await fetch('https://rmutk-sport.onrender.com/api/request-otp', {
+      const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/request-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail, type: 'student', studentId: studentId }),
@@ -247,7 +247,7 @@ export default function RegisterStudent({ navigation }) {
 
     setIsLoading(true);
     try {
-      const response = await fetch('https://rmutk-sport.onrender.com/api/verify-otp', {
+      const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), otp: otpCode }),
@@ -286,7 +286,7 @@ export default function RegisterStudent({ navigation }) {
     };
 
     try {
-      const response = await fetch('https://rmutk-sport.onrender.com/api/register/student', {
+      const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/register/student', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(studentData),
