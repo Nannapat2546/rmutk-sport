@@ -69,10 +69,12 @@ const initDB = async () => {
 };
 initDB();
 
+// 🌟 2. อัปเดตพอร์ตเป็น 587 (พอร์ตที่ปลอดภัยและปัญหาน้อยที่สุดบนระบบ Cloud)
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
+  port: 587,
+  secure: false, // ใช้ false สำหรับพอร์ต 587 (จะใช้ STARTTLS อัตโนมัติ)
+  requireTLS: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
