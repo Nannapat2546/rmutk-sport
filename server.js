@@ -3,23 +3,23 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt'); 
 const nodemailer = require('nodemailer'); 
-const Tesseract = require('tesseract.js'); // 🌟 เพิ่มไลบรารี OCR ของจริง
+const Tesseract = require('tesseract.js'); 
+
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first'); 
 
 const app = express();
 app.use(cors());
-// 📍 ตั้งค่า limit เป็น 50mb เพื่อให้รองรับการส่งรูปภาพ Base64 ขนาดใหญ่ได้
 app.use(express.json({ limit: '50mb' })); 
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// ===========================================================================
-// 🌟 เพิ่ม Route สำหรับหน้าแรก (แก้ Error Cannot GET /)
-// ===========================================================================
 app.get('/', (req, res) => {
   res.send('RMUTK Sport API is running!');
 });
 
+// 🌟 ข้อมูลเชื่อมต่อฐานข้อมูล Supabase (ยังคงใช้งานได้ปกติ)
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL, // ใช้สำหรับเชื่อมต่อบน Render อัตโนมัติ
+  connectionString: process.env.DATABASE_URL, 
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false, 
   user: process.env.DB_USER || 'postgres',
   host: process.env.DB_HOST || 'localhost',
@@ -28,9 +28,6 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
 });
 
-// ===========================================================================
-// 🌟 สคริปต์อัปเดตฐานข้อมูลอัตโนมัติ (เพิ่มตาราง Staffs หากไม่มี)
-// ===========================================================================
 const initDB = async () => {
   try {
     await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS original_qty INT DEFAULT 0;`);
@@ -38,7 +35,6 @@ const initDB = async () => {
     await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS return_condition VARCHAR(50) DEFAULT 'ใช้งาน';`);
     await pool.query(`UPDATE transactions SET original_qty = qty WHERE original_qty = 0 OR original_qty IS NULL;`);
     
-    // สร้างตาราง staffs หากยังไม่มี (สำหรับเพิ่มเจ้าหน้าที่)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS staffs (
         id SERIAL PRIMARY KEY,
@@ -49,7 +45,6 @@ const initDB = async () => {
       );
     `);
 
-    // สร้างตาราง admins หากยังไม่มี
     await pool.query(`
       CREATE TABLE IF NOT EXISTS admins (
         id SERIAL PRIMARY KEY,
@@ -65,13 +60,18 @@ const initDB = async () => {
 };
 initDB();
 
+// ===========================================================================
+// 🌟 ใส่รหัสผ่านแอป Gmail 16 หลักของคุณตรงนี้
+// ===========================================================================
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
+  port: 587,
+  secure: false, 
+  requireTLS: true,
+  family: 4, 
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+    user: 'nannapatbua@gmail.com', 
+    pass: 'qkcvlyhyhgkwasue' 
   },
   connectionTimeout: 10000,
   greetingTimeout: 10000,
@@ -80,9 +80,6 @@ const transporter = nodemailer.createTransport({
 
 const otpStorage = {};
 
-// ===========================================================================
-// [1] API สำหรับจัดการ หมวดหมู่อุปกรณ์ และ คลังอุปกรณ์
-// ===========================================================================
 app.get('/api/categories', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM equipment_categories ORDER BY created_at ASC');
@@ -217,9 +214,6 @@ app.get('/api/inventory/manage', async (req, res) => {
   }
 });
 
-// ===========================================================================
-// [2] API ระบบสมาชิกและการเข้าสู่ระบบ
-// ===========================================================================
 app.post('/api/request-otp', async (req, res) => {
   const { email, type, studentId } = req.body; 
   if (!email) return res.status(400).json({ message: 'กรุณาระบุอีเมล' });
@@ -259,7 +253,7 @@ app.post('/api/request-otp', async (req, res) => {
 
   try {
     const mailOptions = {
-      from: `"ระบบศูนย์กีฬา RMUTK" <${process.env.EMAIL_USER || 'yphlnn255@gmail.com'}>`,
+      from: `"ระบบศูนย์กีฬา RMUTK" <nannapatbua@gmail.com>`, // 🌟 อัปเดตอีเมลให้ออกตรงๆ
       to: email, 
       subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} - RMUTK Sports`,
       html: emailHtmlTemplate
@@ -418,9 +412,6 @@ app.post('/api/login-admin', async (req, res) => {
   }
 });
 
-// ===========================================================================
-// [3] API ยืมคืน และ ฟิตเนส
-// ===========================================================================
 app.get('/api/users/scan/:code', async (req, res) => {
   const { code } = req.params;
   try {
@@ -605,9 +596,6 @@ app.post('/api/inventory/:id/repair', async (req, res) => {
   }
 });
 
-// ===========================================================================
-// [4] API อื่นๆ (รายงาน, จัดการแอดมิน, เปลี่ยนรหัสผ่าน ฯลฯ)
-// ===========================================================================
 app.get('/api/members', async (req, res) => {
   try {
     const query = `
@@ -933,7 +921,6 @@ app.get('/api/recent-activities', async (req, res) => {
   }
 });
 
-// 🌟 เพิ่ม Route สำหรับสร้างบัญชีเจ้าหน้าที่ (POST /api/admin/create-staff)
 app.post('/api/admin/create-staff', async (req, res) => {
   const { name, email, password, role } = req.body;
   try {
@@ -952,7 +939,6 @@ app.post('/api/admin/create-staff', async (req, res) => {
   }
 });
 
-// 🌟 เพิ่ม Route สำหรับลบผู้ใช้งาน (DELETE /api/admin/users/:id)
 app.delete('/api/admin/users/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM accounts WHERE id = $1', [req.params.id]);
@@ -962,9 +948,6 @@ app.delete('/api/admin/users/:id', async (req, res) => {
   }
 });
 
-// ===========================================================================
-// [5] API สำหรับ OCR (เวอร์ชันปรับปรุง ความเร็ว + ความแม่นยำ)
-// ===========================================================================
 app.post('/api/ocr', async (req, res) => { 
   try {
     const imageData = req.body.image || req.body.base64 || req.body.uri;
@@ -973,8 +956,6 @@ app.post('/api/ocr', async (req, res) => {
       return res.status(400).json({ message: 'ไม่พบข้อมูลรูปภาพ', text: '' });
     }
 
-    // 🚀 1. ลดภาระ AI: ใช้แค่ 'tha' (ภาษาไทย) เพื่อให้ทำงานเร็วขึ้น 2 เท่า
-    // (Tesseract ภาษาไทยสามารถอ่านตัวเลข 0-9 ได้อยู่แล้ว ไม่ต้องโหลดภาษาอังกฤษมาเพิ่ม)
     const { data: { text } } = await Tesseract.recognize(
       imageData,
       'tha' 
@@ -982,23 +963,19 @@ app.post('/api/ocr', async (req, res) => {
 
     console.log("🔍 ข้อความดิบที่ AI อ่านได้:\n", text);
 
-    // 🚀 2. ปรับสูตรหาเลขบัตร: หาเลข 13 ตัวที่อาจจะมีเว้นวรรคหรือขีดคั่นกลาง
     let citizenId = '';
     const idMatch = text.match(/(?:\d[ \.\-\_]*){13}/); 
     if (idMatch) {
-        citizenId = idMatch[0].replace(/[^\d]/g, ''); // กรองเอาเฉพาะตัวเลขล้วนๆ
-        if (citizenId.length > 13) citizenId = citizenId.substring(0, 13); // ถ้าเกินเอาแค่ 13 ตัวแรก
+        citizenId = idMatch[0].replace(/[^\d]/g, ''); 
+        if (citizenId.length > 13) citizenId = citizenId.substring(0, 13); 
     }
 
-    // 🚀 3. ปรับสูตรหาชื่อ: ยืดหยุ่นขึ้น เผื่อลายน้ำบังคำนำหน้าชื่อ
     let fullName = '';
-    // สเตปที่ 1: พยายามหาชื่อแบบมีคำนำหน้า (นาย/นาง/นางสาว)
     const nameMatch = text.match(/(นาย|นาง|นางสาว|น\.ส\.)[\s\.\-\_]*([ก-๙]+)[\s\.\-\_]+([ก-๙]+)/);
     
     if (nameMatch) {
       fullName = `${nameMatch[1].replace(/[\s\.\-\_]/g, '')} ${nameMatch[2]} ${nameMatch[3]}`;
     } else {
-      // สเตปที่ 2: ถ้า AI อ่านคำนำหน้าไม่ออก ให้หาคำภาษาไทยยาวๆ 2 คำที่เว้นวรรคกัน (ชื่อ นามสกุล)
       const fallbackMatch = text.match(/([ก-๙]{3,})[\s\.\-\_]+([ก-๙]{3,})/);
       if (fallbackMatch && !['ศาสนา', 'เกิดวันที่', 'ประเทศไทย', 'ชื่อตัว'].includes(fallbackMatch[1])) {
          fullName = `${fallbackMatch[1]} ${fallbackMatch[2]}`;
@@ -1030,7 +1007,7 @@ app.post('/api/notify-overdue', async (req, res) => {
 
   try {
     const mailOptions = {
-      from: `"ระบบศูนย์กีฬา RMUTK" <${process.env.EMAIL_USER || 'yphlnn255@gmail.com'}>`,
+      from: `"ระบบศูนย์กีฬา RMUTK" <yphlnn255@gmail.com>`,
       to: email,
       subject: `[แจ้งเตือน] เกินกำหนดส่งคืนอุปกรณ์กีฬา (${equipment})`,
       html: `
