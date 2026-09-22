@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 export default function MemberListScreen({ navigation }) {
   const [isLoading, setIsLoading] = useState(true);
   const [members, setMembers] = useState([]);
-  const API_URL = 'https://rmutk-sport.onrender.com';
+  const API_URL = 'https://envision-stumble-kept.ngrok-free.dev';
 
   useEffect(() => { fetchMembers(); }, []);
 
