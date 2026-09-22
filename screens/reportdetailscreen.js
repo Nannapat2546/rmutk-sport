@@ -36,7 +36,12 @@ export default function ReportDetailScreen({ navigation, route }) {
   const fetchDashboardReports = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/reports/dashboard`);
+      // 🌟 จุดที่ 1: เพิ่ม Header ngrok ทะลุการบล็อกดึงข้อมูลรายงาน
+      const res = await fetch(`${API_URL}/api/reports/dashboard`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
       const data = await res.json();
       if (res.ok) setReports(data);
     } catch (error) {
@@ -61,9 +66,13 @@ export default function ReportDetailScreen({ navigation, route }) {
     }
 
     try {
+      // 🌟 จุดที่ 2: เพิ่ม Header ngrok ทะลุการบล็อกยิง API ส่งอีเมลแจ้งเตือน
       const res = await fetch(`${API_URL}/api/notify-overdue`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
         body: JSON.stringify({ 
           transaction_id: item.transaction_id,
           email: item.email,
@@ -137,7 +146,6 @@ export default function ReportDetailScreen({ navigation, route }) {
 
     if (reportType === 'borrow' || reportType === 'pending') {
       currentData = currentData.filter(item => {
-        // 🌟 เปลี่ยนเงื่อนไขตัวกรองให้ค้นหาทั้ง 'ใช้งาน' (ข้อมูลเดิม) และ 'ปกติ'
         if (eqCondition === 'normal') return item.equipment_status === 'ปกติ' || item.equipment_status === 'ใช้งาน';
         if (eqCondition === 'broken') return item.equipment_status === 'ชำรุด' || item.equipment_status === 'ส่งซ่อม';
         return true;
@@ -517,7 +525,6 @@ export default function ReportDetailScreen({ navigation, route }) {
                           <Text style={[styles.dataCell, {width: 140}]} numberOfLines={1}>{item.equipment}</Text>
                           
                           <View style={[styles.dataCell, {width: 80, alignItems: 'center'}]}>
-                            {/* 🌟 เปลี่ยนคำว่า 'ใช้งาน' เป็น 'ปกติ' */}
                             <Text style={{ fontSize: 13, fontWeight: 'bold', color: (item.equipment_status === 'ปกติ' || item.equipment_status === 'ใช้งาน') ? '#10B981' : '#EF4444' }}>
                               {item.equipment_status === 'ใช้งาน' ? 'ปกติ' : (item.equipment_status || 'ปกติ')}
                             </Text>
@@ -572,7 +579,6 @@ export default function ReportDetailScreen({ navigation, route }) {
                           <Text style={[styles.dataCell, {width: 130}]} numberOfLines={1}>{item.equipment}</Text>
                           
                           <View style={[styles.dataCell, {width: 70, alignItems: 'center'}]}>
-                            {/* 🌟 เปลี่ยนคำว่า 'ใช้งาน' เป็น 'ปกติ' */}
                             <Text style={{ fontSize: 13, fontWeight: 'bold', color: (item.equipment_status === 'ปกติ' || item.equipment_status === 'ใช้งาน') ? '#10B981' : '#EF4444' }}>
                               {item.equipment_status === 'ใช้งาน' ? 'ปกติ' : (item.equipment_status || 'ปกติ')}
                             </Text>
