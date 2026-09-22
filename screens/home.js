@@ -18,7 +18,7 @@ const majorNameThai = {
 };
 
 export default function Dashboard({ route, navigation }) {
-  const API_URL = 'https://rmutk-sport.onrender.com';
+  const API_URL = 'https://envision-stumble-kept.ngrok-free.dev';
   
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
