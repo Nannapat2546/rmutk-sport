@@ -19,7 +19,8 @@ app.get('/', (req, res) => {
 
 // 🌟 ข้อมูลเชื่อมต่อฐานข้อมูล Supabase (ยังคงใช้งานได้ปกติ)
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL, 
+  connectionString: 'postgresql://postgres.qeglmdrtanxflxgshrdy:0807780787bua@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres', 
+  ssl: { rejectUnauthorized: false }, 
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false, 
   user: process.env.DB_USER || 'postgres',
   host: process.env.DB_HOST || 'localhost',
@@ -361,7 +362,7 @@ app.post('/api/login-staff', async (req, res) => {
   const email = (req.body.email || '').trim().toLowerCase();
   const { password } = req.body;
   console.log(`👉 มีคนพยายามล็อกอิน: อีเมล = [${email}] รหัสผ่าน = [${password}]`);
-  
+
   try {
     const accountResult = await pool.query(`SELECT id, email, account_type, password_hash, is_active, can_manage_inventory FROM accounts WHERE email = $1 AND account_type = 'staff'`, [email]);
     if (accountResult.rows.length === 0) return res.status(401).json({ message: 'อีเมลเจ้าหน้าที่ไม่ถูกต้อง หรือไม่มีสิทธิ์เข้าถึง' });
