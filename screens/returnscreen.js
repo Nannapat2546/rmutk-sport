@@ -44,7 +44,7 @@ export default function ReturnScreen({ navigation, route }) {
   const qrData = route.params?.qrData || '';
   
   // 🌟 แก้ไข URL ให้ถูกต้อง
-  const API_URL = 'https://rmutk-sport.onrender.com'; 
+  const API_URL = 'https://envision-stumble-kept.ngrok-free.dev'; 
   
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState(null);
