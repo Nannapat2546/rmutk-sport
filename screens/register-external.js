@@ -93,7 +93,7 @@ export default function RegisterOutsider({ navigation }) {
   // 🌟 ฟังก์ชันจัดการข้อมูล OCR (อัปเดตให้รองรับค่าที่ส่งมาจาก Backend ตัวใหม่)
   const processOcrData = async (base64Image) => {
     try {
-      const response = await fetch('https://rmutk-sport.onrender.com/api/ocr', {
+      const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: base64Image })
@@ -190,7 +190,7 @@ export default function RegisterOutsider({ navigation }) {
     };
 
     try {
-      const response = await fetch('https://rmutk-sport.onrender.com/api/register/outsider', {
+      const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/register/outsider', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(outsiderData),
