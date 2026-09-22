@@ -14,7 +14,7 @@ const monthOptions = [
 
 export default function ReportScreen({ navigation }) {
   // 🌟 แก้ไข URL ที่พิมพ์ผิดเป็นตัว 'C' เรียบร้อย
-  const API_URL = 'https://rmutk-sport.onrender.com'; 
+  const API_URL = 'https://envision-stumble-kept.ngrok-free.dev'; 
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState(null);
   
