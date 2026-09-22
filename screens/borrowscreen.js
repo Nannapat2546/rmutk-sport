@@ -91,7 +91,6 @@ export default function BorrowScreen({ navigation, route }) {
 
   const fetchUserDataAndEquipment = async (code) => {
     try {
-      // 🌟 จุดที่ 1: เพิ่ม Header ngrok ทะลุการบล็อกดึงข้อมูลผู้ใช้งาน
       const userRes = await fetch(`${API_URL}/api/users/scan/${code}`, {
         headers: {
           'ngrok-skip-browser-warning': 'true'
@@ -107,7 +106,6 @@ export default function BorrowScreen({ navigation, route }) {
       
       setUserData(userResult);
 
-      // 🌟 จุดที่ 2: เพิ่ม Header ngrok ทะลุการบล็อกดึงข้อมูลอุปกรณ์
       const equipRes = await fetch(`${API_URL}/api/inventory/manage`, {
         headers: {
           'ngrok-skip-browser-warning': 'true'
@@ -150,7 +148,6 @@ export default function BorrowScreen({ navigation, route }) {
         qty: qtyToBorrow
       };
 
-      // 🌟 จุดที่ 3: เพิ่ม Header ngrok ทะลุการบล็อกยิง API บันทึกการยืม
       const response = await fetch(`${API_URL}/api/borrow`, {
         method: 'POST',
         headers: { 
@@ -244,12 +241,17 @@ export default function BorrowScreen({ navigation, route }) {
             </View>
           </View>
 
-          <View style={[styles.inputGroup, { zIndex: 0 }]}>
-            <Text style={styles.inputLabel}>สภาพอุปกรณ์</Text>
-            <View style={[styles.readOnlyInput, { backgroundColor: '#E6F5EF', borderColor: '#A7F3D0' }]}>
-              <Text style={[styles.readOnlyText, { color: '#059669', fontWeight: 'bold' }]}>ปกติ</Text>
+          {/* 🌟 แสดงช่องสภาพอุปกรณ์เมื่อมีการเลือกอุปกรณ์แล้วเท่านั้น */}
+          {selectedEquip && (
+            <View style={[styles.inputGroup, { zIndex: 0 }]}>
+              <Text style={styles.inputLabel}>สภาพอุปกรณ์</Text>
+              <View style={[styles.readOnlyInput, { backgroundColor: '#E6F5EF', borderColor: '#A7F3D0' }]}>
+                <Text style={[styles.readOnlyText, { color: '#059669', fontWeight: 'bold' }]}>
+                  {selectedEquip.status || 'ปกติ'}
+                </Text>
+              </View>
             </View>
-          </View>
+          )}
 
           <TouchableOpacity style={styles.submitBtn} onPress={handleBorrowSubmit}>
             <Text style={styles.submitBtnText}>บันทึกการยืมอุปกรณ์</Text>
