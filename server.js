@@ -3,7 +3,11 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt'); 
 const nodemailer = require('nodemailer'); 
-const Tesseract = require('tesseract.js'); // 🌟 เพิ่มไลบรารี OCR ของจริง
+const Tesseract = require('tesseract.js'); 
+
+// 🌟 1. นำเข้าโมดูล dns และบังคับให้เชื่อมต่อผ่าน IPv4 เสมอ (แก้ Error ENETUNREACH IPv6)
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first'); 
 
 const app = express();
 app.use(cors());
