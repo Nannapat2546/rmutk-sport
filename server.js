@@ -357,7 +357,10 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.post('/api/login-staff', async (req, res) => {
-  const { email, password } = req.body;
+  // 🌟 ดึงอีเมลมาลบช่องว่างส่วนเกินและแปลงเป็นตัวพิมพ์เล็กป้องกันการ Error
+  const email = (req.body.email || '').trim().toLowerCase();
+  const { password } = req.body;
+
   try {
     const accountResult = await pool.query(`SELECT id, email, account_type, password_hash, is_active, can_manage_inventory FROM accounts WHERE email = $1 AND account_type = 'staff'`, [email]);
     if (accountResult.rows.length === 0) return res.status(401).json({ message: 'อีเมลเจ้าหน้าที่ไม่ถูกต้อง หรือไม่มีสิทธิ์เข้าถึง' });
