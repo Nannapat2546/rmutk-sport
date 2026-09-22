@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 export default function FitnessScreen({ navigation, route }) {
   const qrData = route.params?.qrData || '';
-  const API_URL = 'https://rmutk-sport.onrender.com'; 
+  const API_URL = 'https://envision-stumble-kept.ngrok-free.dev'; 
   
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState(null);
