@@ -186,9 +186,6 @@ export default function RegisterStudent({ navigation }) {
     }
   };
 
-  // =======================================================
-  // 🌟 ฟังก์ชันขอ OTP (พร้อมระบบ Timeout ป้องกันหมุนค้าง)
-  // =======================================================
   const requestOtp = async () => {
     const cleanEmail = email.trim();
     if (!cleanEmail.endsWith('@mail.rmutk.ac.th')) {
@@ -209,7 +206,6 @@ export default function RegisterStudent({ navigation }) {
 
     setIsLoading(true);
 
-    // สร้างตัวจับเวลา 15 วินาที
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
@@ -218,25 +214,21 @@ export default function RegisterStudent({ navigation }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail, type: 'student', studentId: studentId }),
-        signal: controller.signal // ส่ง signal ไปหยุดการทำงานถ้าเกินเวลา
+        signal: controller.signal
       });
       
-      clearTimeout(timeoutId); // ปิดการจับเวลาเมื่อได้รับการตอบกลับ
+      clearTimeout(timeoutId);
       const result = await response.json();
       
       if (response.ok) {
-        if (result.debugOtp) {
-          showPopup('success', `(โหมดทดสอบ) รหัส OTP ของคุณคือ: ${result.debugOtp}`);
-        } else {
-          showPopup('success', 'ส่งรหัส OTP ไปที่อีเมลของคุณแล้ว กรุณาตรวจสอบกล่องจดหมาย');
-        }
+        // อัปเดตข้อความตรงนี้ ให้แสดงเฉพาะแจ้งเตือนให้ไปเช็คอีเมล
+        showPopup('success', 'ส่งรหัส otp ไปที่อีเมล โปรดตรวจสอบในกล่องจดหมายอีเมล');
         setVerificationStep(1); 
       } else {
         showPopup('error', result.message || 'ไม่สามารถส่งอีเมลได้');
       }
     } catch (error) {
       clearTimeout(timeoutId);
-      // ตรวจสอบว่าเป็น Error จากการ Timeout หรือไม่
       if (error.name === 'AbortError') {
         showPopup('error', 'เซิร์ฟเวอร์ตอบกลับช้า (อาจกำลังตื่นจากโหมดประหยัดพลังงาน)\n\nกรุณารอประมาณ 30 วินาที แล้วกด "ขอรหัส OTP" ใหม่อีกครั้งครับ');
       } else {
