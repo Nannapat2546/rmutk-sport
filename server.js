@@ -3,7 +3,6 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt'); 
 const nodemailer = require('nodemailer'); 
-const { Resend } = require('resend');
 const Tesseract = require('tesseract.js'); // 🌟 เพิ่มไลบรารี OCR ของจริง
 
 const app = express();
@@ -67,17 +66,19 @@ const initDB = async () => {
 initDB();
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
-  }
+  },
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000
 });
 
 const otpStorage = {};
-
-// 🌟 ตั้งค่า Resend (ใช้ process.env.RESEND_API_KEY)
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ===========================================================================
 // [1] API สำหรับจัดการ หมวดหมู่อุปกรณ์ และ คลังอุปกรณ์
@@ -257,15 +258,19 @@ app.post('/api/request-otp', async (req, res) => {
   `;
 
   try {
-    const data = await resend.emails.send({
-      from: 'Acme <onboarding@resend.dev>', 
+    const mailOptions = {
+      from: `"ระบบศูนย์กีฬา RMUTK" <${process.env.EMAIL_USER || 'yphlnn255@gmail.com'}>`,
       to: email, 
       subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} - RMUTK Sports`,
       html: emailHtmlTemplate
-    });
-    res.status(200).json({ message: 'ส่งรหัส OTP ไปที่อีเมลเรียบร้อยแล้ว', debugOtp: otp }); 
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ ส่งอีเมลผ่าน Gmail สำเร็จไปที่: ${email}`);
+    res.status(200).json({ message: 'ส่งรหัส otp ไปที่อีเมล โปรดตรวจสอบในกล่องจดหมายอีเมล' }); 
   } catch (error) {
-    res.status(200).json({ message: 'ระบบส่งอีเมลขัดข้องชั่วคราว (แต่สร้าง OTP สำเร็จ)', debugOtp: otp });
+    console.log(`❌ ส่งอีเมลล้มเหลว: ${error.message}`);
+    res.status(500).json({ message: 'ระบบขัดข้อง ไม่สามารถส่งอีเมลได้ กรุณาติดต่อผู้ดูแลระบบ' });
   }
 });
 
@@ -1025,7 +1030,7 @@ app.post('/api/notify-overdue', async (req, res) => {
 
   try {
     const mailOptions = {
-      from: '"ระบบศูนย์กีฬา RMUTK" <655021000097@mail.rmutk.ac.th>',
+      from: `"ระบบศูนย์กีฬา RMUTK" <${process.env.EMAIL_USER || 'yphlnn255@gmail.com'}>`,
       to: email,
       subject: `[แจ้งเตือน] เกินกำหนดส่งคืนอุปกรณ์กีฬา (${equipment})`,
       html: `
