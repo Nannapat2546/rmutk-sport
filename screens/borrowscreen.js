@@ -91,7 +91,12 @@ export default function BorrowScreen({ navigation, route }) {
 
   const fetchUserDataAndEquipment = async (code) => {
     try {
-      const userRes = await fetch(`${API_URL}/api/users/scan/${code}`);
+      // 🌟 จุดที่ 1: เพิ่ม Header ngrok ทะลุการบล็อกดึงข้อมูลผู้ใช้งาน
+      const userRes = await fetch(`${API_URL}/api/users/scan/${code}`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
       const userResult = await userRes.json();
       
       if (!userRes.ok) return showPopup('error', userResult.message || 'รหัสสมาชิกนี้ไม่มีในระบบ');
@@ -102,7 +107,12 @@ export default function BorrowScreen({ navigation, route }) {
       
       setUserData(userResult);
 
-      const equipRes = await fetch(`${API_URL}/api/inventory/manage`);
+      // 🌟 จุดที่ 2: เพิ่ม Header ngrok ทะลุการบล็อกดึงข้อมูลอุปกรณ์
+      const equipRes = await fetch(`${API_URL}/api/inventory/manage`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
       if (equipRes.ok) {
         const equipData = await equipRes.json();
         const availableItems = equipData.filter(item => parseInt(item.available_qty ?? item.qty ?? item.amount ?? 0) > 0);
@@ -140,9 +150,13 @@ export default function BorrowScreen({ navigation, route }) {
         qty: qtyToBorrow
       };
 
+      // 🌟 จุดที่ 3: เพิ่ม Header ngrok ทะลุการบล็อกยิง API บันทึกการยืม
       const response = await fetch(`${API_URL}/api/borrow`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
         body: JSON.stringify(payload)
       });
 
@@ -230,7 +244,6 @@ export default function BorrowScreen({ navigation, route }) {
             </View>
           </View>
 
-          {/* 🌟 แสดงช่องสภาพอุปกรณ์อัตโนมัติ (ปกติ) */}
           <View style={[styles.inputGroup, { zIndex: 0 }]}>
             <Text style={styles.inputLabel}>สภาพอุปกรณ์</Text>
             <View style={[styles.readOnlyInput, { backgroundColor: '#E6F5EF', borderColor: '#A7F3D0' }]}>
