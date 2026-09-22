@@ -27,7 +27,7 @@ export default function ReportDetailScreen({ navigation, route }) {
   const [webStartDateText, setWebStartDateText] = useState('');
   const [webEndDateText, setWebEndDateText] = useState('');
 
-  const API_URL = 'https://rmutk-sport.onrender.com'; 
+  const API_URL = 'https://envision-stumble-kept.ngrok-free.dev'; 
 
   useEffect(() => {
     fetchDashboardReports();
