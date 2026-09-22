@@ -62,7 +62,11 @@ export default function Dashboard({ route, navigation }) {
   const fetchEquipmentData = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/inventory`); 
+      const response = await fetch(`${API_URL}/api/inventory`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      }); 
       const data = await response.json();
       
       if(Array.isArray(data)) {
@@ -91,7 +95,11 @@ export default function Dashboard({ route, navigation }) {
     try {
       let notifs = [];
 
-      const fitRes = await fetch(`${API_URL}/api/fitness-history/${targetAccountId}`);
+      const fitRes = await fetch(`${API_URL}/api/fitness-history/${targetAccountId}`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
       if (fitRes.ok) {
         const fitData = await fitRes.json();
         fitData.forEach(item => {
@@ -109,7 +117,11 @@ export default function Dashboard({ route, navigation }) {
       }
 
       if (role !== 'external') {
-        const eqRes = await fetch(`${API_URL}/api/history/${targetAccountId}`);
+        const eqRes = await fetch(`${API_URL}/api/history/${targetAccountId}`, {
+          headers: {
+            'ngrok-skip-browser-warning': 'true'
+          }
+        });
         if (eqRes.ok) {
           const eqData = await eqRes.json();
           eqData.forEach(item => {
@@ -164,7 +176,11 @@ export default function Dashboard({ route, navigation }) {
       }
 
       try {
-        const adminNotifRes = await fetch(`${API_URL}/api/notifications/${targetAccountId}`);
+        const adminNotifRes = await fetch(`${API_URL}/api/notifications/${targetAccountId}`, {
+          headers: {
+            'ngrok-skip-browser-warning': 'true'
+          }
+        });
         if (adminNotifRes.ok) {
           const adminNotifsData = await adminNotifRes.json();
           adminNotifsData.forEach(item => {
@@ -341,7 +357,6 @@ export default function Dashboard({ route, navigation }) {
             <View style={styles.eqHeaderRow}>
               <Text style={styles.sectionTitle}>อุปกรณ์ทั้งหมด</Text>
               
-              {/* 🌟 ช่องค้นหาอุปกรณ์ที่ปรับปรุงให้ตรงกับภาพอ้างอิง */}
               <View style={styles.searchContainer}>
                 <TextInput 
                   placeholder="ค้นหา..." 
@@ -439,7 +454,6 @@ const styles = StyleSheet.create({
   
   eqHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   
-  // 🌟 สไตล์ช่องค้นหาอุปกรณ์ใหม่ (ให้ตรงกับรูป)
   searchContainer: { flexDirection: 'row', alignItems: 'center' },
   searchInput: { width: 140, height: 38, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, paddingHorizontal: 15, fontSize: 13, color: '#1E293B', outlineStyle: 'none', marginRight: 8 },
   searchBtn: { backgroundColor: '#00A87E', width: 38, height: 38, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
