@@ -15,7 +15,12 @@ export default function MemberListScreen({ navigation }) {
   const fetchMembers = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/members`);
+      // 🌟 เพิ่ม Header ngrok เพื่อทะลุการบล็อก
+      const res = await fetch(`${API_URL}/api/members`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
       const data = await res.json();
       if (Array.isArray(data)) setMembers(data);
       else setMembers([]);
@@ -27,7 +32,10 @@ export default function MemberListScreen({ navigation }) {
     if (!dateString) return '-';
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return '-';
-    return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear() + 543}`;
+    // แสดงผลแบบ วัน/เดือน/ปีพ.ศ.
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${day}/${month}/${date.getFullYear() + 543}`;
   };
 
   return (
@@ -41,7 +49,6 @@ export default function MemberListScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* 🌟 จุดที่ 2: ครอบตารางสมาชิก */}
         <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} style={{ width: '100%' }}>
           <View style={styles.tableContainer}>
             <View style={styles.tableHeaderRow}>
@@ -51,6 +58,8 @@ export default function MemberListScreen({ navigation }) {
               <Text style={[styles.tableHeaderText, { width: 140, paddingLeft: 10 }]}>คณะ</Text>
               <Text style={[styles.tableHeaderText, { width: 140, paddingLeft: 10 }]}>สาขา</Text>
               <Text style={[styles.tableHeaderText, { width: 100, textAlign: 'center' }]}>เบอร์โทร</Text>
+              {/* 🌟 เพิ่มหัวคอลัมน์ สมัครเมื่อ */}
+              <Text style={[styles.tableHeaderText, { width: 100, textAlign: 'center' }]}>สมัครเมื่อ</Text>
               <Text style={[styles.tableHeaderText, { width: 200, paddingLeft: 10 }]}>อีเมล</Text>
             </View>
 
@@ -61,17 +70,33 @@ export default function MemberListScreen({ navigation }) {
             ) : (
               members.map((item, index) => (
                 <View key={item.id || index} style={[styles.tableDataRow, index === members.length - 1 && { borderBottomWidth: 0 }]}>
-                  <View style={{ width: 140, paddingLeft: 10 }}><Text style={[styles.tableDataText, { fontWeight: 'bold' }]} numberOfLines={1}>{item.name || '-'}</Text></View>
+                  <View style={{ width: 140, paddingLeft: 10 }}>
+                    <Text style={[styles.tableDataText, { fontWeight: 'bold' }]} numberOfLines={1}>{item.name || '-'}</Text>
+                  </View>
                   <View style={{ width: 90, alignItems: 'center' }}>
                     <View style={[styles.roleBadge, item.role === 'นักศึกษา' ? { backgroundColor: '#E6F5EF' } : { backgroundColor: '#FEF3C7' }]}>
                       <Text style={[styles.roleBadgeText, item.role === 'นักศึกษา' ? { color: '#00A87E' } : { color: '#D97706' }]}>{item.role}</Text>
                     </View>
                   </View>
-                  <View style={{ width: 120, alignItems: 'center' }}><Text style={styles.tableDataText}>{item.code || '-'}</Text></View>
-                  <View style={{ width: 140, paddingLeft: 10 }}><Text style={styles.tableDataText} numberOfLines={1}>{item.faculty || '-'}</Text></View>
-                  <View style={{ width: 140, paddingLeft: 10 }}><Text style={styles.tableDataText} numberOfLines={1}>{item.major || '-'}</Text></View>
-                  <View style={{ width: 100, alignItems: 'center' }}><Text style={styles.tableDataText}>{item.phone || '-'}</Text></View>
-                  <View style={{ width: 200, paddingLeft: 10 }}><Text style={styles.tableDataText} numberOfLines={1}>{item.email || '-'}</Text></View>
+                  <View style={{ width: 120, alignItems: 'center' }}>
+                    <Text style={styles.tableDataText}>{item.code || '-'}</Text>
+                  </View>
+                  <View style={{ width: 140, paddingLeft: 10 }}>
+                    <Text style={styles.tableDataText} numberOfLines={1}>{item.faculty || '-'}</Text>
+                  </View>
+                  <View style={{ width: 140, paddingLeft: 10 }}>
+                    <Text style={styles.tableDataText} numberOfLines={1}>{item.major || '-'}</Text>
+                  </View>
+                  <View style={{ width: 100, alignItems: 'center' }}>
+                    <Text style={styles.tableDataText}>{item.phone || '-'}</Text>
+                  </View>
+                  {/* 🌟 แสดงข้อมูล วันที่สมัคร (ดึงจาก item.created_at) */}
+                  <View style={{ width: 100, alignItems: 'center' }}>
+                    <Text style={styles.tableDataText}>{formatDate(item.created_at)}</Text>
+                  </View>
+                  <View style={{ width: 200, paddingLeft: 10 }}>
+                    <Text style={styles.tableDataText} numberOfLines={1}>{item.email || '-'}</Text>
+                  </View>
                 </View>
               ))
             )}
@@ -88,7 +113,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
   headerTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: 'bold', color: '#1E293B' },
   content: { padding: 15 },
-  tableContainer: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, overflow: 'hidden', backgroundColor: '#FFF', minWidth: 900 },
+  // 🌟 ปรับ minWidth ให้กว้างขึ้นเพื่อรองรับคอลัมน์ใหม่
+  tableContainer: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, overflow: 'hidden', backgroundColor: '#FFF', minWidth: 1000 },
   tableHeaderRow: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingVertical: 12 },
   tableHeaderText: { fontSize: 12, fontWeight: 'bold', color: '#1E293B' },
   tableDataRow: { flexDirection: 'row', backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingVertical: 14, alignItems: 'center' },
