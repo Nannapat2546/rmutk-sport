@@ -113,9 +113,9 @@ export default function FitnessScannerScreen({ navigation }) {
     }
   };
 
+  // 🌟 ฟังก์ชันส่งรูปไปให้ Backend อ่านตัวหนังสือจากบัตร (OCR) แบบปรับปรุงใหม่
   const processCardOCR = async (base64Image) => {
     try {
-      // 🌟 จุดที่แก้ไข 3: เพิ่ม Header ทะลุ ngrok ส่งภาพไปทำ OCR
       const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/ocr', {
         method: 'POST',
         headers: { 
@@ -126,19 +126,29 @@ export default function FitnessScannerScreen({ navigation }) {
       });
 
       const result = await response.json();
-      if (!response.ok || !result.text) {
-        throw new Error(result.message || 'ไม่สามารถอ่านข้อความจากบัตรได้');
+      if (!response.ok) {
+        throw new Error(result.message || 'ไม่สามารถอ่านข้อความจากรูปภาพได้');
       }
 
-      const extractedText = result.text;
-      const idRegex = /\b\d\s?\d{4}\s?\d{5}\s?\d{2}\s?\d\b|\b\d{13}\b/;
-      const idMatch = extractedText.match(idRegex);
-      
-      if (!idMatch) {
-        throw new Error('ไม่พบเลขประจำตัวประชาชนบนบัตร กรุณาถ่ายใหม่อีกครั้ง');
+      // 1. ดึงเลข 13 หลักที่ Backend กรองมาให้แล้วเป็นอันดับแรก
+      let finalId = result.citizenId;
+
+      // 2. ถ้า Backend ไม่ส่งมา ให้ Frontend ลองค้นหาเองจากข้อความดิบอีกรอบ
+      if (!finalId && result.text) {
+        const idRegex = /(?:\d[ \.\-\_]*){13}/;
+        const idMatch = result.text.match(idRegex);
+        if (idMatch) {
+          finalId = idMatch[0].replace(/[^\d]/g, '');
+          if (finalId.length > 13) finalId = finalId.substring(0, 13);
+        }
       }
 
-      return idMatch[0].replace(/\s/g, '');
+      // 3. ถ้าหาไม่เจอจริงๆ หรือได้เลขไม่ครบ 13 หลัก ให้แจ้ง Error
+      if (!finalId || finalId.length !== 13) {
+        throw new Error('ระบบ AI มองไม่เห็นเลข 13 หลักบนบัตร กรุณาถ่ายในที่สว่างและให้ภาพชัดเจนที่สุดครับ');
+      }
+
+      return finalId;
     } catch (error) {
       throw error;
     }
