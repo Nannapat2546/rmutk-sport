@@ -90,13 +90,14 @@ export default function RegisterOutsider({ navigation }) {
     setIsCameraVisible(true);
   };
 
+  // 🌟 ฟังก์ชันจัดการข้อมูล OCR (ปรับปรุงให้ดึงเฉพาะ 13 หลักและชื่อที่ถูกต้อง)
   const processOcrData = async (base64Image) => {
     try {
       const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/ocr', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true' // 🌟 เพิ่ม Header
+          'ngrok-skip-browser-warning': 'true' 
         },
         body: JSON.stringify({ image: base64Image })
       });
@@ -109,16 +110,40 @@ export default function RegisterOutsider({ navigation }) {
 
       setIsCameraVisible(false);
 
-      if (result.citizenId || result.fullName) {
-        if (result.citizenId) setCitizenId(result.citizenId);
-        if (result.fullName) setName(result.fullName);
-        
-        // 🌟 ดึงรูปที่ถ่ายมาใส่เป็นรูปโปรไฟล์ไปด้วยเลย
-        const base64Uri = base64Image.startsWith('data:image') ? base64Image : `data:image/jpeg;base64,${base64Image}`;
-        if (!profileImage) {
-           setProfileImage(base64Uri);
-        }
+      let extractedId = result.citizenId || '';
+      let extractedName = result.fullName || '';
 
+      // 🌟 ใช้ Regex ค้นหาและกรองข้อมูลจากข้อความดิบ (Raw Text) ที่ AI อ่านได้
+      if (result.text) {
+        // 1. ค้นหาเฉพาะกลุ่มตัวเลขที่ยาว 13 หลัก
+        const idRegex = /(?:\d[ \.\-\_]*){13}/;
+        const idMatch = result.text.match(idRegex);
+        if (idMatch) {
+          const cleanId = idMatch[0].replace(/[^\d]/g, '');
+          if (cleanId.length >= 13) {
+            extractedId = cleanId.substring(0, 13);
+          }
+        }
+        
+        // 2. ค้นหาชื่อโดยอิงจากคำนำหน้า (นาย, นาง, น.ส. ฯลฯ)
+        const nameRegex = /(นาย|นาง|น\.ส\.|นางสาว|ด\.ช\.|ด\.ญ\.)\s*([ก-๙]+)\s+([ก-๙]+)/;
+        const nameMatch = result.text.match(nameRegex);
+        if (nameMatch) {
+           // nameMatch[1] = คำนำหน้า, nameMatch[2] = ชื่อ, nameMatch[3] = นามสกุล
+           extractedName = `${nameMatch[1]}${nameMatch[2]} ${nameMatch[3]}`;
+        }
+      }
+
+      // คลีนข้อมูลขั้นสุดท้าย
+      if (extractedId) extractedId = extractedId.replace(/[^\d]/g, '').substring(0, 13);
+      // ถ้าชื่อที่ดึงมาผิดเป็นคำว่า "บัตรประจำตัวประชาชน" ให้ลบทิ้งไปเลยเพื่อให้ผู้ใช้พิมพ์เอง
+      if (extractedName && (extractedName.includes("บัตร") || extractedName.includes("ประชาชน"))) {
+        extractedName = ""; 
+      }
+
+      if (extractedId || extractedName) {
+        if (extractedId) setCitizenId(extractedId);
+        if (extractedName) setName(extractedName);
         showPopup('success', 'สแกนสำเร็จ กรุณาตรวจสอบและแก้ไขข้อมูลให้ถูกต้องอีกครั้ง');
       } else {
         showPopup('error', 'ระบบ AI อ่านข้อความไม่ชัดเจน เนื่องจากภาพอาจมีแสงสะท้อน กรุณากรอกข้อมูลด้วยตนเอง');
@@ -181,8 +206,8 @@ export default function RegisterOutsider({ navigation }) {
     const cleanPhone = phone.replace(/[^0-9]/g, '');
 
     const outsiderData = {
-      profileImage: profileImage || idCardImage, // 🌟 ถ้าไม่เลือกรูปโปรไฟล์ ให้ใช้รูปบัตรแทน
-      profile_image: profileImage || idCardImage, 
+      profileImage: profileImage, // 🌟 ลบเงื่อนไขการใช้รูปบัตร ปชช. แทนรูปโปรไฟล์ออกแล้ว
+      profile_image: profileImage, 
       idCardImage: idCardImage, 
       id_card_image: idCardImage,
       citizenId: cleanCitizenId,
@@ -199,7 +224,7 @@ export default function RegisterOutsider({ navigation }) {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true' // 🌟 เพิ่ม Header
+          'ngrok-skip-browser-warning': 'true' 
         },
         body: JSON.stringify(outsiderData),
       });
