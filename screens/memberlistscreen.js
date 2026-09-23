@@ -90,12 +90,12 @@ export default function MemberListScreen({ navigation }) {
                   <View style={{ width: 100, alignItems: 'center' }}>
                     <Text style={styles.tableDataText}>{item.phone || '-'}</Text>
                   </View>
+                  <View style={{ width: 200, paddingLeft: 10 }}>
+                    <Text style={styles.tableDataText} numberOfLines={1}>{item.email || '-'}</Text>
+                  </View>
                   {/* 🌟 แสดงข้อมูล วันที่สมัคร (ดึงจาก item.created_at) */}
                   <View style={{ width: 100, alignItems: 'center' }}>
                     <Text style={styles.tableDataText}>{formatDate(item.created_at)}</Text>
-                  </View>
-                  <View style={{ width: 200, paddingLeft: 10 }}>
-                    <Text style={styles.tableDataText} numberOfLines={1}>{item.email || '-'}</Text>
                   </View>
                 </View>
               ))
