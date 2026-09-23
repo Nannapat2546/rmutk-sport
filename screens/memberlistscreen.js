@@ -58,9 +58,9 @@ export default function MemberListScreen({ navigation }) {
               <Text style={[styles.tableHeaderText, { width: 140, paddingLeft: 10 }]}>คณะ</Text>
               <Text style={[styles.tableHeaderText, { width: 140, paddingLeft: 10 }]}>สาขา</Text>
               <Text style={[styles.tableHeaderText, { width: 100, textAlign: 'center' }]}>เบอร์โทร</Text>
+              <Text style={[styles.tableHeaderText, { width: 200, paddingLeft: 10 }]}>อีเมล</Text>
               {/* 🌟 เพิ่มหัวคอลัมน์ สมัครเมื่อ */}
               <Text style={[styles.tableHeaderText, { width: 100, textAlign: 'center' }]}>สมัครเมื่อ</Text>
-              <Text style={[styles.tableHeaderText, { width: 200, paddingLeft: 10 }]}>อีเมล</Text>
             </View>
 
             {isLoading ? (
