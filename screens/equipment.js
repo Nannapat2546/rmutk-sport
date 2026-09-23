@@ -69,7 +69,10 @@ export default function EquipmentScreen({ navigation }) {
   const fetchEquipment = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/inventory/manage`);
+      // 🌟 จุดที่แก้ไข 1: เพิ่ม Header ตอนดึงข้อมูลอุปกรณ์
+      const res = await fetch(`${API_URL}/api/inventory/manage`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+      });
       const data = await res.json();
       if (data && Array.isArray(data)) {
         setEquipList(data);
@@ -84,7 +87,10 @@ export default function EquipmentScreen({ navigation }) {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/categories`);
+      // 🌟 จุดที่แก้ไข 2: เพิ่ม Header ตอนดึงข้อมูลหมวดหมู่
+      const res = await fetch(`${API_URL}/api/categories`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+      });
       const data = await res.json();
       if (Array.isArray(data)) setCategories(data);
       else setCategories([]);
@@ -104,9 +110,13 @@ export default function EquipmentScreen({ navigation }) {
   const handleSaveCategory = async () => {
     if (!newCategoryName) return showAlert('แจ้งเตือน', 'กรุณากรอกชื่อประเภท');
     try {
+      // 🌟 จุดที่แก้ไข 3: เพิ่ม Header ตอนบันทึกหมวดหมู่
       const res = await fetch(`${API_URL}/api/categories`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
         body: JSON.stringify({ name: newCategoryName })
       });
       if (res.ok) {
@@ -123,7 +133,11 @@ export default function EquipmentScreen({ navigation }) {
 
   const handleDeleteCategory = async (id) => {
     try {
-      const res = await fetch(`${API_URL}/api/categories/${id}`, { method: 'DELETE' });
+      // 🌟 จุดที่แก้ไข 4: เพิ่ม Header ตอนลบหมวดหมู่
+      const res = await fetch(`${API_URL}/api/categories/${id}`, { 
+        method: 'DELETE',
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+      });
       if (res.ok) fetchCategories();
       else showAlert('ลบไม่สำเร็จ', 'อาจมีอุปกรณ์ที่ใช้งานหมวดหมู่นี้อยู่');
     } catch (error) {
@@ -134,7 +148,11 @@ export default function EquipmentScreen({ navigation }) {
   const handleDeleteEquipment = (id) => {
     const executeDelete = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/inventory/${id}`, { method: 'DELETE' });
+        // 🌟 จุดที่แก้ไข 5: เพิ่ม Header ตอนลบอุปกรณ์
+        const res = await fetch(`${API_URL}/api/inventory/${id}`, { 
+          method: 'DELETE',
+          headers: { 'ngrok-skip-browser-warning': 'true' }
+        });
         if (res.ok) fetchEquipment();
         else showAlert('ข้อผิดพลาด', 'ไม่สามารถลบอุปกรณ์ได้');
       } catch (error) {
@@ -183,7 +201,11 @@ export default function EquipmentScreen({ navigation }) {
   const handleRepairEquipment = (id) => {
     const executeRepair = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/inventory/${id}/repair`, { method: 'POST' });
+        // 🌟 จุดที่แก้ไข 6: เพิ่ม Header ตอนกดซ่อมอุปกรณ์
+        const res = await fetch(`${API_URL}/api/inventory/${id}/repair`, { 
+          method: 'POST',
+          headers: { 'ngrok-skip-browser-warning': 'true' }
+        });
         if (res.ok) {
           showAlert('สำเร็จ', 'นำอุปกรณ์ที่ซ่อมแซมกลับเข้า "สต็อกว่าง" เรียบร้อยแล้ว!');
           fetchEquipment();
@@ -254,9 +276,13 @@ export default function EquipmentScreen({ navigation }) {
     const url = editingId ? `${API_URL}/api/inventory/${editingId}` : `${API_URL}/api/inventory`;
 
     try {
+      // 🌟 จุดที่แก้ไข 7: เพิ่ม Header ตอนบันทึกอุปกรณ์
       const res = await fetch(url, {
         method: method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
         body: JSON.stringify(equipData)
       });
       
@@ -293,7 +319,6 @@ export default function EquipmentScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          {/* 🌟 จุดที่มีการปรับแก้: ห่อตารางด้วย ScrollView แนวนอนเพื่อให้เลื่อนบนมือถือได้ */}
           <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} style={{ width: '100%' }}>
             <View style={styles.tableContainer}>
               <View style={styles.tableHeaderRow}>
@@ -565,7 +590,6 @@ const styles = StyleSheet.create({
   btnChooseFile: { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#CCC', paddingVertical: 8, paddingHorizontal: 10, borderRadius: 4, marginRight: 8 },
   btnChooseFileText: { fontSize: 11, color: '#333' },
 
-  // 🌟 ปรับขนาดตารางให้แสดงผลบนมือถือได้
   tableContainer: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, overflow: 'hidden', marginBottom: 15, minWidth: 700 },
   tableHeaderRow: { flexDirection: 'row', backgroundColor: '#F8FAFC', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingVertical: 12 },
   tableHeaderText: { fontSize: 12, fontWeight: 'bold', color: '#1E293B' },
