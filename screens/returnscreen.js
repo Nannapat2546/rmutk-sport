@@ -43,7 +43,6 @@ const CustomDropdown = ({ label, options, selectedValue, onSelect }) => {
 export default function ReturnScreen({ navigation, route }) {
   const qrData = route.params?.qrData || '';
   
-  // 🌟 แก้ไข URL ให้ถูกต้อง
   const API_URL = 'https://envision-stumble-kept.ngrok-free.dev'; 
   
   const [isLoading, setIsLoading] = useState(true);
@@ -98,19 +97,24 @@ export default function ReturnScreen({ navigation, route }) {
 
   const fetchUserDataAndPendingItem = async (code) => {
     try {
-      const userRes = await fetch(`${API_URL}/api/users/scan/${code}`);
+      // 🌟 จุดที่ 1: เพิ่ม Header ทะลุ ngrok ดึงข้อมูลผู้ใช้งาน
+      const userRes = await fetch(`${API_URL}/api/users/scan/${code}`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+      });
       const userResult = await userRes.json();
       
       if (!userRes.ok) return showPopup('error', userResult.message || 'รหัสสมาชิกนี้ไม่มีในระบบ');
       setUserData(userResult);
 
-      const pendingRes = await fetch(`${API_URL}/api/returns/pending/${userResult.id}`);
+      // 🌟 จุดที่ 2: เพิ่ม Header ทะลุ ngrok ดึงข้อมูลรายการยืมที่ค้างส่ง
+      const pendingRes = await fetch(`${API_URL}/api/returns/pending/${userResult.id}`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+      });
       const pendingResult = await pendingRes.json();
 
       if (!pendingRes.ok) return showPopup('error', 'ผู้ใช้นี้ไม่มีอุปกรณ์ค้างส่ง');
 
       setTransactionData(pendingResult);
-      // เริ่มต้นให้จำนวนคืนปกติเท่ากับจำนวนที่ยืมไป
       setNormalQty(parseInt(pendingResult.borrowed_qty) || 0); 
       setBrokenQty(0);
 
@@ -149,9 +153,13 @@ export default function ReturnScreen({ navigation, route }) {
         new_expected_date: expectedReturnDateStr, 
       };
 
+      // 🌟 จุดที่ 3: เพิ่ม Header ทะลุ ngrok บันทึกการทำรายการคืน
       const response = await fetch(`${API_URL}/api/return`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
         body: JSON.stringify(requestBody)
       });
 
@@ -212,7 +220,7 @@ export default function ReturnScreen({ navigation, route }) {
             <Text style={styles.studentIdText}>รหัส: {userData?.code_id || 'xxxxxxxxxxxxx'}</Text>
           </View>
 
-          {/* ================= Borrow Info Section (ดีไซน์ตามรูป) ================= */}
+          {/* ================= Borrow Info Section ================= */}
           <View style={styles.borrowInfoCard}>
             <Text style={styles.borrowInfoTitle}>ข้อมูลรายการยืม</Text>
             
@@ -445,7 +453,6 @@ const styles = StyleSheet.create({
   nameText: { fontSize: 20, fontWeight: 'bold', color: '#111827', marginBottom: 6 },
   studentIdText: { fontSize: 14, color: '#64748B' },
 
-  // ================= 🌟 สไตล์กล่องข้อมูลยืม (แบบออกแบบคลีนๆ) =================
   borrowInfoCard: {
     borderWidth: 1,
     borderColor: '#F1F5F9',
