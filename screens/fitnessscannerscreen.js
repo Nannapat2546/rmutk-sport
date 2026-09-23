@@ -53,7 +53,6 @@ export default function FitnessScannerScreen({ navigation }) {
     setLoadingText('กำลังตรวจสอบข้อมูลในระบบ...');
 
     try {
-      // 🌟 จุดที่แก้ไข 1: เพิ่ม Header ทะลุ ngrok ดึงข้อมูลผู้ใช้งาน (นักศึกษา)
       const response = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/users/scan/${code}`, {
         headers: {
           'ngrok-skip-browser-warning': 'true'
@@ -81,7 +80,6 @@ export default function FitnessScannerScreen({ navigation }) {
 
         let idCardImg = null;
         try {
-          // 🌟 จุดที่แก้ไข 2: เพิ่ม Header ทะลุ ngrok ดึงข้อมูลภาพบัตร (บุคคลภายนอก)
           const detailRes = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/users/${result.id}/detail`, {
             headers: {
               'ngrok-skip-browser-warning': 'true'
@@ -113,7 +111,6 @@ export default function FitnessScannerScreen({ navigation }) {
     }
   };
 
-  // 🌟 ฟังก์ชันส่งรูปไปให้ Backend อ่านตัวหนังสือจากบัตร (OCR) แบบปรับปรุงใหม่
   const processCardOCR = async (base64Image) => {
     try {
       const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/ocr', {
@@ -130,10 +127,8 @@ export default function FitnessScannerScreen({ navigation }) {
         throw new Error(result.message || 'ไม่สามารถอ่านข้อความจากรูปภาพได้');
       }
 
-      // 1. ดึงเลข 13 หลักที่ Backend กรองมาให้แล้วเป็นอันดับแรก
       let finalId = result.citizenId;
 
-      // 2. ถ้า Backend ไม่ส่งมา ให้ Frontend ลองค้นหาเองจากข้อความดิบอีกรอบ
       if (!finalId && result.text) {
         const idRegex = /(?:\d[ \.\-\_]*){13}/;
         const idMatch = result.text.match(idRegex);
@@ -143,7 +138,6 @@ export default function FitnessScannerScreen({ navigation }) {
         }
       }
 
-      // 3. ถ้าหาไม่เจอจริงๆ หรือได้เลขไม่ครบ 13 หลัก ให้แจ้ง Error
       if (!finalId || finalId.length !== 13) {
         throw new Error('ระบบ AI มองไม่เห็นเลข 13 หลักบนบัตร กรุณาถ่ายในที่สว่างและให้ภาพชัดเจนที่สุดครับ');
       }
@@ -169,7 +163,6 @@ export default function FitnessScannerScreen({ navigation }) {
 
       setLoadingText('กำลังตรวจสอบข้อมูลในระบบ...');
       
-      // 🌟 จุดที่แก้ไข 4: เพิ่ม Header ทะลุ ngrok ดึงข้อมูลผู้ใช้งาน (บุคคลภายนอก)
       const response = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/users/scan/${citizenId}`, {
         headers: {
           'ngrok-skip-browser-warning': 'true'
@@ -263,7 +256,8 @@ export default function FitnessScannerScreen({ navigation }) {
                   <CameraView
                     ref={cameraRef}
                     onBarcodeScanned={scanned ? undefined : ({ data }) => processScannedCode(data)}
-                    barcodeScannerSettings={{ barcodeTypes: ["qr", "code128", "code39", "ean13"] }}
+                    // 🌟 ลบบาร์โค้ดแบบเส้นออก ให้กล้องค้นหาเฉพาะ QR Code เท่านั้น จะได้ไม่ขโมยสแกนบัตร ปชช.
+                    barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
                     style={StyleSheet.absoluteFillObject}
                   />
                   
