@@ -78,7 +78,7 @@ export default function FitnessScannerScreen({ navigation }) {
           return;
         }
 
-        let idCardImg = null;
+        let userProfileImg = null;
         try {
           const detailRes = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/users/${result.id}/detail`, {
             headers: {
@@ -87,7 +87,8 @@ export default function FitnessScannerScreen({ navigation }) {
           });
           if (detailRes.ok) {
             const detailData = await detailRes.json();
-            idCardImg = detailData.id_card_image || detailData.profile_image || null;
+            // 🌟 ดึงรูปภาพโปรไฟล์จากระบบมาใช้
+            userProfileImg = detailData.profile_image || detailData.id_card_image || detailData.avatar || null;
           }
         } catch (e) {
           console.log('Could not fetch detail image:', e);
@@ -95,7 +96,7 @@ export default function FitnessScannerScreen({ navigation }) {
 
         setScannedUser({ 
           ...result, 
-          liveImage: idCardImg || result.avatar || null 
+          liveImage: userProfileImg // ใช้รูปจากระบบ แทนรูปที่เพิ่งถ่าย
         });
         setScanMode(null); 
         setVerifyModalVisible(true); 
@@ -157,8 +158,7 @@ export default function FitnessScannerScreen({ navigation }) {
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.8, base64: true });
       const rawBase64 = photo.base64;
-      const base64Uri = rawBase64.startsWith('data:image') ? rawBase64 : `data:image/jpeg;base64,${rawBase64}`;
-
+      
       const citizenId = await processCardOCR(photo.base64);
 
       setLoadingText('กำลังตรวจสอบข้อมูลในระบบ...');
@@ -177,7 +177,21 @@ export default function FitnessScannerScreen({ navigation }) {
           return;
         }
 
-        setScannedUser({ ...result, liveImage: base64Uri });
+        // 🌟 ดึงข้อมูลรูปแบบเดิมจากระบบ เพื่อมาแสดงใน Pop-up
+        let userProfileImg = null;
+        try {
+          const detailRes = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/users/${result.id}/detail`, {
+            headers: { 'ngrok-skip-browser-warning': 'true' }
+          });
+          if (detailRes.ok) {
+            const detailData = await detailRes.json();
+            userProfileImg = detailData.profile_image || detailData.id_card_image || detailData.avatar || null;
+          }
+        } catch (e) {
+          console.log('Error fetching user image:', e);
+        }
+
+        setScannedUser({ ...result, liveImage: userProfileImg }); // ใช้รูปที่ดึงจากระบบ
         setScanMode(null);
         setVerifyModalVisible(true);
       } else {
@@ -256,7 +270,6 @@ export default function FitnessScannerScreen({ navigation }) {
                   <CameraView
                     ref={cameraRef}
                     onBarcodeScanned={scanned ? undefined : ({ data }) => processScannedCode(data)}
-                    // 🌟 ลบบาร์โค้ดแบบเส้นออก ให้กล้องค้นหาเฉพาะ QR Code เท่านั้น จะได้ไม่ขโมยสแกนบัตร ปชช.
                     barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
                     style={StyleSheet.absoluteFillObject}
                   />
@@ -345,8 +358,7 @@ export default function FitnessScannerScreen({ navigation }) {
                 <Image source={{ uri: scannedUser.liveImage }} style={styles.idCardImage} />
               ) : (
                 <View style={styles.noImagePlaceholder}>
-                  <Ionicons name="image-outline" size={40} color="#A0A0A0" />
-                  <Text style={{ color: '#A0A0A0', marginTop: 5 }}>ไม่พบรูปภาพบัตร</Text>
+                  <Ionicons name="person-circle-outline" size={80} color="#CBD5E1" />
                 </View>
               )}
             </View>
@@ -423,9 +435,10 @@ const styles = StyleSheet.create({
   verifyModalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, gap: 10 },
   verifyModalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
   
-  idCardImageContainer: { width: '100%', height: 160, backgroundColor: '#000', borderRadius: 12, overflow: 'hidden', marginBottom: 15, borderWidth: 1, borderColor: '#E2E8F0' },
-  idCardImage: { width: '100%', height: '100%', resizeMode: 'contain' },
-  noImagePlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F1F5F9' },
+  // 🌟 ปรับกรอบรูปภาพโปรไฟล์ให้เป็นวงกลม ดูสวยงามขึ้น
+  idCardImageContainer: { width: 120, height: 120, borderRadius: 60, backgroundColor: '#F1F5F9', overflow: 'hidden', marginBottom: 20, borderWidth: 2, borderColor: '#E2E8F0', alignSelf: 'center' },
+  idCardImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  noImagePlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
 
   userInfoBox: { width: '100%', backgroundColor: '#F8FAFC', borderRadius: 12, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: '#E2E8F0' },
   userNameLabel: { fontSize: 13, color: '#64748B', marginBottom: 2 },
