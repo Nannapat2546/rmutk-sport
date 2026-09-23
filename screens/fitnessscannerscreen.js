@@ -11,21 +11,17 @@ export default function FitnessScannerScreen({ navigation }) {
   
   const cameraRef = useRef(null);
   
-  // State ควบคุมหน้าจอ
   const [scanMode, setScanMode] = useState(null); 
   const [scanned, setScanned] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('');
 
-  // State สำหรับโหมดกล้อง/พิมพ์รหัส
   const [isCameraActive, setIsCameraActive] = useState(true);
   const [manualCode, setManualCode] = useState('');
 
-  // State สำหรับ Pop-up ตรวจสอบข้อมูล (ใช้เฉพาะบุคคลภายนอก)
   const [verifyModalVisible, setVerifyModalVisible] = useState(false);
   const [scannedUser, setScannedUser] = useState(null);
 
-  // 🌟 State สำหรับ Popup แจ้งเตือนข้อผิดพลาด (เช่น ยังไม่สมัครสมาชิก / ข้อมูลไม่ถูกต้อง)
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -50,7 +46,6 @@ export default function FitnessScannerScreen({ navigation }) {
     setLoading(false);
   };
 
-  // 🌟 ฟังก์ชันค้นหาข้อมูลจากรหัส
   const processScannedCode = async (code) => {
     if (scanned) return;
     setScanned(true);
@@ -58,7 +53,12 @@ export default function FitnessScannerScreen({ navigation }) {
     setLoadingText('กำลังตรวจสอบข้อมูลในระบบ...');
 
     try {
-      const response = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/users/scan/${code}`);
+      // 🌟 จุดที่แก้ไข 1: เพิ่ม Header ทะลุ ngrok ดึงข้อมูลผู้ใช้งาน (นักศึกษา)
+      const response = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/users/scan/${code}`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
       const result = await response.json();
 
       if (response.ok) {
@@ -73,17 +73,20 @@ export default function FitnessScannerScreen({ navigation }) {
           return;
         }
 
-        // 🌟 ถ้านักศึกษา: ข้ามหน้า Pop-up ไปหน้าฟิตเนสทันที
         if (result.role === 'student') {
           setScanMode(null);
           navigation.replace('Fitness', { qrData: result.code_id });
           return;
         }
 
-        // 🌟 ถ้าเป็นบุคคลภายนอก: ดึงรูปมาโชว์ใน Modal ตรวจสอบ
         let idCardImg = null;
         try {
-          const detailRes = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/users/${result.id}/detail`);
+          // 🌟 จุดที่แก้ไข 2: เพิ่ม Header ทะลุ ngrok ดึงข้อมูลภาพบัตร (บุคคลภายนอก)
+          const detailRes = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/users/${result.id}/detail`, {
+            headers: {
+              'ngrok-skip-browser-warning': 'true'
+            }
+          });
           if (detailRes.ok) {
             const detailData = await detailRes.json();
             idCardImg = detailData.id_card_image || detailData.profile_image || null;
@@ -99,7 +102,6 @@ export default function FitnessScannerScreen({ navigation }) {
         setScanMode(null); 
         setVerifyModalVisible(true); 
       } else {
-        // 🌟 กรณีไม่พบข้อมูลในระบบ (ยังไม่ได้สมัครสมาชิก)
         showErrorPopup('ไม่พบข้อมูลสมาชิกในระบบ\nบัตรนี้อาจยังไม่ได้ลงทะเบียนสมัครสมาชิก กรุณาลงทะเบียนก่อนใช้งานครับ');
         setTimeout(() => setScanned(false), 2000);
       }
@@ -111,12 +113,15 @@ export default function FitnessScannerScreen({ navigation }) {
     }
   };
 
-  // 🌟 ฟังก์ชันส่งรูปไปให้ Backend อ่านตัวหนังสือจากบัตร (OCR)
   const processCardOCR = async (base64Image) => {
     try {
+      // 🌟 จุดที่แก้ไข 3: เพิ่ม Header ทะลุ ngrok ส่งภาพไปทำ OCR
       const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/ocr', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
         body: JSON.stringify({ image: base64Image })
       });
 
@@ -139,7 +144,6 @@ export default function FitnessScannerScreen({ navigation }) {
     }
   };
 
-  // 📸 ฟังก์ชันถ่ายรูปหน้าบัตร (สำหรับบุคคลภายนอก)
   const handleCaptureCard = async () => {
     if (!cameraRef.current) return;
 
@@ -154,7 +158,13 @@ export default function FitnessScannerScreen({ navigation }) {
       const citizenId = await processCardOCR(photo.base64);
 
       setLoadingText('กำลังตรวจสอบข้อมูลในระบบ...');
-      const response = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/users/scan/${citizenId}`);
+      
+      // 🌟 จุดที่แก้ไข 4: เพิ่ม Header ทะลุ ngrok ดึงข้อมูลผู้ใช้งาน (บุคคลภายนอก)
+      const response = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/users/scan/${citizenId}`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
       const result = await response.json();
 
       if (response.ok) {
@@ -298,7 +308,7 @@ export default function FitnessScannerScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* 🌟 Pop-up แจ้งเตือนข้อผิดพลาด (เช่น ยังไม่สมัครสมาชิก / ข้อมูลไม่ตรงกัน) */}
+      {/* 🌟 Pop-up แจ้งเตือนข้อผิดพลาด */}
       <Modal transparent={true} visible={errorModalVisible} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.verifyModalBox}>
