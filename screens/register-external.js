@@ -90,7 +90,7 @@ export default function RegisterOutsider({ navigation }) {
     setIsCameraVisible(true);
   };
 
-  // 🌟 ฟังก์ชันจัดการข้อมูล OCR (ปรับปรุงให้ดึงเฉพาะ 13 หลักและชื่อที่ถูกต้อง)
+  // 🌟 ฟังก์ชันจัดการข้อมูล OCR (ปรับปรุงใหม่ กรองขยะทิ้ง เอาแค่เลข 13 หลัก กับ ชื่อ-นามสกุล)
   const processOcrData = async (base64Image) => {
     try {
       const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/ocr', {
@@ -110,40 +110,48 @@ export default function RegisterOutsider({ navigation }) {
 
       setIsCameraVisible(false);
 
-      let extractedId = result.citizenId || '';
-      let extractedName = result.fullName || '';
+      let finalId = '';
+      let finalName = '';
 
-      // 🌟 ใช้ Regex ค้นหาและกรองข้อมูลจากข้อความดิบ (Raw Text) ที่ AI อ่านได้
       if (result.text) {
-        // 1. ค้นหาเฉพาะกลุ่มตัวเลขที่ยาว 13 หลัก
-        const idRegex = /(?:\d[ \.\-\_]*){13}/;
-        const idMatch = result.text.match(idRegex);
+        // 1. ดึงเฉพาะตัวเลข 13 หลัก (ลบเว้นวรรคทิ้งก่อน แล้วหาตัวเลข 13 ตัวติดกัน)
+        const cleanNumbers = result.text.replace(/[^\d]/g, ''); 
+        const idMatch = cleanNumbers.match(/\d{13}/); 
         if (idMatch) {
-          const cleanId = idMatch[0].replace(/[^\d]/g, '');
-          if (cleanId.length >= 13) {
-            extractedId = cleanId.substring(0, 13);
+          finalId = idMatch[0];
+        }
+
+        // 2. ดึงชื่อ-นามสกุล โดยแยกทีละบรรทัด หาบรรทัดที่ขึ้นต้นด้วยคำนำหน้าเท่านั้น
+        const textLines = result.text.split('\n');
+        const nameRegex = /(นาย|นาง|นางสาว|น\.ส\.|ด\.ช\.|ด\.ญ\.)\s*([ก-๙]+)\s+([ก-๙]+)/;
+        
+        for (let line of textLines) {
+          // ข้ามบรรทัดที่มีคำขยะพวกนี้เด็ดขาด
+          if (line.includes("บัตร") || line.includes("ประชาชน") || line.includes("Thai")) continue;
+          
+          const match = line.match(nameRegex);
+          if (match) {
+            // ประกอบ คำนำหน้า ชื่อ นามสกุล เข้าด้วยกัน
+            finalName = `${match[1]}${match[2]} ${match[3]}`;
+            break; 
           }
         }
-        
-        // 2. ค้นหาชื่อโดยอิงจากคำนำหน้า (นาย, นาง, น.ส. ฯลฯ)
-        const nameRegex = /(นาย|นาง|น\.ส\.|นางสาว|ด\.ช\.|ด\.ญ\.)\s*([ก-๙]+)\s+([ก-๙]+)/;
-        const nameMatch = result.text.match(nameRegex);
-        if (nameMatch) {
-           // nameMatch[1] = คำนำหน้า, nameMatch[2] = ชื่อ, nameMatch[3] = นามสกุล
-           extractedName = `${nameMatch[1]}${nameMatch[2]} ${nameMatch[3]}`;
+      }
+
+      // 3. ถ้า Frontend หาไม่เจอ ให้ลองเอาที่ Backend ส่งมาคลีนอีกรอบ
+      if (!finalId && result.citizenId) {
+        finalId = result.citizenId.replace(/[^\d]/g, '').substring(0, 13);
+      }
+      if (!finalName && result.fullName) {
+        if (!result.fullName.includes("บัตร") && !result.fullName.includes("ประชาชน")) {
+          finalName = result.fullName;
         }
       }
 
-      // คลีนข้อมูลขั้นสุดท้าย
-      if (extractedId) extractedId = extractedId.replace(/[^\d]/g, '').substring(0, 13);
-      // ถ้าชื่อที่ดึงมาผิดเป็นคำว่า "บัตรประจำตัวประชาชน" ให้ลบทิ้งไปเลยเพื่อให้ผู้ใช้พิมพ์เอง
-      if (extractedName && (extractedName.includes("บัตร") || extractedName.includes("ประชาชน"))) {
-        extractedName = ""; 
-      }
-
-      if (extractedId || extractedName) {
-        if (extractedId) setCitizenId(extractedId);
-        if (extractedName) setName(extractedName);
+      // อัปเดต State (จะไม่ตั้งค่า ProfileImage เด็ดขาด)
+      if (finalId || finalName) {
+        if (finalId && finalId.length === 13) setCitizenId(finalId);
+        if (finalName) setName(finalName);
         showPopup('success', 'สแกนสำเร็จ กรุณาตรวจสอบและแก้ไขข้อมูลให้ถูกต้องอีกครั้ง');
       } else {
         showPopup('error', 'ระบบ AI อ่านข้อความไม่ชัดเจน เนื่องจากภาพอาจมีแสงสะท้อน กรุณากรอกข้อมูลด้วยตนเอง');
@@ -205,8 +213,9 @@ export default function RegisterOutsider({ navigation }) {
     const cleanCitizenId = citizenId.replace(/[^0-9]/g, '');
     const cleanPhone = phone.replace(/[^0-9]/g, '');
 
+    // 🌟 ส่งค่า profileImage แค่ถ้ามีการอัปโหลด ถ้าไม่อัปโหลดก็ให้มันส่งค่าว่างไปเลย ไม่เอารูปบัตรมาแทน
     const outsiderData = {
-      profileImage: profileImage, // 🌟 ลบเงื่อนไขการใช้รูปบัตร ปชช. แทนรูปโปรไฟล์ออกแล้ว
+      profileImage: profileImage, 
       profile_image: profileImage, 
       idCardImage: idCardImage, 
       id_card_image: idCardImage,
@@ -278,11 +287,12 @@ export default function RegisterOutsider({ navigation }) {
               </View>
               <TextInput
                 style={styles.input}
-                placeholder="X-XXXX-XXXXX-XX-X"
+                placeholder="เลข 13 หลัก"
                 placeholderTextColor="#A0A0A0"
                 keyboardType="numeric"
                 value={citizenId}
                 onChangeText={setCitizenId}
+                maxLength={13}
               />
             </View>
 
@@ -313,7 +323,7 @@ export default function RegisterOutsider({ navigation }) {
             </View>
           </View>
 
-          <InputField label="ชื่อ-นามสกุล" placeholder="กรอกชื่อ-นามสกุล" isRequired value={name} onChangeText={setName} />
+          <InputField label="ชื่อ-นามสกุล" placeholder="เช่น นายสมชาย ใจดี" isRequired value={name} onChangeText={setName} />
           <InputField label="เบอร์โทรศัพท์" placeholder="08X-XXX-XXXX" isRequired keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
           <InputField label="Email" placeholder="example@gmail.com" isRequired keyboardType="email-address" value={email} onChangeText={setEmail} />
           <InputField label="ตั้งรหัสผ่านสำหรับเข้าสู่ระบบ" placeholder="อย่างน้อย 6 ตัวอักษร" isRequired secureTextEntry value={password} onChangeText={setPassword} />
