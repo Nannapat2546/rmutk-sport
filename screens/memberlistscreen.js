@@ -5,6 +5,25 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+// 🌟 เพิ่มชุดคำแปล คณะและสาขา จากรหัสอังกฤษเป็นภาษาไทย
+const facultyNameThai = {
+  'arts': 'คณะศิลปศาสตร์', 'science': 'คณะวิทยาศาสตร์และเทคโนโลยี', 'industrial_education': 'คณะครุศาสตร์อุตสาหกรรม',
+  'engineering': 'คณะวิศวกรรมศาสตร์', 'business': 'คณะบริหารธุรกิจ', 'home_economics': 'คณะเทคโนโลยีคหกรรมศาสตร์',
+  'textile': 'คณะอุตสาหกรรมสิ่งทอ', 'international_college': 'วิทยาลัยนานาชาติ', 'isic': 'สถาบันวิทยาศาสตร์ นวัตกรรมและวัฒนธรรม',
+};
+
+const majorNameThai = {
+  'english': 'ภาษาอังกฤษเพื่อการสื่อสารสากล', 'chinese': 'ภาษาจีนเพื่อการสื่อสาร', 'japanese': 'ภาษาญี่ปุ่น', 'tourism': 'การท่องเที่ยว', 'hotel': 'การโรงแรม',
+  'cs': 'วิทยาการคอมพิวเตอร์', 'it': 'เทคโนโลยีสารสนเทศ', 'chemistry': 'เคมี', 'physics': 'ฟิสิกส์', 'math': 'คณิตศาสตร์', 'food_science': 'วิทยาศาสตร์และเทคโนโลยีการอาหาร',
+  'te_me': 'ครุศาสตร์อุตสาหกรรม (เครื่องกล)', 'te_ie': 'ครุศาสตร์อุตสาหกรรม (อุตสาหการ)',
+  'me': 'วิศวกรรมเครื่องกล', 'ee': 'วิศวกรรมไฟฟ้า', 'ce': 'วิศวกรรมคอมพิวเตอร์', 'civil': 'วิศวกรรมโยธา', 'ie': 'วิศวกรรมอุตสาหการ', 'che': 'วิศวกรรมเคมี', 'se': 'วิศวกรรมสำรวจ', 'electronic': 'วิศวกรรมอิเล็กทรอนิกส์และโทรคมนาคม',
+  'acc': 'การบัญชี', 'is': 'ระบบสารสนเทศ', 'marketing': 'การตลาด', 'management': 'การจัดการ', 'finance': 'การเงิน', 'international_business': 'ธุรกิจระหว่างประเทศ',
+  'food_nutrition': 'อาหารและโภชนาการ', 'fashion': 'การออกแบบแฟชั่น', 'early_childhood': 'การศึกษาปฐมวัย',
+  'textile_eng': 'วิศวกรรมสิ่งทอ', 'textile_design': 'การออกแบบสิ่งทอ', 'garment': 'เทคโนโลยีเสื้อผ้า',
+  'ic_biz': 'บริหารธุรกิจ (นานาชาติ)', 'ic_tourism': 'การท่องเที่ยว (นานาชาติ)',
+  'innovation': 'นวัตกรรมและวัฒนธรรม',
+};
+
 export default function MemberListScreen({ navigation }) {
   const [isLoading, setIsLoading] = useState(true);
   const [members, setMembers] = useState([]);
@@ -15,7 +34,6 @@ export default function MemberListScreen({ navigation }) {
   const fetchMembers = async () => {
     setIsLoading(true);
     try {
-      // 🌟 เพิ่ม Header ngrok เพื่อทะลุการบล็อก
       const res = await fetch(`${API_URL}/api/members`, {
         headers: {
           'ngrok-skip-browser-warning': 'true'
@@ -32,7 +50,6 @@ export default function MemberListScreen({ navigation }) {
     if (!dateString) return '-';
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return '-';
-    // แสดงผลแบบ วัน/เดือน/ปีพ.ศ.
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     return `${day}/${month}/${date.getFullYear() + 543}`;
@@ -55,11 +72,10 @@ export default function MemberListScreen({ navigation }) {
               <Text style={[styles.tableHeaderText, { width: 140, paddingLeft: 10 }]}>ชื่อ-นามสกุล</Text>
               <Text style={[styles.tableHeaderText, { width: 90, textAlign: 'center' }]}>ประเภท</Text>
               <Text style={[styles.tableHeaderText, { width: 120, textAlign: 'center' }]}>รหัส/บัตร ปชช.</Text>
-              <Text style={[styles.tableHeaderText, { width: 140, paddingLeft: 10 }]}>คณะ</Text>
-              <Text style={[styles.tableHeaderText, { width: 140, paddingLeft: 10 }]}>สาขา</Text>
+              <Text style={[styles.tableHeaderText, { width: 180, paddingLeft: 10 }]}>คณะ</Text>
+              <Text style={[styles.tableHeaderText, { width: 160, paddingLeft: 10 }]}>สาขา</Text>
               <Text style={[styles.tableHeaderText, { width: 100, textAlign: 'center' }]}>เบอร์โทร</Text>
               <Text style={[styles.tableHeaderText, { width: 200, paddingLeft: 10 }]}>อีเมล</Text>
-              {/* 🌟 เพิ่มหัวคอลัมน์ สมัครเมื่อ */}
               <Text style={[styles.tableHeaderText, { width: 100, textAlign: 'center' }]}>สมัครเมื่อ</Text>
             </View>
 
@@ -68,37 +84,49 @@ export default function MemberListScreen({ navigation }) {
             ) : members.length === 0 ? (
               <Text style={{ textAlign: 'center', padding: 40, color: '#888' }}>ยังไม่มีข้อมูลสมาชิก</Text>
             ) : (
-              members.map((item, index) => (
-                <View key={item.id || index} style={[styles.tableDataRow, index === members.length - 1 && { borderBottomWidth: 0 }]}>
-                  <View style={{ width: 140, paddingLeft: 10 }}>
-                    <Text style={[styles.tableDataText, { fontWeight: 'bold' }]} numberOfLines={1}>{item.name || '-'}</Text>
-                  </View>
-                  <View style={{ width: 90, alignItems: 'center' }}>
-                    <View style={[styles.roleBadge, item.role === 'นักศึกษา' ? { backgroundColor: '#E6F5EF' } : { backgroundColor: '#FEF3C7' }]}>
-                      <Text style={[styles.roleBadgeText, item.role === 'นักศึกษา' ? { color: '#00A87E' } : { color: '#D97706' }]}>{item.role}</Text>
+              members.map((item, index) => {
+                // 🌟 ตัวแปรสำหรับแปลงค่าเป็นภาษาไทย ถ้าไม่เจอในรายการให้แสดงค่าเดิม
+                const displayFaculty = facultyNameThai[item.faculty?.toLowerCase()] || item.faculty || '-';
+                const displayMajor = majorNameThai[item.major?.toLowerCase()] || item.major || '-';
+
+                return (
+                  <View key={item.id || index} style={[styles.tableDataRow, index === members.length - 1 && { borderBottomWidth: 0 }]}>
+                    <View style={{ width: 140, paddingLeft: 10 }}>
+                      <Text style={[styles.tableDataText, { fontWeight: 'bold' }]} numberOfLines={1}>{item.name || '-'}</Text>
+                    </View>
+                    
+                    <View style={{ width: 90, alignItems: 'center' }}>
+                      <View style={[styles.roleBadge, item.role === 'นักศึกษา' ? { backgroundColor: '#E6F5EF' } : { backgroundColor: '#FEF3C7' }]}>
+                        <Text style={[styles.roleBadgeText, item.role === 'นักศึกษา' ? { color: '#00A87E' } : { color: '#D97706' }]}>{item.role}</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={{ width: 120, alignItems: 'center' }}>
+                      <Text style={styles.tableDataText}>{item.code || '-'}</Text>
+                    </View>
+                    
+                    <View style={{ width: 180, paddingLeft: 10 }}>
+                      <Text style={styles.tableDataText} numberOfLines={1}>{displayFaculty}</Text>
+                    </View>
+                    
+                    <View style={{ width: 160, paddingLeft: 10 }}>
+                      <Text style={styles.tableDataText} numberOfLines={1}>{displayMajor}</Text>
+                    </View>
+                    
+                    <View style={{ width: 100, alignItems: 'center' }}>
+                      <Text style={styles.tableDataText}>{item.phone || '-'}</Text>
+                    </View>
+                    
+                    <View style={{ width: 200, paddingLeft: 10 }}>
+                      <Text style={styles.tableDataText} numberOfLines={1}>{item.email || '-'}</Text>
+                    </View>
+                    
+                    <View style={{ width: 100, alignItems: 'center' }}>
+                      <Text style={styles.tableDataText}>{formatDate(item.created_at)}</Text>
                     </View>
                   </View>
-                  <View style={{ width: 120, alignItems: 'center' }}>
-                    <Text style={styles.tableDataText}>{item.code || '-'}</Text>
-                  </View>
-                  <View style={{ width: 140, paddingLeft: 10 }}>
-                    <Text style={styles.tableDataText} numberOfLines={1}>{item.faculty || '-'}</Text>
-                  </View>
-                  <View style={{ width: 140, paddingLeft: 10 }}>
-                    <Text style={styles.tableDataText} numberOfLines={1}>{item.major || '-'}</Text>
-                  </View>
-                  <View style={{ width: 100, alignItems: 'center' }}>
-                    <Text style={styles.tableDataText}>{item.phone || '-'}</Text>
-                  </View>
-                  <View style={{ width: 200, paddingLeft: 10 }}>
-                    <Text style={styles.tableDataText} numberOfLines={1}>{item.email || '-'}</Text>
-                  </View>
-                  {/* 🌟 แสดงข้อมูล วันที่สมัคร (ดึงจาก item.created_at) */}
-                  <View style={{ width: 100, alignItems: 'center' }}>
-                    <Text style={styles.tableDataText}>{formatDate(item.created_at)}</Text>
-                  </View>
-                </View>
-              ))
+                );
+              })
             )}
           </View>
         </ScrollView>
@@ -113,8 +141,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
   headerTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: 'bold', color: '#1E293B' },
   content: { padding: 15 },
-  // 🌟 ปรับ minWidth ให้กว้างขึ้นเพื่อรองรับคอลัมน์ใหม่
-  tableContainer: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, overflow: 'hidden', backgroundColor: '#FFF', minWidth: 1000 },
+  // ปรับความกว้างตารางให้เหมาะสมกับชื่อคณะภาษาไทยที่ยาวขึ้น
+  tableContainer: { borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, overflow: 'hidden', backgroundColor: '#FFF', minWidth: 1100 },
   tableHeaderRow: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingVertical: 12 },
   tableHeaderText: { fontSize: 12, fontWeight: 'bold', color: '#1E293B' },
   tableDataRow: { flexDirection: 'row', backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingVertical: 14, alignItems: 'center' },
