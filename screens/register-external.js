@@ -168,7 +168,7 @@ export default function RegisterOutsider({ navigation }) {
         if (finalName) setName(finalName);
         
         if (finalId && !finalName) {
-           showPopup('success', 'สแกนสำเร็จ!\nได้เลขบัตรประชาชนเรียบร้อยแล้ว (ระบบอ่านชื่อไม่ชัดเจน กรุณาพิมพ์ชื่อด้วยตนเอง)');
+           showPopup('success', 'สแกนสำเร็จ! (ระบบอ่านชื่อไม่ชัดเจน กรุณาพิมพ์ชื่อด้วยตนเอง)');
         } else {
            showPopup('success', 'สแกนสำเร็จ กรุณาตรวจสอบและแก้ไขข้อมูลให้ถูกต้องอีกครั้ง');
         }
