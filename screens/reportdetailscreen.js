@@ -57,7 +57,6 @@ export default function ReportDetailScreen({ navigation, route }) {
     return new Date(`${year}-${month}-${day}`);
   };
 
-  // 🌟 เพิ่มพารามิเตอร์ diffDays เพื่อส่งยอดล่าช้าไปให้ Backend
   const handleNotifyUser = async (item, diffDays) => {
     if (!item.email) {
       if(Platform.OS === 'web') window.alert(`ไม่พบข้อมูลอีเมลของ ${item.member_name} ในระบบ`);
@@ -77,7 +76,7 @@ export default function ReportDetailScreen({ navigation, route }) {
           email: item.email,
           memberName: item.member_name,
           equipment: item.equipment,
-          lateDays: diffDays // 🌟 ส่งจำนวนวันที่ล่าช้าไป
+          lateDays: diffDays 
         })
       });
 
@@ -126,23 +125,20 @@ export default function ReportDetailScreen({ navigation, route }) {
     return `${day}/${month}/${year}`;
   };
 
-  // 🌟 ฟังก์ชันคำนวณสถานะ นัดคืน และการล่าช้าแบบครอบจักรวาล
   const getStatusInfo = (item, type = reportType) => {
     const originalAmount = parseInt(item.amount) || 0;
     const pendingAmount = parseInt(item.pending_amount) || originalAmount;
     const returnedAmount = originalAmount > pendingAmount ? originalAmount - pendingAmount : 0;
 
-    let targetDateStr = item.borrow_date; // ตั้งต้นวันนัดคืน คือวันเดียวกับวันที่ยืม
+    let targetDateStr = item.borrow_date; 
     let displayExpectedDate = '-';
 
     if (type === 'pending') {
-      // ถ้ารายงานคงค้าง: นัดคืนจะขึ้นก็ต่อเมื่อคืนของไปบางส่วนแล้ว
       if (returnedAmount > 0 && item.expected_return_date) {
         targetDateStr = item.expected_return_date;
         displayExpectedDate = formatDate(item.expected_return_date);
       }
     } else {
-      // ถ้ารายงานปกติ: โชว์วันนัดคืนปกติ
       targetDateStr = item.expected_return_date ? item.expected_return_date : item.borrow_date;
       displayExpectedDate = formatDate(item.expected_return_date);
     }
@@ -150,8 +146,7 @@ export default function ReportDetailScreen({ navigation, route }) {
     const targetDate = new Date(targetDateStr);
     targetDate.setHours(0, 0, 0, 0); 
 
-    // กรณีคืนของเรียบร้อย
-    if (item.return_date) {
+    if (item.return_date && type !== 'pending') {
       const retDate = new Date(item.return_date);
       retDate.setHours(0, 0, 0, 0);
       const diffTime = retDate.getTime() - targetDate.getTime();
@@ -161,7 +156,6 @@ export default function ReportDetailScreen({ navigation, route }) {
       return { isLate: false, days: 0, text: 'คืนตรงเวลา', type: 'returned_ok', displayExpectedDate };
     }
 
-    // กรณียังไม่คืน
     const now = new Date();
     now.setHours(0, 0, 0, 0); 
     const diffTime = now.getTime() - targetDate.getTime();
@@ -185,7 +179,7 @@ export default function ReportDetailScreen({ navigation, route }) {
     if (statusFilter !== 'all') {
       currentData = currentData.filter(item => {
         const status = getStatusInfo(item, reportType);
-        if (item.return_date) {
+        if (item.return_date && reportType !== 'pending') {
           if (statusFilter === 'returned') return !status.isLate; 
           if (statusFilter === 'late') return status.isLate; 
           return false;
@@ -256,7 +250,8 @@ export default function ReportDetailScreen({ navigation, route }) {
         ];
       });
     } else if (reportType === 'pending') {
-      headers = ['สมาชิก', 'อุปกรณ์', 'สภาพ', 'ยืมไป (ชิ้น)', 'คืนแล้ว (ชิ้น)', 'ค้างส่ง (ชิ้น)', 'ยืมเมื่อ', 'นัดคืนล่าสุด', 'สถานะ'];
+      // 🌟 เพิ่ม Header 'คืนเมื่อ' ในไฟล์ CSV
+      headers = ['สมาชิก', 'อุปกรณ์', 'สภาพ', 'ยืมไป (ชิ้น)', 'คืนแล้ว (ชิ้น)', 'ค้างส่ง (ชิ้น)', 'ยืมเมื่อ', 'นัดคืนล่าสุด', 'คืนเมื่อ', 'สถานะ'];
       rows = filteredData.map(item => {
         const statusInfo = getStatusInfo(item, 'pending');
         const originalAmount = parseInt(item.amount) || 0;
@@ -265,7 +260,7 @@ export default function ReportDetailScreen({ navigation, route }) {
 
         return [
           `"${item.member_name || '-'}"`, `"${item.equipment || '-'}"`, `"${item.equipment_status === 'ใช้งาน' ? 'ปกติ' : (item.equipment_status || 'ปกติ')}"`, 
-          originalAmount, returnedAmount, pendingAmount, formatDate(item.borrow_date), statusInfo.displayExpectedDate, `"${statusInfo.text}"`
+          originalAmount, returnedAmount, pendingAmount, formatDate(item.borrow_date), statusInfo.displayExpectedDate, formatDate(item.return_date), `"${statusInfo.text}"`
         ];
       });
     } else if (reportType === 'fitness') {
@@ -547,6 +542,8 @@ export default function ReportDetailScreen({ navigation, route }) {
                       <Text style={[styles.headerCell, {width: 60}]}>ค้างส่ง</Text>
                       <Text style={[styles.headerCell, {width: 80}]}>ยืมเมื่อ</Text>
                       <Text style={[styles.headerCell, {width: 80}]}>นัดล่าสุด</Text>
+                      {/* 🌟 เพิ่มหัวคอลัมน์ คืนเมื่อ */}
+                      <Text style={[styles.headerCell, {width: 80}]}>คืนเมื่อ</Text>
                       <Text style={[styles.headerCell, {width: 100}]}>สถานะ</Text>
                       <Text style={[styles.headerCell, {width: 90}]}>จัดการ</Text>
                     </View>
@@ -590,6 +587,8 @@ export default function ReportDetailScreen({ navigation, route }) {
                           
                           <Text style={[styles.dataCell, {width: 80}]}>{formatDate(item.borrow_date)}</Text>
                           <Text style={[styles.dataCell, {width: 80}]}>{statusInfo.displayExpectedDate}</Text>
+                          {/* 🌟 แสดงวันที่คืนเมื่อ */}
+                          <Text style={[styles.dataCell, {width: 80}]}>{formatDate(item.return_date)}</Text>
                           
                           <View style={[styles.dataCell, {width: 100, alignItems: 'center', paddingVertical: 4}]}>
                             {renderStatusBadge(statusInfo)}
@@ -688,7 +687,8 @@ const styles = StyleSheet.create({
   exportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 6, height: 40, paddingHorizontal: 15, backgroundColor: '#FFF' },
   exportBtnText: { fontSize: 13, color: '#374151', marginLeft: 6, fontWeight: 'bold' },
 
-  tableContainer: { backgroundColor: '#FFF', borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden', minWidth: '100%', zIndex: 1 },
+  // 🌟 ปรับ minWidth ให้กว้างขึ้นเพื่อรองรับคอลัมน์ใหม่
+  tableContainer: { backgroundColor: '#FFF', borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden', minWidth: 1000, zIndex: 1 },
   tableHeaderRow: { flexDirection: 'row', backgroundColor: '#F9FAFB', borderBottomWidth: 1, borderBottomColor: '#E5E7EB', paddingVertical: 14 },
   headerCell: { fontSize: 13, fontWeight: 'bold', color: '#374151', textAlign: 'center' },
   tableDataRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingVertical: 14, alignItems: 'center' },
