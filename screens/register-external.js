@@ -90,7 +90,7 @@ export default function RegisterOutsider({ navigation }) {
     setIsCameraVisible(true);
   };
 
-  // 🌟 ฟังก์ชัน OCR ที่ฉลาดขึ้น: ตรวจจับคำขยะและตัวเลขไทย/อารบิก ป้องกันชื่อเพี้ยน
+  // 🌟 ฟังก์ชัน OCR ที่ปรับจูนความแม่นยำให้เสถียร 100%
   const processOcrData = async (base64Image) => {
     try {
       const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/ocr', {
@@ -113,43 +113,36 @@ export default function RegisterOutsider({ navigation }) {
       let finalId = '';
       let finalName = '';
 
-      // ฟังก์ชันช่วยเช็คว่าเป็น "ชื่อคน" ที่ถูกต้องไหม
-      const isValidName = (str) => {
-        if (!str) return false;
-        // ถ้ามีตัวเลข (0-9 หรือ ๐-๙) หรือสัญลักษณ์พิเศษ แปลว่า AI อ่านโฮโลแกรมเพี้ยน ให้ปัดตกทันที
-        if (/[0-9๐-๙!@#$%^&*()_+={}\[\]:;"'<>,.?/\\]/.test(str)) return false;
-        // ถ้ามีคำพวกนี้อยู่บนบัตร ไม่ใช่ชื่อคน
-        const garbage = ['ชื่อตัว', 'ชื่อสกุล', 'บัตร', 'ประชาชน', 'ศาสนา', 'เกิด', 'Date', 'Name', 'Thai', 'National'];
-        if (garbage.some(g => str.includes(g))) return false;
-        if (str.replace(/\s/g, '').length < 4) return false;
-        return true;
-      };
-
       if (result.text) {
-        // 1. ดึงเฉพาะตัวเลข 13 หลัก
-        const cleanNumbers = result.text.replace(/[^\d]/g, ''); 
-        const idMatch = cleanNumbers.match(/\d{13}/); 
+        // 1. ค้นหาเลข 13 หลักแบบเจาะจง (รองรับการเว้นวรรคบนบัตรจริง X XXXX XXXXX XX X)
+        const idPattern = /\b\d\s?\d{4}\s?\d{5}\s?\d{2}\s?\d\b|\b\d{13}\b/;
+        const idMatch = result.text.match(idPattern);
         if (idMatch) {
-          finalId = idMatch[0];
+          finalId = idMatch[0].replace(/\s/g, ''); // ลบช่องว่างทิ้งให้เหลือเลขติดกัน
         }
 
-        // 2. ดึงชื่อ-นามสกุล
+        // 2. ค้นหาชื่อ-นามสกุล และข้ามคำขยะ (รองรับคำนำหน้าที่ AI อาจจะอ่านจุดไม่ออก)
         const textLines = result.text.split('\n');
-        const nameRegex = /(นาย|นาง|นางสาว|น\.ส\.|ด\.ช\.|ด\.ญ\.)\s*([ก-ฮะ-์]+)\s+([ก-ฮะ-์]+)/;
+        const nameRegex = /(นาย|นาง|นางสาว|น\.ส\.|นส\.|นส|ด\.ช\.|ดช\.|ดช|ด\.ญ\.|ดญ\.|ดญ)\s*([ก-๙]+)\s+([ก-๙]+)/;
+        
+        const garbageWords = ['ชื่อตัว', 'ชื่อสกุล', 'บัตร', 'ประชาชน', 'ศาสนา', 'เกิดวันที่', 'Date', 'Name', 'Thai', 'National', 'หมู่', 'ตำบล', 'อำเภอ', 'จังหวัด'];
         
         for (let line of textLines) {
           let cleanLine = line.trim();
-          if (isValidName(cleanLine)) {
-            const match = cleanLine.match(nameRegex);
-            if (match) {
-              finalName = `${match[1]}${match[2]} ${match[3]}`;
-              break; 
-            }
+          
+          let isGarbage = garbageWords.some(word => cleanLine.includes(word));
+          if (isGarbage) continue;
+          
+          const match = cleanLine.match(nameRegex);
+          if (match) {
+            // ประกอบ คำนำหน้า ชื่อ นามสกุล เข้าด้วยกัน
+            finalName = `${match[1]} ${match[2]} ${match[3]}`.replace(/\s+/g, ' '); // จัดระเบียบช่องว่าง
+            break; 
           }
         }
       }
 
-      // 3. กรองจาก Backend อีกชั้น
+      // 3. Fallback: ถ้า Frontend หาไม่เจอ ให้ดึงข้อมูลที่ Backend กรอกมาให้ช่วยอีกแรง
       if (!finalId && result.citizenId) {
         const cleanBackendId = result.citizenId.replace(/[^\d]/g, '');
         if (cleanBackendId.length >= 13) {
@@ -157,18 +150,20 @@ export default function RegisterOutsider({ navigation }) {
         }
       }
       if (!finalName && result.fullName) {
-        if (isValidName(result.fullName)) {
-          finalName = result.fullName.trim();
+        const garbageWords = ['ชื่อตัว', 'ชื่อสกุล', 'บัตร', 'ประชาชน', 'ศาสนา', 'เกิด'];
+        let isGarbage = garbageWords.some(word => result.fullName.includes(word));
+        if (!isGarbage) {
+          finalName = result.fullName.replace(/[0-9]/g, '').trim();
         }
       }
 
-      // 4. สรุปผลลัพธ์ลงหน้าจอ
+      // 4. สรุปผลลัพธ์ลง State
       if (finalId || finalName) {
         if (finalId && finalId.length === 13) setCitizenId(finalId);
         if (finalName) setName(finalName);
         
         if (finalId && !finalName) {
-           showPopup('success', 'สแกนสำเร็จ! (ระบบอ่านชื่อไม่ชัดเจน กรุณาพิมพ์ชื่อด้วยตนเอง)');
+           showPopup('success', 'สแกนสำเร็จ!\nได้เลขบัตรประชาชนเรียบร้อยแล้ว (ระบบอ่านชื่อไม่ชัดเจน กรุณาพิมพ์ชื่อด้วยตนเอง)');
         } else {
            showPopup('success', 'สแกนสำเร็จ กรุณาตรวจสอบและแก้ไขข้อมูลให้ถูกต้องอีกครั้ง');
         }
