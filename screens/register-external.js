@@ -90,7 +90,7 @@ export default function RegisterOutsider({ navigation }) {
     setIsCameraVisible(true);
   };
 
-  // 🌟 ฟังก์ชันจัดการข้อมูล OCR (ปรับปรุงใหม่ กรองขยะทิ้ง เอาแค่เลข 13 หลัก กับ ชื่อ-นามสกุล)
+  // 🌟 ฟังก์ชันจัดการข้อมูล OCR (เวอร์ชันเสถียร: กรองคำขยะบนบัตรทิ้งทั้งหมด)
   const processOcrData = async (base64Image) => {
     try {
       const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/ocr', {
@@ -121,34 +121,46 @@ export default function RegisterOutsider({ navigation }) {
           finalId = idMatch[0];
         }
 
-        // 2. ดึงชื่อ-นามสกุล โดยแยกทีละบรรทัด หาบรรทัดที่ขึ้นต้นด้วยคำนำหน้าเท่านั้น
+        // 2. ดึงชื่อ-นามสกุล และข้ามคำขยะที่อยู่บนหน้าบัตรประชาชน
         const textLines = result.text.split('\n');
-        const nameRegex = /(นาย|นาง|นางสาว|น\.ส\.|ด\.ช\.|ด\.ญ\.)\s*([ก-๙]+)\s+([ก-๙]+)/;
+        const nameRegex = /(นาย|นาง|นางสาว|น\.ส\.|ด\.ช\.|ด\.ญ\.)\s*([ก-๙a-zA-Z]+)\s+([ก-๙a-zA-Z]+)/;
+        
+        // 🌟 กรองหัวข้อบนบัตรทิ้งให้หมด จะได้ไม่เอามาตั้งเป็นชื่อคน
+        const garbageWords = ['ชื่อตัว', 'ชื่อสกุล', 'บัตร', 'ประชาชน', 'ศาสนา', 'เกิดวันที่', 'Date', 'Name', 'Thai', 'National', 'หมู่', 'ตำบล', 'อำเภอ', 'จังหวัด'];
         
         for (let line of textLines) {
-          // ข้ามบรรทัดที่มีคำขยะพวกนี้เด็ดขาด
-          if (line.includes("บัตร") || line.includes("ประชาชน") || line.includes("Thai")) continue;
+          let cleanLine = line.trim();
           
-          const match = line.match(nameRegex);
+          // ตรวจสอบว่าบรรทัดนี้มีคำขยะรวมอยู่ด้วยไหม ถ้ามีให้ข้ามบรรทัดนี้ไปเลย
+          let isGarbage = garbageWords.some(word => cleanLine.includes(word));
+          if (isGarbage) continue;
+          
+          // ถ้าไม่มีคำขยะ ให้หาคำนำหน้าและชื่อ
+          const match = cleanLine.match(nameRegex);
           if (match) {
-            // ประกอบ คำนำหน้า ชื่อ นามสกุล เข้าด้วยกัน
             finalName = `${match[1]}${match[2]} ${match[3]}`;
             break; 
           }
         }
       }
 
-      // 3. ถ้า Frontend หาไม่เจอ ให้ลองเอาที่ Backend ส่งมาคลีนอีกรอบ
+      // 3. ถ้า Frontend ลองหาเองแล้วยังไม่เจอ ให้ลองเอาที่ Backend ส่งมาคลีนอีกรอบ
       if (!finalId && result.citizenId) {
-        finalId = result.citizenId.replace(/[^\d]/g, '').substring(0, 13);
+        const cleanBackendId = result.citizenId.replace(/[^\d]/g, '');
+        if (cleanBackendId.length >= 13) {
+          finalId = cleanBackendId.substring(0, 13);
+        }
       }
       if (!finalName && result.fullName) {
-        if (!result.fullName.includes("บัตร") && !result.fullName.includes("ประชาชน")) {
-          finalName = result.fullName;
+        const garbageWords = ['ชื่อตัว', 'ชื่อสกุล', 'บัตร', 'ประชาชน', 'ศาสนา', 'เกิด'];
+        let isGarbage = garbageWords.some(word => result.fullName.includes(word));
+        if (!isGarbage) {
+          // ลบตัวเลขและตัวอักษรพิเศษออกให้เหลือแต่ชื่อจริงๆ
+          finalName = result.fullName.replace(/[0-9]/g, '').trim();
         }
       }
 
-      // อัปเดต State (จะไม่ตั้งค่า ProfileImage เด็ดขาด)
+      // 4. สรุปผลลัพธ์ลง State
       if (finalId || finalName) {
         if (finalId && finalId.length === 13) setCitizenId(finalId);
         if (finalName) setName(finalName);
@@ -213,7 +225,6 @@ export default function RegisterOutsider({ navigation }) {
     const cleanCitizenId = citizenId.replace(/[^0-9]/g, '');
     const cleanPhone = phone.replace(/[^0-9]/g, '');
 
-    // 🌟 ส่งค่า profileImage แค่ถ้ามีการอัปโหลด ถ้าไม่อัปโหลดก็ให้มันส่งค่าว่างไปเลย ไม่เอารูปบัตรมาแทน
     const outsiderData = {
       profileImage: profileImage, 
       profile_image: profileImage, 
