@@ -14,7 +14,7 @@ export default function FitnessScreen({ navigation, route }) {
   const [paymentMethod, setPaymentMethod] = useState('cash');
   
   const [promptPayNo, setPromptPayNo] = useState('');
-  const [acceptQr, setAcceptQr] = useState(true); // 🌟 เพิ่ม State รับค่าเปิด/ปิด QR
+  const [acceptQr, setAcceptQr] = useState(true); 
 
   const [popupVisible, setPopupVisible] = useState(false);
   const [popupType, setPopupType] = useState('success'); 
@@ -50,7 +50,12 @@ export default function FitnessScreen({ navigation, route }) {
 
   const fetchUserData = async (code) => {
     try {
-      const response = await fetch(`${API_URL}/api/users/scan/${code}`);
+      // 🌟 จุดที่แก้ไข 1: เพิ่ม Header ทะลุ ngrok ตอนดึงข้อมูลผู้ใช้งาน
+      const response = await fetch(`${API_URL}/api/users/scan/${code}`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
       const data = await response.json();
       
       if (response.ok) {
@@ -65,7 +70,12 @@ export default function FitnessScreen({ navigation, route }) {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/admin/settings`);
+      // 🌟 จุดที่แก้ไข 2: เพิ่ม Header ทะลุ ngrok ตอนดึงข้อมูลการตั้งค่าแอดมิน
+      const response = await fetch(`${API_URL}/api/admin/settings`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
       const data = await response.json();
       
       const ppNo = data.promptpay_no || data.promptpay || data.promptpay_number || '';
@@ -73,7 +83,6 @@ export default function FitnessScreen({ navigation, route }) {
         setPromptPayNo(String(ppNo));
       }
 
-      // 🌟 ดึงค่าว่าเปิดรับ QR อยู่หรือไม่ (ถ้าไม่มีค่าให้ถือว่าเปิดไว้ก่อน)
       if (data.accept_qr !== undefined) {
         setAcceptQr(data.accept_qr);
       }
@@ -94,9 +103,13 @@ export default function FitnessScreen({ navigation, route }) {
         staff_name: staffName 
       };
 
+      // 🌟 จุดที่แก้ไข 3: เพิ่ม Header ทะลุ ngrok ตอนส่งข้อมูลบันทึกการชำระเงิน
       const response = await fetch(`${API_URL}/api/fitness-usage`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
         body: JSON.stringify(requestBody)
       });
 
@@ -180,7 +193,6 @@ export default function FitnessScreen({ navigation, route }) {
               <Text style={styles.radioText}>เงินสด</Text>
             </TouchableOpacity>
             
-            {/* 🌟 แสดงปุ่ม QR Code ก็ต่อเมื่อแอดมินเปิดสวิตช์ acceptQr = true เท่านั้น */}
             {acceptQr && (
               <TouchableOpacity style={styles.radioBtn} onPress={() => setPaymentMethod('qr')}>
                 <View style={[styles.radioCircle, paymentMethod === 'qr' && styles.radioSelected]} />
