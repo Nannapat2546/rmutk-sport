@@ -36,7 +36,6 @@ export default function ReportDetailScreen({ navigation, route }) {
   const fetchDashboardReports = async () => {
     setIsLoading(true);
     try {
-      // 🌟 จุดที่ 1: เพิ่ม Header ngrok ทะลุการบล็อกดึงข้อมูลรายงาน
       const res = await fetch(`${API_URL}/api/reports/dashboard`, {
         headers: {
           'ngrok-skip-browser-warning': 'true'
@@ -58,7 +57,8 @@ export default function ReportDetailScreen({ navigation, route }) {
     return new Date(`${year}-${month}-${day}`);
   };
 
-  const handleNotifyUser = async (item) => {
+  // 🌟 เพิ่มพารามิเตอร์ diffDays เพื่อส่งยอดล่าช้าไปให้ Backend
+  const handleNotifyUser = async (item, diffDays) => {
     if (!item.email) {
       if(Platform.OS === 'web') window.alert(`ไม่พบข้อมูลอีเมลของ ${item.member_name} ในระบบ`);
       else Alert.alert('ข้อผิดพลาด', `ไม่พบข้อมูลอีเมลของ ${item.member_name} ในระบบ`);
@@ -66,7 +66,6 @@ export default function ReportDetailScreen({ navigation, route }) {
     }
 
     try {
-      // 🌟 จุดที่ 2: เพิ่ม Header ngrok ทะลุการบล็อกยิง API ส่งอีเมลแจ้งเตือน
       const res = await fetch(`${API_URL}/api/notify-overdue`, {
         method: 'POST',
         headers: { 
@@ -77,7 +76,8 @@ export default function ReportDetailScreen({ navigation, route }) {
           transaction_id: item.transaction_id,
           email: item.email,
           memberName: item.member_name,
-          equipment: item.equipment
+          equipment: item.equipment,
+          lateDays: diffDays // 🌟 ส่งจำนวนวันที่ล่าช้าไป
         })
       });
 
@@ -108,6 +108,69 @@ export default function ReportDetailScreen({ navigation, route }) {
     }
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return '-';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = (d.getFullYear() + 543).toString().slice(-2);
+    return `${day}/${month}/${year}`;
+  };
+
+  const formatDisplayDate = (date) => {
+    if (!date) return 'วว/ดด/ปปปป';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear() + 543;
+    return `${day}/${month}/${year}`;
+  };
+
+  // 🌟 ฟังก์ชันคำนวณสถานะ นัดคืน และการล่าช้าแบบครอบจักรวาล
+  const getStatusInfo = (item, type = reportType) => {
+    const originalAmount = parseInt(item.amount) || 0;
+    const pendingAmount = parseInt(item.pending_amount) || originalAmount;
+    const returnedAmount = originalAmount > pendingAmount ? originalAmount - pendingAmount : 0;
+
+    let targetDateStr = item.borrow_date; // ตั้งต้นวันนัดคืน คือวันเดียวกับวันที่ยืม
+    let displayExpectedDate = '-';
+
+    if (type === 'pending') {
+      // ถ้ารายงานคงค้าง: นัดคืนจะขึ้นก็ต่อเมื่อคืนของไปบางส่วนแล้ว
+      if (returnedAmount > 0 && item.expected_return_date) {
+        targetDateStr = item.expected_return_date;
+        displayExpectedDate = formatDate(item.expected_return_date);
+      }
+    } else {
+      // ถ้ารายงานปกติ: โชว์วันนัดคืนปกติ
+      targetDateStr = item.expected_return_date ? item.expected_return_date : item.borrow_date;
+      displayExpectedDate = formatDate(item.expected_return_date);
+    }
+
+    const targetDate = new Date(targetDateStr);
+    targetDate.setHours(0, 0, 0, 0); 
+
+    // กรณีคืนของเรียบร้อย
+    if (item.return_date) {
+      const retDate = new Date(item.return_date);
+      retDate.setHours(0, 0, 0, 0);
+      const diffTime = retDate.getTime() - targetDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays > 0) return { isLate: true, days: diffDays, text: `คืนช้า ${diffDays} วัน`, type: 'returned_late', displayExpectedDate };
+      return { isLate: false, days: 0, text: 'คืนตรงเวลา', type: 'returned_ok', displayExpectedDate };
+    }
+
+    // กรณียังไม่คืน
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); 
+    const diffTime = now.getTime() - targetDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 0) return { isLate: true, days: diffDays, text: `ล่าช้า ${diffDays} วัน`, type: 'pending_late', expectedDateStr: formatDate(targetDateStr), displayExpectedDate };
+    return { isLate: false, days: 0, text: 'กำลังยืม', type: 'pending_ok', displayExpectedDate };
+  };
+
   const filteredData = useMemo(() => {
     let currentData = [];
     
@@ -121,24 +184,14 @@ export default function ReportDetailScreen({ navigation, route }) {
 
     if (statusFilter !== 'all') {
       currentData = currentData.filter(item => {
-        const targetDateStr = item.expected_return_date ? item.expected_return_date : item.borrow_date;
-        const targetDate = new Date(targetDateStr);
-        targetDate.setHours(0, 0, 0, 0); 
-        
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        
+        const status = getStatusInfo(item, reportType);
         if (item.return_date) {
-          const retDate = new Date(item.return_date);
-          retDate.setHours(0, 0, 0, 0);
-          const diffDays = Math.floor((retDate.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24));
-          if (statusFilter === 'returned') return diffDays <= 0; 
-          if (statusFilter === 'late') return diffDays > 0; 
+          if (statusFilter === 'returned') return !status.isLate; 
+          if (statusFilter === 'late') return status.isLate; 
           return false;
         } else {
-          const diffDays = Math.floor((now.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24));
-          if (statusFilter === 'borrowing') return diffDays <= 0; 
-          if (statusFilter === 'late') return diffDays > 0; 
+          if (statusFilter === 'borrowing') return !status.isLate; 
+          if (statusFilter === 'late') return status.isLate; 
           return false;
         }
       });
@@ -196,42 +249,23 @@ export default function ReportDetailScreen({ navigation, route }) {
     if (reportType === 'borrow') {
       headers = ['สมาชิก', 'อุปกรณ์', 'สภาพ', 'จำนวน', 'ยืมเมื่อ', 'นัดคืน', 'คืนเมื่อ', 'สถานะ'];
       rows = filteredData.map(item => {
-        let statusText = '';
-        const targetDateStr = item.expected_return_date ? item.expected_return_date : item.borrow_date;
-        const targetDate = new Date(targetDateStr);
-        targetDate.setHours(0, 0, 0, 0);
-
-        if (item.return_date) {
-          const retDate = new Date(item.return_date);
-          retDate.setHours(0, 0, 0, 0);
-          const diffDays = Math.floor((retDate.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24));
-          statusText = diffDays > 0 ? `คืนช้า ${diffDays} วัน` : 'คืนตรงเวลา';
-        }
-
+        const statusInfo = getStatusInfo(item, 'borrow');
         return [
           `"${item.member_name || '-'}"`, `"${item.equipment || '-'}"`, `"${item.equipment_status === 'ใช้งาน' ? 'ปกติ' : (item.equipment_status || 'ปกติ')}"`, 
-          item.amount, formatDate(item.borrow_date), formatDate(item.expected_return_date), formatDate(item.return_date), `"${statusText}"`
+          item.amount, formatDate(item.borrow_date), statusInfo.displayExpectedDate, formatDate(item.return_date), `"${statusInfo.text}"`
         ];
       });
     } else if (reportType === 'pending') {
       headers = ['สมาชิก', 'อุปกรณ์', 'สภาพ', 'ยืมไป (ชิ้น)', 'คืนแล้ว (ชิ้น)', 'ค้างส่ง (ชิ้น)', 'ยืมเมื่อ', 'นัดคืนล่าสุด', 'สถานะ'];
       rows = filteredData.map(item => {
-        let statusText = '';
-        const targetDateStr = item.expected_return_date ? item.expected_return_date : item.borrow_date;
-        const targetDate = new Date(targetDateStr);
-        targetDate.setHours(0, 0, 0, 0);
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        const diffDays = Math.floor((now.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24));
-        statusText = diffDays > 0 ? `ล่าช้า ${diffDays} วัน` : 'กำลังยืม';
-
+        const statusInfo = getStatusInfo(item, 'pending');
         const originalAmount = parseInt(item.amount) || 0;
         const pendingAmount = parseInt(item.pending_amount) || originalAmount;
         const returnedAmount = originalAmount > pendingAmount ? originalAmount - pendingAmount : 0;
 
         return [
           `"${item.member_name || '-'}"`, `"${item.equipment || '-'}"`, `"${item.equipment_status === 'ใช้งาน' ? 'ปกติ' : (item.equipment_status || 'ปกติ')}"`, 
-          originalAmount, returnedAmount, pendingAmount, formatDate(item.borrow_date), formatDate(item.expected_return_date), `"${statusText}"`
+          originalAmount, returnedAmount, pendingAmount, formatDate(item.borrow_date), statusInfo.displayExpectedDate, `"${statusInfo.text}"`
         ];
       });
     } else if (reportType === 'fitness') {
@@ -268,48 +302,6 @@ export default function ReportDetailScreen({ navigation, route }) {
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    const d = new Date(dateString);
-    if (isNaN(d.getTime())) return '-';
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = (d.getFullYear() + 543).toString().slice(-2);
-    return `${day}/${month}/${year}`;
-  };
-
-  const formatDisplayDate = (date) => {
-    if (!date) return 'วว/ดด/ปปปป';
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear() + 543;
-    return `${day}/${month}/${year}`;
-  };
-
-  const getStatusInfo = (item) => {
-    const targetDateStr = item.expected_return_date ? item.expected_return_date : item.borrow_date;
-    const targetDate = new Date(targetDateStr);
-    targetDate.setHours(0, 0, 0, 0); 
-    
-    if (item.return_date) {
-      const retDate = new Date(item.return_date);
-      retDate.setHours(0, 0, 0, 0);
-      const diffTime = retDate.getTime() - targetDate.getTime();
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-      if (diffDays > 0) return { isLate: true, days: diffDays, text: `คืนช้า ${diffDays} วัน`, type: 'returned_late' };
-      return { isLate: false, text: 'คืนตรงเวลา', type: 'returned_ok' };
-    }
-
-    const now = new Date();
-    now.setHours(0, 0, 0, 0); 
-    const diffTime = now.getTime() - targetDate.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays > 0) return { isLate: true, days: diffDays, text: `ล่าช้า ${diffDays} วัน`, type: 'pending_late', expectedDateStr: formatDate(targetDateStr) };
-    return { isLate: false, text: 'กำลังยืม', type: 'pending_ok' };
-  };
-
   const renderStatusBadge = (statusInfo) => {
     if (statusInfo.type === 'returned_late' || statusInfo.type === 'pending_late') {
       return (
@@ -317,7 +309,7 @@ export default function ReportDetailScreen({ navigation, route }) {
           <View style={[styles.badge, {backgroundColor: '#FEE2E2', marginBottom: 4}]}>
             <Text style={[styles.badgeText, {color: '#EF4444'}]}>{statusInfo.text}</Text>
           </View>
-          {statusInfo.type === 'pending_late' && (
+          {statusInfo.type === 'pending_late' && statusInfo.expectedDateStr !== '-' && (
             <Text style={{ fontSize: 10, color: '#EF4444' }}>(นัด: {statusInfo.expectedDateStr})</Text>
           )}
         </View>
@@ -518,7 +510,7 @@ export default function ReportDetailScreen({ navigation, route }) {
                       <Text style={[styles.headerCell, {width: 120}]}>สถานะ</Text>
                     </View>
                     {filteredData.map((item, index) => {
-                      const statusInfo = getStatusInfo(item);
+                      const statusInfo = getStatusInfo(item, 'borrow');
                       return (
                         <View key={index} style={styles.tableDataRow}>
                           <Text style={[styles.dataCell, {width: 140}]} numberOfLines={1}>{item.member_name}</Text>
@@ -532,7 +524,7 @@ export default function ReportDetailScreen({ navigation, route }) {
 
                           <Text style={[styles.dataCell, {width: 60}]}>{item.amount}</Text>
                           <Text style={[styles.dataCell, {width: 90}]}>{formatDate(item.borrow_date)}</Text>
-                          <Text style={[styles.dataCell, {width: 90}]}>{formatDate(item.expected_return_date)}</Text>
+                          <Text style={[styles.dataCell, {width: 90}]}>{statusInfo.displayExpectedDate}</Text>
                           <Text style={[styles.dataCell, {width: 90}]}>{formatDate(item.return_date)}</Text>
                           <View style={[styles.dataCell, {width: 120, alignItems: 'center', paddingVertical: 4}]}>
                             {renderStatusBadge(statusInfo)}
@@ -559,7 +551,7 @@ export default function ReportDetailScreen({ navigation, route }) {
                       <Text style={[styles.headerCell, {width: 90}]}>จัดการ</Text>
                     </View>
                     {filteredData.map((item, index) => {
-                      const statusInfo = getStatusInfo(item);
+                      const statusInfo = getStatusInfo(item, 'pending');
                       
                       const today = new Date();
                       today.setHours(0, 0, 0, 0);
@@ -597,7 +589,7 @@ export default function ReportDetailScreen({ navigation, route }) {
                           </Text>
                           
                           <Text style={[styles.dataCell, {width: 80}]}>{formatDate(item.borrow_date)}</Text>
-                          <Text style={[styles.dataCell, {width: 80}]}>{formatDate(item.expected_return_date)}</Text>
+                          <Text style={[styles.dataCell, {width: 80}]}>{statusInfo.displayExpectedDate}</Text>
                           
                           <View style={[styles.dataCell, {width: 100, alignItems: 'center', paddingVertical: 4}]}>
                             {renderStatusBadge(statusInfo)}
@@ -605,7 +597,7 @@ export default function ReportDetailScreen({ navigation, route }) {
 
                           <View style={[styles.dataCell, {width: 90, alignItems: 'center'}]}>
                             {showNotifyButton ? (
-                              <TouchableOpacity style={styles.notifyBtn} onPress={() => handleNotifyUser(item)}>
+                              <TouchableOpacity style={styles.notifyBtn} onPress={() => handleNotifyUser(item, statusInfo.days)}>
                                 <Ionicons name="mail-outline" size={14} color="#FFF" style={{marginRight: 4}} />
                                 <Text style={styles.notifyBtnText}>ส่งแจ้งเตือน</Text>
                               </TouchableOpacity>
