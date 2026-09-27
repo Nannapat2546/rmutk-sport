@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 export default function HistoryScreen({ navigation, route }) {
-  const accountId = route.params?.accountId; 
+  const accountId = route.params?.accountId || 'mock-id-123'; // กำหนดค่า fallback ให้ทดสอบหน้าจอได้แม้ไม่มี accountId ส่งมา
   const API_URL = 'https://envision-stumble-kept.ngrok-free.dev'; 
 
   const [isLoading, setIsLoading] = useState(true);
@@ -24,48 +24,99 @@ export default function HistoryScreen({ navigation, route }) {
   const fetchAllHistory = async () => {
     setIsLoading(true);
     try {
-      // 🌟 จุดที่ 1: เพิ่ม Header ทะลุ ngrok ดึงประวัติการยืมอุปกรณ์
-      const resBorrow = await fetch(`${API_URL}/api/history/${accountId}`, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
+      // จำลองเวลาโหลดข้อมูลจากเซิร์ฟเวอร์ 1 วินาที
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // 🌟 ข้อมูลจำลองประวัติการยืมอุปกรณ์
+      const today = new Date();
+      const pastDate = new Date(today);
+      pastDate.setDate(pastDate.getDate() - 5); // จำลองวันที่ย้อนหลัง 5 วัน เพื่อเทสสถานะ "ล่าช้า"
+
+      const dataBorrow = [
+        {
+          id: 1,
+          equipment: 'ลูกบาสเกตบอล (Spalding)',
+          amount: 1,
+          borrow_date: '2026-09-20T08:30:00Z',
+          return_date: '2026-09-20T11:00:00Z',
+          equipment_status: 'ปกติ'
+        },
+        {
+          id: 2,
+          equipment: 'ไม้แบดมินตัน (Yonex)',
+          amount: 2,
+          borrow_date: today.toISOString(), // ยืมวันนี้
+          return_date: null,
+          equipment_status: 'ปกติ'
+        },
+        {
+          id: 3,
+          equipment: 'ลูกฟุตบอล (Grand Sport)',
+          amount: 1,
+          borrow_date: pastDate.toISOString(), // ยืมเมื่อ 5 วันที่แล้ว (เลยกำหนด)
+          return_date: null,
+          equipment_status: 'ชำรุด'
         }
-      });
-      const dataBorrow = await resBorrow.json();
+      ];
+
+      const formattedBorrow = dataBorrow.map(item => ({
+        id: item.id,
+        equipment: item.equipment,
+        amount: item.amount,
+        borrowDate: formatDate(item.borrow_date),
+        returnDate: item.return_date ? formatDate(item.return_date) : '-',
+        equipmentStatus: (item.equipment_status === 'ใช้งาน' || item.equipment_status === 'ปกติ') ? 'ปกติ' : (item.equipment_status || 'ปกติ'),
+        ...calculateStatus(item.borrow_date, item.return_date)
+      }));
+      setHistoryData(formattedBorrow);
+
+      // 🌟 ข้อมูลจำลองประวัติการเข้าใช้ฟิตเนส
+      const dataFitness = [
+        {
+          id: 1,
+          check_in_time: today.toISOString(),
+          service_fee: '50.00',
+          payment_type: 'qr'
+        },
+        {
+          id: 2,
+          check_in_time: '2026-09-25T17:30:00Z',
+          service_fee: '50.00',
+          payment_type: 'cash'
+        },
+        {
+          id: 3,
+          check_in_time: '2026-09-22T18:00:00Z',
+          service_fee: '50.00',
+          payment_type: 'qr'
+        }
+      ];
+
+      const formattedFitness = dataFitness.map(item => ({
+        id: item.id,
+        checkInDate: formatDate(item.check_in_time),
+        serviceFee: `${parseFloat(item.service_fee)} บาท`,
+        paymentType: item.payment_type === 'cash' ? 'เงินสด' : 'สแกน QR'
+      }));
+      setFitnessData(formattedFitness);
+
+      /* 
+      // === โค้ดสำหรับเชื่อมต่อ API จริง (คอมเมนต์ไว้ใช้งานภายหลัง) ===
       
-      if (resBorrow.ok) {
-        const formattedBorrow = dataBorrow.map(item => ({
-          id: item.id,
-          equipment: item.equipment,
-          amount: item.amount,
-          borrowDate: formatDate(item.borrow_date),
-          returnDate: item.return_date ? formatDate(item.return_date) : '-',
-          equipmentStatus: (item.equipment_status === 'ใช้งาน' || item.equipment_status === 'ปกติ') ? 'ปกติ' : (item.equipment_status || 'ปกติ'),
-          ...calculateStatus(item.borrow_date, item.return_date)
-        }));
-        setHistoryData(formattedBorrow);
-      } else {
-        setHistoryData([]);
-      }
-
-      // 🌟 จุดที่ 2: เพิ่ม Header ทะลุ ngrok ดึงประวัติการเข้าใช้ฟิตเนส
-      const resFitness = await fetch(`${API_URL}/api/fitness-history/${accountId}`, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
+      // ดึงประวัติการยืมอุปกรณ์
+      const resBorrow = await fetch(`${API_URL}/api/history/${accountId}`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
       });
-      const dataFitness = await resFitness.json();
+      const dataBorrowAPI = await resBorrow.json();
+      if (resBorrow.ok) { ... }
 
-      if (resFitness.ok) {
-        const formattedFitness = dataFitness.map(item => ({
-          id: item.id,
-          checkInDate: formatDate(item.check_in_time),
-          serviceFee: `${parseFloat(item.service_fee)} บาท`,
-          paymentType: item.payment_type === 'cash' ? 'เงินสด' : 'สแกน QR'
-        }));
-        setFitnessData(formattedFitness);
-      } else {
-        setFitnessData([]);
-      }
+      // ดึงประวัติการเข้าใช้ฟิตเนส
+      const resFitness = await fetch(`${API_URL}/api/fitness-history/${accountId}`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+      });
+      const dataFitnessAPI = await resFitness.json();
+      if (resFitness.ok) { ... }
+      */
 
     } catch (error) {
       console.error(error);
