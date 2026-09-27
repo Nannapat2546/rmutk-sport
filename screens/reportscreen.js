@@ -13,7 +13,6 @@ const monthOptions = [
 ];
 
 export default function ReportScreen({ navigation }) {
-  // 🌟 แก้ไข URL ที่พิมพ์ผิดเป็นตัว 'C' เรียบร้อย
   const API_URL = 'https://envision-stumble-kept.ngrok-free.dev'; 
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState(null);
@@ -32,7 +31,12 @@ export default function ReportScreen({ navigation }) {
   const fetchDashboardStats = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/admin/dashboard-stats?mode=${viewMode}&month=${selectedMonth}`);
+      // 🌟 จุดที่แก้ไข 1: เพิ่ม Header ทะลุ ngrok สำหรับดึงข้อมูลสถิติ
+      const response = await fetch(`${API_URL}/api/admin/dashboard-stats?mode=${viewMode}&month=${selectedMonth}`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
       const data = await response.json();
       
       if (response.ok) {
@@ -50,7 +54,13 @@ export default function ReportScreen({ navigation }) {
 
   const autoSendNotification = async () => {
     try {
-      await fetch(`${API_URL}/api/admin/notify-overdue`, { method: 'POST' });
+      // 🌟 จุดที่แก้ไข 2: เพิ่ม Header ทะลุ ngrok สำหรับยิงแจ้งเตือนอัตโนมัติ
+      await fetch(`${API_URL}/api/admin/notify-overdue`, { 
+        method: 'POST',
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
     } catch (error) {
       console.log('⚠️ ไม่สามารถยิงแจ้งเตือนอัตโนมัติได้:', error);
     }
