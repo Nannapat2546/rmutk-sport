@@ -537,7 +537,7 @@ export default function ReportDetailScreen({ navigation, route }) {
                       <Text style={[styles.headerCell, {width: 130}]}>สมาชิก</Text>
                       <Text style={[styles.headerCell, {width: 130}]}>อุปกรณ์</Text>
                       <Text style={[styles.headerCell, {width: 70}]}>สภาพ</Text>
-                      <Text style={[styles.headerCell, {width: 50}]}>ยืมไป</Text>
+                      <Text style={[styles.headerCell, {width: 50}]}>จำนวนที่ยืม</Text>
                       <Text style={[styles.headerCell, {width: 60}]}>คืนแล้ว</Text>
                       <Text style={[styles.headerCell, {width: 60}]}>ค้างส่ง</Text>
                       <Text style={[styles.headerCell, {width: 80}]}>ยืมเมื่อ</Text>
