@@ -21,7 +21,60 @@ export default function HistoryScreen({ navigation, route }) {
     }
   }, [accountId]);
 
-  // ย้ายขึ้นมาด้านบนเพื่อให้สร้างข้อมูลจำลองได้ง่าย
+  const fetchAllHistory = async () => {
+    setIsLoading(true);
+    try {
+      // 🌟 จุดที่ 1: เพิ่ม Header ทะลุ ngrok ดึงประวัติการยืมอุปกรณ์
+      const resBorrow = await fetch(`${API_URL}/api/history/${accountId}`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
+      const dataBorrow = await resBorrow.json();
+      
+      if (resBorrow.ok) {
+        const formattedBorrow = dataBorrow.map(item => ({
+          id: item.id,
+          equipment: item.equipment,
+          amount: item.amount,
+          borrowDate: formatDate(item.borrow_date),
+          returnDate: item.return_date ? formatDate(item.return_date) : '-',
+          equipmentStatus: (item.equipment_status === 'ใช้งาน' || item.equipment_status === 'ปกติ') ? 'ปกติ' : (item.equipment_status || 'ปกติ'),
+          ...calculateStatus(item.borrow_date, item.return_date)
+        }));
+        setHistoryData(formattedBorrow);
+      } else {
+        setHistoryData([]);
+      }
+
+      // 🌟 จุดที่ 2: เพิ่ม Header ทะลุ ngrok ดึงประวัติการเข้าใช้ฟิตเนส
+      const resFitness = await fetch(`${API_URL}/api/fitness-history/${accountId}`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
+      const dataFitness = await resFitness.json();
+
+      if (resFitness.ok) {
+        const formattedFitness = dataFitness.map(item => ({
+          id: item.id,
+          checkInDate: formatDate(item.check_in_time),
+          serviceFee: `${parseFloat(item.service_fee)} บาท`,
+          paymentType: item.payment_type === 'cash' ? 'เงินสด' : 'สแกน QR'
+        }));
+        setFitnessData(formattedFitness);
+      } else {
+        setFitnessData([]);
+      }
+
+    } catch (error) {
+      console.error(error);
+      Alert.alert('ข้อผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     const d = new Date(dateString);
@@ -51,101 +104,6 @@ export default function HistoryScreen({ navigation, route }) {
     }
     
     return { status: 'กำลังยืม', isLate: false };
-  };
-
-  const fetchAllHistory = async () => {
-    setIsLoading(true);
-    try {
-      // --- 📌 สร้างข้อมูลจำลอง 20 รายการ ---
-      const mockBorrowData = Array.from({ length: 20 }).map((_, i) => {
-        const bDate = new Date();
-        bDate.setDate(bDate.getDate() - (i + 1) * 2); // ย้อนหลังไปเรื่อยๆ
-        const rDate = i % 3 !== 0 ? new Date(bDate.getTime() + 86400000) : null; // คืนบ้าง ไม่คืนบ้าง
-        return {
-          id: `mock-b-${i}`,
-          equipment: `อุปกรณ์จำลองที่ ${i + 1}`,
-          amount: (i % 3) + 1,
-          borrowDate: formatDate(bDate.toISOString()),
-          returnDate: rDate ? formatDate(rDate.toISOString()) : '-',
-          equipmentStatus: i % 5 === 0 ? 'ชำรุด' : 'ปกติ',
-          ...calculateStatus(bDate.toISOString(), rDate ? rDate.toISOString() : null)
-        };
-      });
-
-      const mockFitnessData = Array.from({ length: 20 }).map((_, i) => {
-        const cDate = new Date();
-        cDate.setDate(cDate.getDate() - i);
-        return {
-          id: `mock-f-${i}`,
-          checkInDate: formatDate(cDate.toISOString()),
-          serviceFee: `${50 + (i % 2) * 20} บาท`,
-          paymentType: i % 2 === 0 ? 'เงินสด' : 'สแกน QR'
-        };
-      });
-      // ---------------------------------
-
-      // 🌟 จุดที่ 1: ดึงประวัติการยืมอุปกรณ์จาก API ตัวเดิม
-      const resBorrow = await fetch(`${API_URL}/api/history/${accountId}`, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
-      });
-      const dataBorrow = await resBorrow.json();
-      
-      if (resBorrow.ok) {
-        const formattedBorrow = dataBorrow.map(item => ({
-          id: item.id,
-          equipment: item.equipment,
-          amount: item.amount,
-          borrowDate: formatDate(item.borrow_date),
-          returnDate: item.return_date ? formatDate(item.return_date) : '-',
-          equipmentStatus: (item.equipment_status === 'ใช้งาน' || item.equipment_status === 'ปกติ') ? 'ปกติ' : (item.equipment_status || 'ปกติ'),
-          ...calculateStatus(item.borrow_date, item.return_date)
-        }));
-        // รวมข้อมูล API เข้ากับข้อมูลจำลอง
-        setHistoryData([...formattedBorrow, ...mockBorrowData]);
-      } else {
-        setHistoryData(mockBorrowData); // กรณี API เฟล ให้โชว์ Mock Data ทันที
-      }
-
-      // 🌟 จุดที่ 2: ดึงประวัติการเข้าใช้ฟิตเนสจาก API ตัวเดิม
-      const resFitness = await fetch(`${API_URL}/api/fitness-history/${accountId}`, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
-      });
-      const dataFitness = await resFitness.json();
-
-      if (resFitness.ok) {
-        const formattedFitness = dataFitness.map(item => ({
-          id: item.id,
-          checkInDate: formatDate(item.check_in_time),
-          serviceFee: `${parseFloat(item.service_fee)} บาท`,
-          paymentType: item.payment_type === 'cash' ? 'เงินสด' : 'สแกน QR'
-        }));
-        // รวมข้อมูล API เข้ากับข้อมูลจำลอง
-        setFitnessData([...formattedFitness, ...mockFitnessData]);
-      } else {
-        setFitnessData(mockFitnessData); // กรณี API เฟล ให้โชว์ Mock Data ทันที
-      }
-
-    } catch (error) {
-      console.error(error);
-      Alert.alert('ข้อผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ระบบจะแสดงข้อมูลจำลองเพื่อการทดสอบ');
-      
-      // ถ้า Error หรือ ngrok ปิดอยู่ ให้แสดงข้อมูลจำลองไปเลย
-      // สร้างข้อมูลจำลอง (ดึงโค้ดสร้างมาใช้อีกรอบในกรณี Catch)
-      const mockB = Array.from({ length: 20 }).map((_, i) => ({
-         id: `mock-b-${i}`, equipment: `อุปกรณ์จำลอง ${i + 1}`, amount: 1, borrowDate: '01/10/66', returnDate: '-', equipmentStatus: 'ปกติ', status: 'กำลังยืม', isLate: false
-      }));
-      const mockF = Array.from({ length: 20 }).map((_, i) => ({
-         id: `mock-f-${i}`, checkInDate: '01/10/66', serviceFee: '50 บาท', paymentType: 'เงินสด'
-      }));
-      setHistoryData(mockB);
-      setFitnessData(mockF);
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   if (!accountId) {
