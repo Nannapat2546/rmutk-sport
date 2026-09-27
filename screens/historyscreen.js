@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 export default function HistoryScreen({ navigation, route }) {
-  const accountId = route.params?.accountId || 'mock-id-123'; // กำหนดค่า fallback ให้ทดสอบหน้าจอได้แม้ไม่มี accountId ส่งมา
+  const accountId = route.params?.accountId; 
   const API_URL = 'https://envision-stumble-kept.ngrok-free.dev'; 
 
   const [isLoading, setIsLoading] = useState(true);
@@ -21,111 +21,7 @@ export default function HistoryScreen({ navigation, route }) {
     }
   }, [accountId]);
 
-  const fetchAllHistory = async () => {
-    setIsLoading(true);
-    try {
-      // จำลองเวลาโหลดข้อมูลจากเซิร์ฟเวอร์ 1 วินาที
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // 🌟 ข้อมูลจำลองประวัติการยืมอุปกรณ์
-      const today = new Date();
-      const pastDate = new Date(today);
-      pastDate.setDate(pastDate.getDate() - 5); // จำลองวันที่ย้อนหลัง 5 วัน เพื่อเทสสถานะ "ล่าช้า"
-
-      const dataBorrow = [
-        {
-          id: 1,
-          equipment: 'ลูกบาสเกตบอล (Spalding)',
-          amount: 1,
-          borrow_date: '2026-09-20T08:30:00Z',
-          return_date: '2026-09-20T11:00:00Z',
-          equipment_status: 'ปกติ'
-        },
-        {
-          id: 2,
-          equipment: 'ไม้แบดมินตัน (Yonex)',
-          amount: 2,
-          borrow_date: today.toISOString(), // ยืมวันนี้
-          return_date: null,
-          equipment_status: 'ปกติ'
-        },
-        {
-          id: 3,
-          equipment: 'ลูกฟุตบอล (Grand Sport)',
-          amount: 1,
-          borrow_date: pastDate.toISOString(), // ยืมเมื่อ 5 วันที่แล้ว (เลยกำหนด)
-          return_date: null,
-          equipment_status: 'ชำรุด'
-        }
-      ];
-
-      const formattedBorrow = dataBorrow.map(item => ({
-        id: item.id,
-        equipment: item.equipment,
-        amount: item.amount,
-        borrowDate: formatDate(item.borrow_date),
-        returnDate: item.return_date ? formatDate(item.return_date) : '-',
-        equipmentStatus: (item.equipment_status === 'ใช้งาน' || item.equipment_status === 'ปกติ') ? 'ปกติ' : (item.equipment_status || 'ปกติ'),
-        ...calculateStatus(item.borrow_date, item.return_date)
-      }));
-      setHistoryData(formattedBorrow);
-
-      // 🌟 ข้อมูลจำลองประวัติการเข้าใช้ฟิตเนส
-      const dataFitness = [
-        {
-          id: 1,
-          check_in_time: today.toISOString(),
-          service_fee: '50.00',
-          payment_type: 'qr'
-        },
-        {
-          id: 2,
-          check_in_time: '2026-09-25T17:30:00Z',
-          service_fee: '50.00',
-          payment_type: 'cash'
-        },
-        {
-          id: 3,
-          check_in_time: '2026-09-22T18:00:00Z',
-          service_fee: '50.00',
-          payment_type: 'qr'
-        }
-      ];
-
-      const formattedFitness = dataFitness.map(item => ({
-        id: item.id,
-        checkInDate: formatDate(item.check_in_time),
-        serviceFee: `${parseFloat(item.service_fee)} บาท`,
-        paymentType: item.payment_type === 'cash' ? 'เงินสด' : 'สแกน QR'
-      }));
-      setFitnessData(formattedFitness);
-
-      /* 
-      // === โค้ดสำหรับเชื่อมต่อ API จริง (คอมเมนต์ไว้ใช้งานภายหลัง) ===
-      
-      // ดึงประวัติการยืมอุปกรณ์
-      const resBorrow = await fetch(`${API_URL}/api/history/${accountId}`, {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
-      });
-      const dataBorrowAPI = await resBorrow.json();
-      if (resBorrow.ok) { ... }
-
-      // ดึงประวัติการเข้าใช้ฟิตเนส
-      const resFitness = await fetch(`${API_URL}/api/fitness-history/${accountId}`, {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
-      });
-      const dataFitnessAPI = await resFitness.json();
-      if (resFitness.ok) { ... }
-      */
-
-    } catch (error) {
-      console.error(error);
-      Alert.alert('ข้อผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // ย้ายขึ้นมาด้านบนเพื่อให้สร้างข้อมูลจำลองได้ง่าย
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     const d = new Date(dateString);
@@ -155,6 +51,101 @@ export default function HistoryScreen({ navigation, route }) {
     }
     
     return { status: 'กำลังยืม', isLate: false };
+  };
+
+  const fetchAllHistory = async () => {
+    setIsLoading(true);
+    try {
+      // --- 📌 สร้างข้อมูลจำลอง 20 รายการ ---
+      const mockBorrowData = Array.from({ length: 20 }).map((_, i) => {
+        const bDate = new Date();
+        bDate.setDate(bDate.getDate() - (i + 1) * 2); // ย้อนหลังไปเรื่อยๆ
+        const rDate = i % 3 !== 0 ? new Date(bDate.getTime() + 86400000) : null; // คืนบ้าง ไม่คืนบ้าง
+        return {
+          id: `mock-b-${i}`,
+          equipment: `อุปกรณ์จำลองที่ ${i + 1}`,
+          amount: (i % 3) + 1,
+          borrowDate: formatDate(bDate.toISOString()),
+          returnDate: rDate ? formatDate(rDate.toISOString()) : '-',
+          equipmentStatus: i % 5 === 0 ? 'ชำรุด' : 'ปกติ',
+          ...calculateStatus(bDate.toISOString(), rDate ? rDate.toISOString() : null)
+        };
+      });
+
+      const mockFitnessData = Array.from({ length: 20 }).map((_, i) => {
+        const cDate = new Date();
+        cDate.setDate(cDate.getDate() - i);
+        return {
+          id: `mock-f-${i}`,
+          checkInDate: formatDate(cDate.toISOString()),
+          serviceFee: `${50 + (i % 2) * 20} บาท`,
+          paymentType: i % 2 === 0 ? 'เงินสด' : 'สแกน QR'
+        };
+      });
+      // ---------------------------------
+
+      // 🌟 จุดที่ 1: ดึงประวัติการยืมอุปกรณ์จาก API ตัวเดิม
+      const resBorrow = await fetch(`${API_URL}/api/history/${accountId}`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
+      const dataBorrow = await resBorrow.json();
+      
+      if (resBorrow.ok) {
+        const formattedBorrow = dataBorrow.map(item => ({
+          id: item.id,
+          equipment: item.equipment,
+          amount: item.amount,
+          borrowDate: formatDate(item.borrow_date),
+          returnDate: item.return_date ? formatDate(item.return_date) : '-',
+          equipmentStatus: (item.equipment_status === 'ใช้งาน' || item.equipment_status === 'ปกติ') ? 'ปกติ' : (item.equipment_status || 'ปกติ'),
+          ...calculateStatus(item.borrow_date, item.return_date)
+        }));
+        // รวมข้อมูล API เข้ากับข้อมูลจำลอง
+        setHistoryData([...formattedBorrow, ...mockBorrowData]);
+      } else {
+        setHistoryData(mockBorrowData); // กรณี API เฟล ให้โชว์ Mock Data ทันที
+      }
+
+      // 🌟 จุดที่ 2: ดึงประวัติการเข้าใช้ฟิตเนสจาก API ตัวเดิม
+      const resFitness = await fetch(`${API_URL}/api/fitness-history/${accountId}`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
+      const dataFitness = await resFitness.json();
+
+      if (resFitness.ok) {
+        const formattedFitness = dataFitness.map(item => ({
+          id: item.id,
+          checkInDate: formatDate(item.check_in_time),
+          serviceFee: `${parseFloat(item.service_fee)} บาท`,
+          paymentType: item.payment_type === 'cash' ? 'เงินสด' : 'สแกน QR'
+        }));
+        // รวมข้อมูล API เข้ากับข้อมูลจำลอง
+        setFitnessData([...formattedFitness, ...mockFitnessData]);
+      } else {
+        setFitnessData(mockFitnessData); // กรณี API เฟล ให้โชว์ Mock Data ทันที
+      }
+
+    } catch (error) {
+      console.error(error);
+      Alert.alert('ข้อผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ระบบจะแสดงข้อมูลจำลองเพื่อการทดสอบ');
+      
+      // ถ้า Error หรือ ngrok ปิดอยู่ ให้แสดงข้อมูลจำลองไปเลย
+      // สร้างข้อมูลจำลอง (ดึงโค้ดสร้างมาใช้อีกรอบในกรณี Catch)
+      const mockB = Array.from({ length: 20 }).map((_, i) => ({
+         id: `mock-b-${i}`, equipment: `อุปกรณ์จำลอง ${i + 1}`, amount: 1, borrowDate: '01/10/66', returnDate: '-', equipmentStatus: 'ปกติ', status: 'กำลังยืม', isLate: false
+      }));
+      const mockF = Array.from({ length: 20 }).map((_, i) => ({
+         id: `mock-f-${i}`, checkInDate: '01/10/66', serviceFee: '50 บาท', paymentType: 'เงินสด'
+      }));
+      setHistoryData(mockB);
+      setFitnessData(mockF);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (!accountId) {
