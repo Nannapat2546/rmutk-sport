@@ -24,7 +24,12 @@ export default function HistoryScreen({ navigation, route }) {
   const fetchAllHistory = async () => {
     setIsLoading(true);
     try {
-      const resBorrow = await fetch(`${API_URL}/api/history/${accountId}`);
+      // 🌟 จุดที่ 1: เพิ่ม Header ทะลุ ngrok ดึงประวัติการยืมอุปกรณ์
+      const resBorrow = await fetch(`${API_URL}/api/history/${accountId}`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
       const dataBorrow = await resBorrow.json();
       
       if (resBorrow.ok) {
@@ -34,7 +39,6 @@ export default function HistoryScreen({ navigation, route }) {
           amount: item.amount,
           borrowDate: formatDate(item.borrow_date),
           returnDate: item.return_date ? formatDate(item.return_date) : '-',
-          // 🌟 เช็กให้แสดงผลคำว่า "ปกติ" แทน "ใช้งาน" (ตามหน้าอื่นๆ)
           equipmentStatus: (item.equipment_status === 'ใช้งาน' || item.equipment_status === 'ปกติ') ? 'ปกติ' : (item.equipment_status || 'ปกติ'),
           ...calculateStatus(item.borrow_date, item.return_date)
         }));
@@ -43,7 +47,12 @@ export default function HistoryScreen({ navigation, route }) {
         setHistoryData([]);
       }
 
-      const resFitness = await fetch(`${API_URL}/api/fitness-history/${accountId}`);
+      // 🌟 จุดที่ 2: เพิ่ม Header ทะลุ ngrok ดึงประวัติการเข้าใช้ฟิตเนส
+      const resFitness = await fetch(`${API_URL}/api/fitness-history/${accountId}`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
       const dataFitness = await resFitness.json();
 
       if (resFitness.ok) {
@@ -152,7 +161,6 @@ export default function HistoryScreen({ navigation, route }) {
                     <View key={item.id} style={[styles.tableRow, index === historyData.length - 1 && { borderBottomWidth: 0 }]}>
                       <Text style={[styles.dataCell, { width: 140, fontWeight: 'bold', paddingLeft: 10, textAlign: 'left' }]} numberOfLines={1}>{item.equipment}</Text>
                       
-                      {/* 🌟 แสดงคำว่า ปกติ แทน ใช้งาน */}
                       <Text style={[styles.dataCell, { width: 60, fontWeight: 'bold', color: item.equipmentStatus === 'ปกติ' ? '#10B981' : '#EF4444' }]}>
                         {item.equipmentStatus}
                       </Text>
