@@ -98,7 +98,9 @@ export default function AdminDashboard({ navigation, route }) {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/dashboard-stats?mode=${viewMode}&month=${selectedMonth}`);
+      const response = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/dashboard-stats?mode=${viewMode}&month=${selectedMonth}`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+      });
       if (response.ok) {
         const result = await response.json();
         setStats(result);
@@ -111,7 +113,9 @@ export default function AdminDashboard({ navigation, route }) {
   const fetchUsers = async () => {
     try {
       setLoadingUsers(true);
-      const response = await fetch('https://rmutk-sport.onrender.com/api/admin/users');
+      const response = await fetch('https://rmutk-sport.onrender.com/api/admin/users', {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+      });
       if (response.ok) {
         const result = await response.json();
         setUsers(result);
@@ -125,7 +129,9 @@ export default function AdminDashboard({ navigation, route }) {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/admin/settings');
+      const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/admin/settings', {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+      });
       if (response.ok) {
         const result = await response.json();
         setSystemSettings({
@@ -148,7 +154,10 @@ export default function AdminDashboard({ navigation, route }) {
     try {
       const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/admin/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true' 
+        },
         body: JSON.stringify(systemSettings)
       });
       if (response.ok) {
@@ -181,7 +190,10 @@ export default function AdminDashboard({ navigation, route }) {
     try {
       const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/change-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
         body: JSON.stringify({
           accountId: adminAccountId,
           oldPassword: oldPassword,
@@ -206,7 +218,10 @@ export default function AdminDashboard({ navigation, route }) {
       setUsers(users.map(u => u.id === userId ? { ...u, [field]: !currentValue } : u));
       await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/users/${userId}/permissions`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
         body: JSON.stringify({ field: field, value: !currentValue })
       });
     } catch (error) {
@@ -229,7 +244,10 @@ export default function AdminDashboard({ navigation, route }) {
     try {
       const res = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/create-staff`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
         body: JSON.stringify({ name: newName, email: newEmail, password: newPassword, role: 'staff' })
       });
       if (res.ok) {
@@ -249,7 +267,10 @@ export default function AdminDashboard({ navigation, route }) {
   const handleDeleteStaff = (userId, userName) => {
     const executeDelete = async () => {
       try {
-        const res = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/users/${userId}`, { method: 'DELETE' });
+        const res = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/users/${userId}`, { 
+          method: 'DELETE',
+          headers: { 'ngrok-skip-browser-warning': 'true' }
+        });
         if (res.ok) {
           fetchUsers();
           showMessage('สำเร็จ', `ลบบัญชี ${userName} เรียบร้อยแล้ว`);
@@ -275,7 +296,7 @@ export default function AdminDashboard({ navigation, route }) {
 
   useEffect(() => {
     if (activeMenu === 'dashboard') {
-      setSelectedBarIndex(null); // รีเซ็ต Tooltip เมื่อมีการโหลดกราฟใหม่
+      setSelectedBarIndex(null); 
       setLoading(true);
       fetchDashboardData().then(() => { setLoading(false); setRefreshing(false); });
     } else if (activeMenu === 'users' || activeMenu === 'roles') {
@@ -305,7 +326,9 @@ export default function AdminDashboard({ navigation, route }) {
 
   const openUserDetails = async (user) => {
     try {
-      const res = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/users/${user.id}/detail`);
+      const res = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/users/${user.id}/detail`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+      });
       if (res.ok) {
         const detailedData = await res.json();
         setSelectedUser({ ...user, ...detailedData });
