@@ -42,10 +42,7 @@ export default function AdminDashboard({ navigation, route }) {
   const [viewMode, setViewMode] = useState('daily'); 
   const [selectedMonth, setSelectedMonth] = useState('all'); 
   const [isMonthDropdownOpen, setIsMonthDropdownOpen] = useState(false);
-
-  // 🌟 State สำหรับเก็บ Index ของกราฟที่ถูกกด (Tooltip)
   const [selectedBarIndex, setSelectedBarIndex] = useState(null);
-
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
@@ -67,11 +64,20 @@ export default function AdminDashboard({ navigation, route }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
+  // Modal เพิ่มเจ้าหน้าที่
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
 
+  // 🌟 State Modal แก้ไขเจ้าหน้าที่
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editUserId, setEditUserId] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+
+  // Modal เปลี่ยนรหัสผ่านตัวเอง
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPasswordAdmin, setNewPasswordAdmin] = useState('');
@@ -264,6 +270,50 @@ export default function AdminDashboard({ navigation, route }) {
     }
   };
 
+  // 🌟 ฟังก์ชันเปิด Modal สำหรับแก้ไขเจ้าหน้าที่
+  const openEditStaffModal = (user) => {
+    setEditUserId(user.id);
+    setEditName(user.full_name || user.name);
+    setEditEmail(user.email);
+    setEditPassword(''); // ว่างไว้เผื่อเขาไม่อยากเปลี่ยนรหัสผ่าน
+    setIsEditModalOpen(true);
+  };
+
+  // 🌟 ฟังก์ชันสำหรับ บันทึกการแก้ไขเจ้าหน้าที่
+  const handleEditStaff = async () => {
+    if (!editName || !editEmail) {
+      showMessage('แจ้งเตือน', 'กรุณากรอกชื่อและอีเมลให้ครบถ้วน');
+      return;
+    }
+
+    try {
+      const bodyData = { name: editName, email: editEmail };
+      if (editPassword) {
+        bodyData.password = editPassword; // ส่งรหัสผ่านไปเฉพาะเมื่อมีการพิมพ์ใหม่
+      }
+
+      const res = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/users/${editUserId}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
+        body: JSON.stringify(bodyData)
+      });
+
+      if (res.ok) {
+        showMessage('สำเร็จ', 'แก้ไขข้อมูลบัญชีเจ้าหน้าที่เรียบร้อยแล้ว');
+        setIsEditModalOpen(false);
+        fetchUsers(); // โหลดข้อมูลใหม่
+      } else {
+        const err = await res.json();
+        showMessage('ข้อผิดพลาด', err.message || 'ไม่สามารถแก้ไขข้อมูลได้');
+      }
+    } catch (error) {
+      showMessage('ข้อผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้');
+    }
+  };
+
   const handleDeleteStaff = (userId, userName) => {
     const executeDelete = async () => {
       try {
@@ -376,6 +426,7 @@ export default function AdminDashboard({ navigation, route }) {
   return (
     <SafeAreaView style={styles.container}>
       
+      {/* ----------------- Modal ดูรายละเอียดผู้ใช้ทั่วไป ----------------- */}
       <Modal animationType="fade" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
@@ -443,6 +494,7 @@ export default function AdminDashboard({ navigation, route }) {
         </View>
       </Modal>
 
+      {/* ----------------- Modal เพิ่มบัญชีเจ้าหน้าที่ ----------------- */}
       <Modal transparent={true} visible={isAddModalOpen} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContainer, { maxWidth: 450 }]}>
@@ -485,6 +537,49 @@ export default function AdminDashboard({ navigation, route }) {
         </View>
       </Modal>
 
+      {/* 🌟 ----------------- Modal แก้ไขบัญชีเจ้าหน้าที่ ----------------- */}
+      <Modal transparent={true} visible={isEditModalOpen} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { maxWidth: 450 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>แก้ไขข้อมูลเจ้าหน้าที่ระบบ</Text>
+              <TouchableOpacity onPress={() => setIsEditModalOpen(false)}>
+                <Ionicons name="close" size={24} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ padding: 20 }}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>ชื่อ-นามสกุล</Text>
+                <TextInput style={styles.inputBox} value={editName} onChangeText={setEditName} placeholder="กรอกชื่อ-นามสกุล" />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>อีเมล</Text>
+                <TextInput 
+                  style={styles.inputBox} 
+                  value={editEmail} 
+                  onChangeText={setEditEmail} 
+                  placeholder="name@system.com" 
+                  keyboardType="email-address" 
+                  autoCapitalize="none" 
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>เปลี่ยนรหัสผ่านใหม่ (ปล่อยว่างไว้หากไม่ต้องการเปลี่ยน)</Text>
+                <TextInput style={styles.inputBox} value={editPassword} onChangeText={setEditPassword} placeholder="รหัสผ่านใหม่" secureTextEntry />
+              </View>
+
+              <TouchableOpacity style={styles.btnSubmit} onPress={handleEditStaff}>
+                <Text style={styles.btnSubmitText}>บันทึกการแก้ไข</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ----------------- Modal เปลี่ยนรหัสผ่านตัวเอง ----------------- */}
       <Modal transparent={true} visible={isPasswordModalOpen} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContainer, { maxWidth: 400 }]}>
@@ -519,6 +614,7 @@ export default function AdminDashboard({ navigation, route }) {
         </View>
       </Modal>
 
+      {/* ----------------- แถบเมนูด้านข้าง (Sidebar) ----------------- */}
       <View style={styles.sidebar}>
         <View style={styles.logoContainer}>
           <View style={styles.logoCircle}><Ionicons name="shield-checkmark" size={28} color="#FFFFFF" /></View>
@@ -621,6 +717,7 @@ export default function AdminDashboard({ navigation, route }) {
 
         <ScrollView style={styles.contentArea} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1E3A8A']} />}>
           
+          {/* ----------------- 1. แดชบอร์ดภาพรวม ----------------- */}
           {activeMenu === 'dashboard' && (
             <View style={{ zIndex: 10 }}>
               {loading && !refreshing ? (
@@ -667,7 +764,6 @@ export default function AdminDashboard({ navigation, route }) {
                          </View>
                       </View>
                       
-                      {/* 🌟 พื้นที่กราฟแท่งที่มีระบบ Tooltip */}
                       <View style={[styles.chartArea, viewMode === 'monthly' && selectedMonth !== 'all' && { overflowX: 'auto' }]}>
                         <View style={[styles.barsContainer, viewMode === 'monthly' && selectedMonth !== 'all' && { width: Platform.OS === 'web' ? '150%' : '200%' }]}>
                           {stats?.chartBar && stats.chartBar.map((item, index) => {
@@ -755,6 +851,7 @@ export default function AdminDashboard({ navigation, route }) {
             </View>
           )}
 
+          {/* ----------------- 2. จัดการผู้ใช้งานทั่วไป ----------------- */}
           {activeMenu === 'users' && (
             <View style={styles.tableCard}>
               {loadingUsers ? (
@@ -798,6 +895,7 @@ export default function AdminDashboard({ navigation, route }) {
             </View>
           )}
 
+          {/* ----------------- 3. กำหนดสิทธิ์และแก้ไขเจ้าหน้าที่ ----------------- */}
           {activeMenu === 'roles' && (
             <View style={styles.tableCard}>
               <View style={styles.tableActionRow}>
@@ -812,7 +910,8 @@ export default function AdminDashboard({ navigation, route }) {
                 <Text style={[styles.tableCol, {flex: 2}]}>ชื่อผู้ใช้งาน</Text>
                 <Text style={[styles.tableCol, {flex: 1.5}]}>ประเภท</Text>
                 <Text style={[styles.tableCol, {flex: 1, textAlign: 'center'}]}>สถานะการระงับ</Text>
-                <Text style={[styles.tableCol, {flex: 0.8, textAlign: 'center'}]}>จัดการ</Text>
+                {/* 🌟 ปรับขนาดช่องจัดการให้กว้างขึ้น เพื่อวาง 2 ปุ่ม (แก้ไข + ลบ) */}
+                <Text style={[styles.tableCol, {flex: 1, textAlign: 'center'}]}>จัดการ</Text>
               </View>
               {staffUsers.map((user, index) => {
                 const roleUI = getRoleLabel(user.account_type);
@@ -834,9 +933,20 @@ export default function AdminDashboard({ navigation, route }) {
                       />
                     </View>
                     
-                    <View style={[styles.tableCell, {flex: 0.8, alignItems: 'center'}]}>
-                      <TouchableOpacity style={{ padding: 5 }} onPress={() => handleDeleteStaff(user.id, user.full_name)}>
-                        <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                    {/* 🌟 2 ปุ่ม จัดการ (แก้ไขข้อมูล กับ ลบทิ้ง) */}
+                    <View style={[styles.tableCell, {flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center'}]}>
+                      <TouchableOpacity 
+                        style={{ padding: 6, marginRight: 8, backgroundColor: '#DBEAFE', borderRadius: 6 }} 
+                        onPress={() => openEditStaffModal(user)}
+                      >
+                        <Ionicons name="pencil-outline" size={18} color="#2563EB" />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity 
+                        style={{ padding: 6, backgroundColor: '#FEE2E2', borderRadius: 6 }} 
+                        onPress={() => handleDeleteStaff(user.id, user.full_name)}
+                      >
+                        <Ionicons name="trash-outline" size={18} color="#EF4444" />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -845,6 +955,7 @@ export default function AdminDashboard({ navigation, route }) {
             </View>
           )}
 
+          {/* ----------------- 4. ตั้งค่าระบบ ----------------- */}
           {activeMenu === 'settings' && (
             <View style={styles.settingsGrid}>
               <View style={styles.settingsGridCard}>
@@ -1003,7 +1114,6 @@ const styles = StyleSheet.create({
   chartTitle: { fontSize: 16, fontWeight: 'bold', color: '#1E293B', marginBottom: 4 },
   chartSubtitle: { fontSize: 13, color: '#64748B', marginBottom: 30 },
 
-  // 🌟 ปรับ Padding ของพื้นที่กราฟแท่ง
   chartArea: { height: 230, paddingBottom: 20, paddingTop: 30 },
   barsContainer: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: 10 },
   barItem: { alignItems: 'center', flex: 1, height: '100%', justifyContent: 'flex-end' },
@@ -1012,7 +1122,6 @@ const styles = StyleSheet.create({
   barLabel: { fontSize: 11, color: '#64748B', position: 'absolute', bottom: -25 },
   xAxisLine: { height: 1, backgroundColor: '#E2E8F0', width: '100%', position: 'absolute', bottom: 0 },
 
-  // 🌟 สไตล์กล่อง Tooltip เวลาจิ้มที่กราฟ
   tooltipBubble: { 
     position: 'absolute', 
     marginBottom: 8, 
