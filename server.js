@@ -23,7 +23,6 @@ const initDB = async () => {
     await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS original_qty INT DEFAULT 0;`);
     await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS is_partial BOOLEAN DEFAULT false;`);
     await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS return_condition VARCHAR(50) DEFAULT 'ใช้งาน';`);
-    // 🌟 1. เพิ่มคอลัมน์เก็บเวลาที่แจ้งเตือนล่าสุด
     await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS last_notified_date TIMESTAMP;`);
     await pool.query(`UPDATE transactions SET original_qty = qty WHERE original_qty = 0 OR original_qty IS NULL;`);
     
@@ -36,9 +35,6 @@ const initDB = async () => {
 };
 initDB();
 
-// ===========================================================================
-// 🌟 นำ URL ที่ได้จาก Google Apps Script มาใส่ในเครื่องหมายคำพูดด้านล่างนี้ 🌟
-// ===========================================================================
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz5FDJ9vZxrQYUaktbWTcGUHOEBzkuS8JwnkYCsG5qT2xaGBBWTWUIK5qcpLD3sEIaK/exec';
 
 const otpStorage = {};
@@ -276,6 +272,9 @@ app.get('/api/users/scan/:code', async (req, res) => {
   } catch (error) { res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูล' }); }
 });
 
+// ==========================================
+// 🌟 อัปเดต API การยืม (ป้องกันการยืมซ้อน)
+// ==========================================
 app.post('/api/borrow', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -289,6 +288,14 @@ app.post('/api/borrow', async (req, res) => {
     if (userCheck.rows.length === 0) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'ไม่พบข้อมูลผู้ใช้งานในระบบ' }); }
     
     const realAccountId = userCheck.rows[0].account_id;
+
+    // 🌟 เช็คว่ามีรายการค้างคืนหรือไม่ ถ้ามีให้บล็อกการยืมใหม่ทันที
+    const pendingCheck = await client.query(`SELECT id FROM transactions WHERE borrower_account_id = $1 AND return_date IS NULL LIMIT 1`, [realAccountId]);
+    if (pendingCheck.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'ไม่สามารถยืมเพิ่มได้ เนื่องจากมีอุปกรณ์ที่ยังไม่ได้ส่งคืน' });
+    }
+
     const colCheck = await client.query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'transactions'`);
     const columns = colCheck.rows.map(r => r.column_name);
 
@@ -332,34 +339,17 @@ app.post('/api/return', async (req, res) => {
   
   try {
     await pool.query('BEGIN');
+    if (broken > 0) { await pool.query(`INSERT INTO transactions (borrower_account_id, inventory_id, qty, original_qty, created_by, created_by_type, promised_return_date, return_date, return_condition, is_partial, created_at) SELECT borrower_account_id, inventory_id, $1, $1, created_by, created_by_type, promised_return_date, now(), 'ชำรุด', true, created_at FROM transactions WHERE id = $2`, [broken, transaction_id]); }
+    if (normal > 0) { await pool.query(`INSERT INTO transactions (borrower_account_id, inventory_id, qty, original_qty, created_by, created_by_type, promised_return_date, return_date, return_condition, is_partial, created_at) SELECT borrower_account_id, inventory_id, $1, $1, created_by, created_by_type, promised_return_date, now(), 'ใช้งาน', true, created_at FROM transactions WHERE id = $2`, [normal, transaction_id]); }
     
-    if (broken > 0) { 
-      await pool.query(`INSERT INTO transactions (borrower_account_id, inventory_id, qty, original_qty, created_by, created_by_type, promised_return_date, return_date, return_condition, is_partial, created_at) SELECT borrower_account_id, inventory_id, $1, $1, created_by, created_by_type, promised_return_date, now(), 'ชำรุด', true, created_at FROM transactions WHERE id = $2`, [broken, transaction_id]); 
-    }
-    
-    if (normal > 0) { 
-      await pool.query(`INSERT INTO transactions (borrower_account_id, inventory_id, qty, original_qty, created_by, created_by_type, promised_return_date, return_date, return_condition, is_partial, created_at) SELECT borrower_account_id, inventory_id, $1, $1, created_by, created_by_type, promised_return_date, now(), 'ใช้งาน', true, created_at FROM transactions WHERE id = $2`, [normal, transaction_id]); 
-    }
-    
-    if (remaining <= 0) { 
-      await pool.query(`DELETE FROM transactions WHERE id = $1`, [transaction_id]); 
-    } 
+    if (remaining <= 0) { await pool.query(`DELETE FROM transactions WHERE id = $1`, [transaction_id]); } 
     else {
-      // 🌟 แก้ไข: ลบการเขียนทับ original_qty = $1 ออก เพื่อให้ระบบจำยอดที่ยืมครั้งแรกได้
-      if (new_expected_date) { 
-        await pool.query(`UPDATE transactions SET qty = $1, promised_return_date = $2, is_partial = true WHERE id = $3`, [remaining, new_expected_date, transaction_id]); 
-      } 
-      else { 
-        await pool.query(`UPDATE transactions SET qty = $1, is_partial = true WHERE id = $2`, [remaining, transaction_id]); 
-      }
+      if (new_expected_date) { await pool.query(`UPDATE transactions SET qty = $1, promised_return_date = $2, is_partial = true WHERE id = $3`, [remaining, new_expected_date, transaction_id]); } 
+      else { await pool.query(`UPDATE transactions SET qty = $1, is_partial = true WHERE id = $2`, [remaining, transaction_id]); }
     }
-    
     await pool.query('COMMIT');
     res.status(200).json({ message: 'บันทึกส่งคืนสำเร็จ' });
-  } catch (error) { 
-    await pool.query('ROLLBACK'); 
-    res.status(500).json({ message: 'บันทึกการคืนไม่สำเร็จ' }); 
-  }
+  } catch (error) { await pool.query('ROLLBACK'); res.status(500).json({ message: 'บันทึกการคืนไม่สำเร็จ' }); }
 });
 
 app.post('/api/fitness-usage', async (req, res) => {
@@ -389,7 +379,6 @@ app.get('/api/reports/dashboard', async (req, res) => {
   try {
     const borrowRes = await pool.query(`SELECT t.id as transaction_id, a.email, COALESCE(s.full_name, e.full_name) as member_name, inv.item_name as equipment, COALESCE(t.return_condition, 'ใช้งาน') as equipment_status, GREATEST(t.qty, t.original_qty) as amount, t.created_at as borrow_date, t.return_date as return_date, t.promised_return_date as expected_return_date FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN accounts a ON t.borrower_account_id = a.id LEFT JOIN students s ON t.borrower_account_id = s.account_id LEFT JOIN externals e ON t.borrower_account_id = e.account_id WHERE t.return_date IS NOT NULL ORDER BY t.return_date DESC LIMIT 50`);
     
-    // 🌟 2. ดึงข้อมูล last_notified_date กลับไปให้หน้าเว็บด้วย
     const pendingRes = await pool.query(`SELECT t.id as transaction_id, a.email, COALESCE(s.full_name, e.full_name) as member_name, inv.item_name as equipment, 'ใช้งาน' as equipment_status, GREATEST(t.qty, t.original_qty) as amount, t.qty as pending_amount, t.created_at as borrow_date, t.promised_return_date as expected_return_date, t.last_notified_date FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN accounts a ON t.borrower_account_id = a.id LEFT JOIN students s ON t.borrower_account_id = s.account_id LEFT JOIN externals e ON t.borrower_account_id = e.account_id WHERE t.return_date IS NULL ORDER BY t.created_at ASC`);
     
     const popularRes = await pool.query(`SELECT c.name as category_name, inv.item_name as equipment, COUNT(t.id) as borrow_count FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN equipment_categories c ON inv.category_id = c.id GROUP BY c.name, inv.item_name ORDER BY borrow_count DESC LIMIT 10`);
@@ -609,7 +598,6 @@ app.post('/api/notify-overdue', async (req, res) => {
       })
     });
     
-    // 🌟 3. บันทึกเวลาที่ส่งแจ้งเตือนลงฐานข้อมูล
     if (transaction_id) {
       await pool.query('UPDATE transactions SET last_notified_date = CURRENT_TIMESTAMP WHERE id = $1', [transaction_id]);
     }
