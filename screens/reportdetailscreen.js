@@ -27,7 +27,6 @@ export default function ReportDetailScreen({ navigation, route }) {
   const [webStartDateText, setWebStartDateText] = useState('');
   const [webEndDateText, setWebEndDateText] = useState('');
 
-  // 🌟 ใช้ URL ของ Render
   const API_URL = 'https://rmutk-sport.onrender.com'; 
 
   useEffect(() => {
@@ -37,7 +36,6 @@ export default function ReportDetailScreen({ navigation, route }) {
   const fetchDashboardReports = async () => {
     setIsLoading(true);
     try {
-      // 🌟 เอา header ngrok ออก
       const res = await fetch(`${API_URL}/api/reports/dashboard`);
       const data = await res.json();
       if (res.ok) setReports(data);
@@ -63,7 +61,6 @@ export default function ReportDetailScreen({ navigation, route }) {
     }
 
     try {
-      // 🌟 เอา header ngrok ออก
       const res = await fetch(`${API_URL}/api/notify-overdue`, {
         method: 'POST',
         headers: { 
@@ -126,20 +123,10 @@ export default function ReportDetailScreen({ navigation, route }) {
   const getStatusInfo = (item, type = reportType) => {
     const originalAmount = parseInt(item.amount) || 0;
     const pendingAmount = parseInt(item.pending_amount) || originalAmount;
-    const returnedAmount = originalAmount > pendingAmount ? originalAmount - pendingAmount : 0;
-
-    let targetDateStr = item.borrow_date; 
-    let displayExpectedDate = '-';
-
-    if (type === 'pending') {
-      if (returnedAmount > 0 && item.expected_return_date) {
-        targetDateStr = item.expected_return_date;
-        displayExpectedDate = formatDate(item.expected_return_date);
-      }
-    } else {
-      targetDateStr = item.expected_return_date ? item.expected_return_date : item.borrow_date;
-      displayExpectedDate = formatDate(item.expected_return_date);
-    }
+    
+    // 🌟 แก้ไข: ดึงวันที่นัดคืนมาแสดงผลเสมอ ไม่ว่าจะคืนของบางส่วนไปแล้วหรือไม่
+    let targetDateStr = item.expected_return_date ? item.expected_return_date : item.borrow_date; 
+    let displayExpectedDate = item.expected_return_date ? formatDate(item.expected_return_date) : '-';
 
     const targetDate = new Date(targetDateStr);
     targetDate.setHours(0, 0, 0, 0); 
