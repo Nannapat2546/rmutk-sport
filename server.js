@@ -14,19 +14,14 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.get('/', (req, res) => {
-  res.send('RMUTK Sport API is running!');
+  res.send('RMUTK Sport API is running on Render!');
 });
 
-// 🌟 ข้อมูลเชื่อมต่อฐานข้อมูล Supabase (ยังคงใช้งานได้ปกติ)
+// 🌟 เชื่อมต่อฐานข้อมูล Supabase ด้วย URL ที่ได้จากตัวแปรแวดล้อม (Environment Variable)
+// หากรันในเครื่อง (Local) จะใช้ Connection String นี้เป็นค่าเริ่มต้น
 const pool = new Pool({
-  connectionString: 'postgresql://postgres.qeglmdrtanxflxgshrdy:0807780787bua@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres', 
-  ssl: { rejectUnauthorized: false }, 
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false, 
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'project65',
-  password: process.env.DB_PASSWORD || '0807780787',
-  port: process.env.DB_PORT || 5432,
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres.qeglmdrtanxflxgshrdy:0807780787bua@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres', 
+  ssl: { rejectUnauthorized: false }
 });
 
 const initDB = async () => {
@@ -62,7 +57,7 @@ const initDB = async () => {
 initDB();
 
 // ===========================================================================
-// 🌟 ใส่รหัสผ่านแอป Gmail 16 หลักของคุณตรงนี้
+// 🌟 ตั้งค่า Nodemailer ด้วยข้อมูลจาก Environment Variables ของ Render
 // ===========================================================================
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
@@ -71,8 +66,8 @@ const transporter = nodemailer.createTransport({
   requireTLS: true,
   family: 4, 
   auth: {
-    user: 'nannapatbua@gmail.com', 
-    pass: 'qkcvlyhyhgkwasue' 
+    user: process.env.EMAIL_USER || 'nannapatbua@gmail.com', 
+    pass: process.env.EMAIL_PASS || 'qkcvlyhyhgkwasue' 
   },
   connectionTimeout: 10000,
   greetingTimeout: 10000,
@@ -254,7 +249,7 @@ app.post('/api/request-otp', async (req, res) => {
 
   try {
     const mailOptions = {
-      from: `"ระบบศูนย์กีฬา RMUTK" <nannapatbua@gmail.com>`, // 🌟 อัปเดตอีเมลให้ออกตรงๆ
+      from: `"ระบบศูนย์กีฬา RMUTK" <${process.env.EMAIL_USER || 'nannapatbua@gmail.com'}>`, 
       to: email, 
       subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} - RMUTK Sports`,
       html: emailHtmlTemplate
@@ -358,7 +353,6 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.post('/api/login-staff', async (req, res) => {
-  // 🌟 ดึงอีเมลมาลบช่องว่างส่วนเกินและแปลงเป็นตัวพิมพ์เล็กป้องกันการ Error
   const email = (req.body.email || '').trim().toLowerCase();
   const { password } = req.body;
   console.log(`👉 มีคนพยายามล็อกอิน: อีเมล = [${email}] รหัสผ่าน = [${password}]`);
@@ -863,7 +857,7 @@ app.get('/api/recent-activities', async (req, res) => {
         });
       });
     } catch (err) {
-      console.log('⚠️ Fitness Error:', err.message);
+      console.log('⚠️️ Fitness Error:', err.message);
     }
 
     try {
@@ -1012,7 +1006,7 @@ app.post('/api/notify-overdue', async (req, res) => {
 
   try {
     const mailOptions = {
-      from: `"ระบบศูนย์กีฬา RMUTK" <yphlnn255@gmail.com>`,
+      from: `"ระบบศูนย์กีฬา RMUTK" <${process.env.EMAIL_USER || 'nannapatbua@gmail.com'}>`,
       to: email,
       subject: `[แจ้งเตือน] เกินกำหนดส่งคืนอุปกรณ์กีฬา (${equipment})`,
       html: `
@@ -1033,5 +1027,6 @@ app.post('/api/notify-overdue', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Backend รันที่พอร์ต ${PORT}`));
+// 🌟 อัปเดตพอร์ตเป็น 10000 ตามมาตรฐานของ Render หรือพอร์ตที่ Render ระบุผ่าน process.env.PORT
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, '0.0.0.0', () => console.log(`✅ Backend รันที่พอร์ต ${PORT} บน 0.0.0.0`));
