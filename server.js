@@ -332,17 +332,34 @@ app.post('/api/return', async (req, res) => {
   
   try {
     await pool.query('BEGIN');
-    if (broken > 0) { await pool.query(`INSERT INTO transactions (borrower_account_id, inventory_id, qty, original_qty, created_by, created_by_type, promised_return_date, return_date, return_condition, is_partial, created_at) SELECT borrower_account_id, inventory_id, $1, $1, created_by, created_by_type, promised_return_date, now(), 'ชำรุด', true, created_at FROM transactions WHERE id = $2`, [broken, transaction_id]); }
-    if (normal > 0) { await pool.query(`INSERT INTO transactions (borrower_account_id, inventory_id, qty, original_qty, created_by, created_by_type, promised_return_date, return_date, return_condition, is_partial, created_at) SELECT borrower_account_id, inventory_id, $1, $1, created_by, created_by_type, promised_return_date, now(), 'ใช้งาน', true, created_at FROM transactions WHERE id = $2`, [normal, transaction_id]); }
     
-    if (remaining <= 0) { await pool.query(`DELETE FROM transactions WHERE id = $1`, [transaction_id]); } 
-    else {
-      if (new_expected_date) { await pool.query(`UPDATE transactions SET qty = $1, original_qty = $1, promised_return_date = $2, is_partial = true WHERE id = $3`, [remaining, new_expected_date, transaction_id]); } 
-      else { await pool.query(`UPDATE transactions SET qty = $1, original_qty = $1, is_partial = true WHERE id = $2`, [remaining, transaction_id]); }
+    if (broken > 0) { 
+      await pool.query(`INSERT INTO transactions (borrower_account_id, inventory_id, qty, original_qty, created_by, created_by_type, promised_return_date, return_date, return_condition, is_partial, created_at) SELECT borrower_account_id, inventory_id, $1, $1, created_by, created_by_type, promised_return_date, now(), 'ชำรุด', true, created_at FROM transactions WHERE id = $2`, [broken, transaction_id]); 
     }
+    
+    if (normal > 0) { 
+      await pool.query(`INSERT INTO transactions (borrower_account_id, inventory_id, qty, original_qty, created_by, created_by_type, promised_return_date, return_date, return_condition, is_partial, created_at) SELECT borrower_account_id, inventory_id, $1, $1, created_by, created_by_type, promised_return_date, now(), 'ใช้งาน', true, created_at FROM transactions WHERE id = $2`, [normal, transaction_id]); 
+    }
+    
+    if (remaining <= 0) { 
+      await pool.query(`DELETE FROM transactions WHERE id = $1`, [transaction_id]); 
+    } 
+    else {
+      // 🌟 แก้ไข: ลบการเขียนทับ original_qty = $1 ออก เพื่อให้ระบบจำยอดที่ยืมครั้งแรกได้
+      if (new_expected_date) { 
+        await pool.query(`UPDATE transactions SET qty = $1, promised_return_date = $2, is_partial = true WHERE id = $3`, [remaining, new_expected_date, transaction_id]); 
+      } 
+      else { 
+        await pool.query(`UPDATE transactions SET qty = $1, is_partial = true WHERE id = $2`, [remaining, transaction_id]); 
+      }
+    }
+    
     await pool.query('COMMIT');
     res.status(200).json({ message: 'บันทึกส่งคืนสำเร็จ' });
-  } catch (error) { await pool.query('ROLLBACK'); res.status(500).json({ message: 'บันทึกการคืนไม่สำเร็จ' }); }
+  } catch (error) { 
+    await pool.query('ROLLBACK'); 
+    res.status(500).json({ message: 'บันทึกการคืนไม่สำเร็จ' }); 
+  }
 });
 
 app.post('/api/fitness-usage', async (req, res) => {
