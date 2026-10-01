@@ -682,7 +682,6 @@ const styles = StyleSheet.create({
   exportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 6, height: 40, paddingHorizontal: 15, backgroundColor: '#FFF' },
   exportBtnText: { fontSize: 13, color: '#374151', marginLeft: 6, fontWeight: 'bold' },
 
-  // 🌟 ปรับ minWidth ให้กว้างขึ้นเพื่อรองรับคอลัมน์ใหม่
   tableContainer: { backgroundColor: '#FFF', borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden', minWidth: 1000, zIndex: 1 },
   tableHeaderRow: { flexDirection: 'row', backgroundColor: '#F9FAFB', borderBottomWidth: 1, borderBottomColor: '#E5E7EB', paddingVertical: 14 },
   headerCell: { fontSize: 13, fontWeight: 'bold', color: '#374151', textAlign: 'center' },
