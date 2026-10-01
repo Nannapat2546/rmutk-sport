@@ -569,7 +569,7 @@ export default function ReportDetailScreen({ navigation, route }) {
                           </Text>
                           
                           <Text style={[styles.dataCell, {width: 100}]}>{formatDate(item.borrow_date)}</Text>
-                          <Text style={[styles.dataCell, {width: 80}]}>{statusInfo.displayExpectedDate}</Text>
+                          <Text style={[styles.dataCell, {width: 130}]}>{statusInfo.displayExpectedDate}</Text>
                           <Text style={[styles.dataCell, {width: 140}]}>{formatDate(item.return_date)}</Text>
                           
                           <View style={[styles.dataCell, {width: 75, alignItems: 'center', paddingVertical: 4}]}>
