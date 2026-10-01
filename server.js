@@ -23,6 +23,8 @@ const initDB = async () => {
     await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS original_qty INT DEFAULT 0;`);
     await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS is_partial BOOLEAN DEFAULT false;`);
     await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS return_condition VARCHAR(50) DEFAULT 'ใช้งาน';`);
+    // 🌟 1. เพิ่มคอลัมน์เก็บเวลาที่แจ้งเตือนล่าสุด
+    await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS last_notified_date TIMESTAMP;`);
     await pool.query(`UPDATE transactions SET original_qty = qty WHERE original_qty = 0 OR original_qty IS NULL;`);
     
     await pool.query(`CREATE TABLE IF NOT EXISTS staffs (id SERIAL PRIMARY KEY, account_id INT REFERENCES accounts(id) ON DELETE CASCADE, full_name VARCHAR(100) NOT NULL, department VARCHAR(100), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
@@ -134,7 +136,6 @@ app.post('/api/request-otp', async (req, res) => {
   `;
 
   try {
-    // 🌟 ใช้ Fetch ส่งข้อมูลไปให้ Google Apps Script (หลบการบล็อก Port ของ Render)
     await fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({
@@ -370,7 +371,10 @@ app.get('/api/members', async (req, res) => {
 app.get('/api/reports/dashboard', async (req, res) => {
   try {
     const borrowRes = await pool.query(`SELECT t.id as transaction_id, a.email, COALESCE(s.full_name, e.full_name) as member_name, inv.item_name as equipment, COALESCE(t.return_condition, 'ใช้งาน') as equipment_status, GREATEST(t.qty, t.original_qty) as amount, t.created_at as borrow_date, t.return_date as return_date, t.promised_return_date as expected_return_date FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN accounts a ON t.borrower_account_id = a.id LEFT JOIN students s ON t.borrower_account_id = s.account_id LEFT JOIN externals e ON t.borrower_account_id = e.account_id WHERE t.return_date IS NOT NULL ORDER BY t.return_date DESC LIMIT 50`);
-    const pendingRes = await pool.query(`SELECT t.id as transaction_id, a.email, COALESCE(s.full_name, e.full_name) as member_name, inv.item_name as equipment, 'ใช้งาน' as equipment_status, GREATEST(t.qty, t.original_qty) as amount, t.qty as pending_amount, t.created_at as borrow_date, t.promised_return_date as expected_return_date FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN accounts a ON t.borrower_account_id = a.id LEFT JOIN students s ON t.borrower_account_id = s.account_id LEFT JOIN externals e ON t.borrower_account_id = e.account_id WHERE t.return_date IS NULL ORDER BY t.created_at ASC`);
+    
+    // 🌟 2. ดึงข้อมูล last_notified_date กลับไปให้หน้าเว็บด้วย
+    const pendingRes = await pool.query(`SELECT t.id as transaction_id, a.email, COALESCE(s.full_name, e.full_name) as member_name, inv.item_name as equipment, 'ใช้งาน' as equipment_status, GREATEST(t.qty, t.original_qty) as amount, t.qty as pending_amount, t.created_at as borrow_date, t.promised_return_date as expected_return_date, t.last_notified_date FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN accounts a ON t.borrower_account_id = a.id LEFT JOIN students s ON t.borrower_account_id = s.account_id LEFT JOIN externals e ON t.borrower_account_id = e.account_id WHERE t.return_date IS NULL ORDER BY t.created_at ASC`);
+    
     const popularRes = await pool.query(`SELECT c.name as category_name, inv.item_name as equipment, COUNT(t.id) as borrow_count FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN equipment_categories c ON inv.category_id = c.id GROUP BY c.name, inv.item_name ORDER BY borrow_count DESC LIMIT 10`);
     const fitnessRes = await pool.query(`SELECT COALESCE(s.full_name, e.full_name) as member_name, a.account_type as role, f.check_in_time, f.service_fee, f.payment_type FROM fitness_usage f JOIN accounts a ON f.user_account_id = a.id LEFT JOIN students s ON a.id = s.account_id LEFT JOIN externals e ON a.id = e.account_id ORDER BY f.check_in_time DESC LIMIT 50`);
     res.status(200).json({ borrowReport: borrowRes.rows, pendingReport: pendingRes.rows, popularReport: popularRes.rows, fitnessReport: fitnessRes.rows });
@@ -568,11 +572,10 @@ app.post('/api/ocr', async (req, res) => {
 });
 
 app.post('/api/notify-overdue', async (req, res) => {
-  const { email, memberName, equipment } = req.body;
+  const { transaction_id, email, memberName, equipment } = req.body;
   if (!email) return res.status(400).json({ message: 'ไม่พบอีเมลของผู้ใช้ในระบบ' });
 
   try {
-    // 🌟 ใช้ Fetch ส่งข้อมูลไปให้ Google Apps Script 
     await fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({
@@ -588,6 +591,12 @@ app.post('/api/notify-overdue', async (req, res) => {
         `
       })
     });
+    
+    // 🌟 3. บันทึกเวลาที่ส่งแจ้งเตือนลงฐานข้อมูล
+    if (transaction_id) {
+      await pool.query('UPDATE transactions SET last_notified_date = CURRENT_TIMESTAMP WHERE id = $1', [transaction_id]);
+    }
+    
     res.status(200).json({ message: 'ส่งแจ้งเตือนสำเร็จ' });
   } catch (error) {
     console.error('Notify Error:', error);
