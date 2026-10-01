@@ -27,18 +27,17 @@ const majorNameThai = {
 export default function MemberListScreen({ navigation }) {
   const [isLoading, setIsLoading] = useState(true);
   const [members, setMembers] = useState([]);
-  const API_URL = 'https://envision-stumble-kept.ngrok-free.dev';
+  
+  // 🌟 ใช้ URL ของ Render
+  const API_URL = 'https://rmutk-sport.onrender.com';
 
   useEffect(() => { fetchMembers(); }, []);
 
   const fetchMembers = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/members`, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
-      });
+      // 🌟 เอา header ngrok ออก
+      const res = await fetch(`${API_URL}/api/members`);
       const data = await res.json();
       if (Array.isArray(data)) setMembers(data);
       else setMembers([]);

@@ -52,7 +52,8 @@ const CustomDropdown = ({ label, options, selectedValue, onSelect, placeholder }
 
 export default function BorrowScreen({ navigation, route }) {
   const qrData = route.params?.qrData || '';
-  const API_URL = 'https://envision-stumble-kept.ngrok-free.dev'; 
+  // 🌟 ใช้ URL ของ Render
+  const API_URL = 'https://rmutk-sport.onrender.com'; 
   
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState(null);
@@ -91,11 +92,8 @@ export default function BorrowScreen({ navigation, route }) {
 
   const fetchUserDataAndEquipment = async (code) => {
     try {
-      const userRes = await fetch(`${API_URL}/api/users/scan/${code}`, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
-      });
+      // 🌟 เอา header ngrok ออก
+      const userRes = await fetch(`${API_URL}/api/users/scan/${code}`);
       const userResult = await userRes.json();
       
       if (!userRes.ok) return showPopup('error', userResult.message || 'รหัสสมาชิกนี้ไม่มีในระบบ');
@@ -106,11 +104,8 @@ export default function BorrowScreen({ navigation, route }) {
       
       setUserData(userResult);
 
-      const equipRes = await fetch(`${API_URL}/api/inventory/manage`, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
-      });
+      // 🌟 เอา header ngrok ออก
+      const equipRes = await fetch(`${API_URL}/api/inventory/manage`);
       if (equipRes.ok) {
         const equipData = await equipRes.json();
         const availableItems = equipData.filter(item => parseInt(item.available_qty ?? item.qty ?? item.amount ?? 0) > 0);
@@ -151,8 +146,7 @@ export default function BorrowScreen({ navigation, route }) {
       const response = await fetch(`${API_URL}/api/borrow`, {
         method: 'POST',
         headers: { 
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload)
       });
@@ -241,7 +235,6 @@ export default function BorrowScreen({ navigation, route }) {
             </View>
           </View>
 
-          {/* 🌟 แสดงช่องสภาพอุปกรณ์เมื่อมีการเลือกอุปกรณ์แล้วเท่านั้น */}
           {selectedEquip && (
             <View style={[styles.inputGroup, { zIndex: 0 }]}>
               <Text style={styles.inputLabel}>สภาพอุปกรณ์</Text>

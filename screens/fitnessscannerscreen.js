@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, SafeAreaView, 
-  Modal, Image, ActivityIndicator, Alert, Platform, TextInput 
+  Modal, Image, ActivityIndicator, Platform, TextInput 
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +24,9 @@ export default function FitnessScannerScreen({ navigation }) {
 
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  // 🌟 ใช้ URL ของ Render
+  const API_URL = 'https://rmutk-sport.onrender.com';
 
   if (!permission) {
     return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#00A87E" /></View>;
@@ -53,11 +56,8 @@ export default function FitnessScannerScreen({ navigation }) {
     setLoadingText('กำลังตรวจสอบข้อมูลในระบบ...');
 
     try {
-      const response = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/users/scan/${code}`, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
-      });
+      // 🌟 เอา header ngrok ออก
+      const response = await fetch(`${API_URL}/api/users/scan/${code}`);
       const result = await response.json();
 
       if (response.ok) {
@@ -80,14 +80,10 @@ export default function FitnessScannerScreen({ navigation }) {
 
         let userProfileImg = null;
         try {
-          const detailRes = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/users/${result.id}/detail`, {
-            headers: {
-              'ngrok-skip-browser-warning': 'true'
-            }
-          });
+          // 🌟 เอา header ngrok ออก
+          const detailRes = await fetch(`${API_URL}/api/admin/users/${result.id}/detail`);
           if (detailRes.ok) {
             const detailData = await detailRes.json();
-            // 🌟 ดึงรูปภาพโปรไฟล์จากระบบมาใช้
             userProfileImg = detailData.profile_image || detailData.id_card_image || detailData.avatar || null;
           }
         } catch (e) {
@@ -96,7 +92,7 @@ export default function FitnessScannerScreen({ navigation }) {
 
         setScannedUser({ 
           ...result, 
-          liveImage: userProfileImg // ใช้รูปจากระบบ แทนรูปที่เพิ่งถ่าย
+          liveImage: userProfileImg 
         });
         setScanMode(null); 
         setVerifyModalVisible(true); 
@@ -114,11 +110,11 @@ export default function FitnessScannerScreen({ navigation }) {
 
   const processCardOCR = async (base64Image) => {
     try {
-      const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/ocr', {
+      // 🌟 เอา header ngrok ออก
+      const response = await fetch(`${API_URL}/api/ocr`, {
         method: 'POST',
         headers: { 
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ image: base64Image })
       });
@@ -163,11 +159,8 @@ export default function FitnessScannerScreen({ navigation }) {
 
       setLoadingText('กำลังตรวจสอบข้อมูลในระบบ...');
       
-      const response = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/users/scan/${citizenId}`, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
-      });
+      // 🌟 เอา header ngrok ออก
+      const response = await fetch(`${API_URL}/api/users/scan/${citizenId}`);
       const result = await response.json();
 
       if (response.ok) {
@@ -177,12 +170,10 @@ export default function FitnessScannerScreen({ navigation }) {
           return;
         }
 
-        // 🌟 ดึงข้อมูลรูปแบบเดิมจากระบบ เพื่อมาแสดงใน Pop-up
         let userProfileImg = null;
         try {
-          const detailRes = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/users/${result.id}/detail`, {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
-          });
+          // 🌟 เอา header ngrok ออก
+          const detailRes = await fetch(`${API_URL}/api/admin/users/${result.id}/detail`);
           if (detailRes.ok) {
             const detailData = await detailRes.json();
             userProfileImg = detailData.profile_image || detailData.id_card_image || detailData.avatar || null;
@@ -191,7 +182,7 @@ export default function FitnessScannerScreen({ navigation }) {
           console.log('Error fetching user image:', e);
         }
 
-        setScannedUser({ ...result, liveImage: userProfileImg }); // ใช้รูปที่ดึงจากระบบ
+        setScannedUser({ ...result, liveImage: userProfileImg }); 
         setScanMode(null);
         setVerifyModalVisible(true);
       } else {
@@ -250,7 +241,6 @@ export default function FitnessScannerScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Modal กล้องสแกน / ถ่ายบัตร */}
       <Modal animationType="fade" transparent={true} visible={scanMode !== null} onRequestClose={() => { setScanMode(null); setScanned(false); }}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { padding: 0, overflow: 'hidden' }]}>
@@ -325,7 +315,6 @@ export default function FitnessScannerScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* 🌟 Pop-up แจ้งเตือนข้อผิดพลาด */}
       <Modal transparent={true} visible={errorModalVisible} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.verifyModalBox}>
@@ -344,7 +333,6 @@ export default function FitnessScannerScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* 🌟 Pop-up ตรวจสอบข้อมูล (ใช้เฉพาะบุคคลภายนอกเท่านั้น) */}
       <Modal transparent={true} visible={verifyModalVisible} animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.verifyModalBox}>
@@ -435,7 +423,6 @@ const styles = StyleSheet.create({
   verifyModalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, gap: 10 },
   verifyModalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
   
-  // 🌟 ปรับกรอบรูปภาพโปรไฟล์ให้เป็นวงกลม ดูสวยงามขึ้น
   idCardImageContainer: { width: 120, height: 120, borderRadius: 60, backgroundColor: '#F1F5F9', overflow: 'hidden', marginBottom: 20, borderWidth: 2, borderColor: '#E2E8F0', alignSelf: 'center' },
   idCardImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   noImagePlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },

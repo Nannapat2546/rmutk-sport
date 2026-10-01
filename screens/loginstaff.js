@@ -22,7 +22,10 @@ export default function LoginStaffScreen({ navigation }) {
   const [popupVisible, setPopupVisible] = useState(false);
   const [popupType, setPopupType] = useState('success'); 
   const [popupMessage, setPopupMessage] = useState('');
-  const [userData, setUserData] = useState(null); // เก็บข้อมูลชั่วคราวเพื่อส่งไปหน้าถัดไป
+  const [userData, setUserData] = useState(null); 
+
+  // 🌟 ใช้ URL ของ Render
+  const API_URL = 'https://rmutk-sport.onrender.com';
 
   // 🌟 ฟังก์ชันจัดการ Pop-up
   const showPopup = (type, message) => {
@@ -50,11 +53,11 @@ export default function LoginStaffScreen({ navigation }) {
     setLoading(true);
 
     try {
-      const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/login-staff', {
+      // 🌟 ใช้ URL Render และเอา Header ngrok ออก
+      const response = await fetch(`${API_URL}/api/login-staff`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ email: cleanEmail, password: password }),
       });
@@ -62,7 +65,7 @@ export default function LoginStaffScreen({ navigation }) {
       const data = await response.json();
 
       if (response.ok) {
-        setUserData(data.user); // เก็บข้อมูลผู้ใช้ไว้ก่อน
+        setUserData(data.user); 
         showPopup('success', 'เข้าสู่ระบบสำเร็จ');
       } else {
         showPopup('error', data.message || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
@@ -288,8 +291,6 @@ const styles = StyleSheet.create({
     fontSize: 12, 
     color: '#9CA3AF' 
   },
-
-  // 🌟 Styles สำหรับ Pop-up
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalBox: { width: 300, backgroundColor: '#FFF', borderRadius: 16, padding: 25, alignItems: 'center', elevation: 5 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', marginTop: 10, marginBottom: 8 },

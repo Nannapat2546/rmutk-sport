@@ -43,7 +43,8 @@ const CustomDropdown = ({ label, options, selectedValue, onSelect }) => {
 export default function ReturnScreen({ navigation, route }) {
   const qrData = route.params?.qrData || '';
   
-  const API_URL = 'https://envision-stumble-kept.ngrok-free.dev'; 
+  // 🌟 ใช้ URL ของ Render
+  const API_URL = 'https://rmutk-sport.onrender.com'; 
   
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState(null);
@@ -97,19 +98,15 @@ export default function ReturnScreen({ navigation, route }) {
 
   const fetchUserDataAndPendingItem = async (code) => {
     try {
-      // 🌟 จุดที่ 1: เพิ่ม Header ทะลุ ngrok ดึงข้อมูลผู้ใช้งาน
-      const userRes = await fetch(`${API_URL}/api/users/scan/${code}`, {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
-      });
+      // 🌟 เอา header ngrok ออก
+      const userRes = await fetch(`${API_URL}/api/users/scan/${code}`);
       const userResult = await userRes.json();
       
       if (!userRes.ok) return showPopup('error', userResult.message || 'รหัสสมาชิกนี้ไม่มีในระบบ');
       setUserData(userResult);
 
-      // 🌟 จุดที่ 2: เพิ่ม Header ทะลุ ngrok ดึงข้อมูลรายการยืมที่ค้างส่ง
-      const pendingRes = await fetch(`${API_URL}/api/returns/pending/${userResult.id}`, {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
-      });
+      // 🌟 เอา header ngrok ออก
+      const pendingRes = await fetch(`${API_URL}/api/returns/pending/${userResult.id}`);
       const pendingResult = await pendingRes.json();
 
       if (!pendingRes.ok) return showPopup('error', 'ผู้ใช้นี้ไม่มีอุปกรณ์ค้างส่ง');
@@ -153,12 +150,11 @@ export default function ReturnScreen({ navigation, route }) {
         new_expected_date: expectedReturnDateStr, 
       };
 
-      // 🌟 จุดที่ 3: เพิ่ม Header ทะลุ ngrok บันทึกการทำรายการคืน
+      // 🌟 เอา header ngrok ออก
       const response = await fetch(`${API_URL}/api/return`, {
         method: 'POST',
         headers: { 
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(requestBody)
       });

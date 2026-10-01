@@ -7,13 +7,16 @@ import {
   StyleSheet,
   SafeAreaView,
   Platform,
-  Alert, // เพิ่ม Alert สำหรับแจ้งเตือน
+  Alert, 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function Login({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  // 🌟 ใช้ URL ของ Render
+  const API_URL = 'https://rmutk-sport.onrender.com';
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -22,7 +25,8 @@ export default function Login({ navigation }) {
     }
 
     try {
-      const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/login', {
+      // 🌟 เอา header ngrok ออก
+      const response = await fetch(`${API_URL}/api/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -33,14 +37,12 @@ export default function Login({ navigation }) {
       const data = await response.json();
 
       if (response.ok) {
-        // --- ส่วนที่แก้: แนบข้อมูล userData และ role ไปกับ navigation ---
         navigation.navigate('home', { 
           userData: data.user, 
           role: data.role 
         });
         
       } else {
-        // ถ้ารหัสผิด หรือไม่มีอีเมลนี้ในระบบ
         alert('เข้าไม่ได้: ' + data.message);
       }
     } catch (error) {

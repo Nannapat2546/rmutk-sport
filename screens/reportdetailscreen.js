@@ -27,7 +27,8 @@ export default function ReportDetailScreen({ navigation, route }) {
   const [webStartDateText, setWebStartDateText] = useState('');
   const [webEndDateText, setWebEndDateText] = useState('');
 
-  const API_URL = 'https://envision-stumble-kept.ngrok-free.dev'; 
+  // 🌟 ใช้ URL ของ Render
+  const API_URL = 'https://rmutk-sport.onrender.com'; 
 
   useEffect(() => {
     fetchDashboardReports();
@@ -36,11 +37,8 @@ export default function ReportDetailScreen({ navigation, route }) {
   const fetchDashboardReports = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/reports/dashboard`, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
-      });
+      // 🌟 เอา header ngrok ออก
+      const res = await fetch(`${API_URL}/api/reports/dashboard`);
       const data = await res.json();
       if (res.ok) setReports(data);
     } catch (error) {
@@ -65,11 +63,11 @@ export default function ReportDetailScreen({ navigation, route }) {
     }
 
     try {
+      // 🌟 เอา header ngrok ออก
       const res = await fetch(`${API_URL}/api/notify-overdue`, {
         method: 'POST',
         headers: { 
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ 
           transaction_id: item.transaction_id,
@@ -250,7 +248,6 @@ export default function ReportDetailScreen({ navigation, route }) {
         ];
       });
     } else if (reportType === 'pending') {
-      // 🌟 เพิ่ม Header 'คืนเมื่อ' ในไฟล์ CSV
       headers = ['สมาชิก', 'อุปกรณ์', 'สภาพ', 'ยืมไป (ชิ้น)', 'คืนแล้ว (ชิ้น)', 'ค้างส่ง (ชิ้น)', 'ยืมเมื่อ', 'นัดคืนล่าสุด', 'คืนเมื่อ', 'สถานะ'];
       rows = filteredData.map(item => {
         const statusInfo = getStatusInfo(item, 'pending');
@@ -537,12 +534,11 @@ export default function ReportDetailScreen({ navigation, route }) {
                       <Text style={[styles.headerCell, {width: 130}]}>สมาชิก</Text>
                       <Text style={[styles.headerCell, {width: 130}]}>อุปกรณ์</Text>
                       <Text style={[styles.headerCell, {width: 70}]}>สภาพ</Text>
-                      <Text style={[styles.headerCell, {width: 50}]}>จำนวนที่ยืม</Text>
+                      <Text style={[styles.headerCell, {width: 120}]}>จำนวนที่ยืม</Text>
                       <Text style={[styles.headerCell, {width: 60}]}>คืนแล้ว</Text>
-                      <Text style={[styles.headerCell, {width: 60}]}>ค้างส่ง</Text>
+                      <Text style={[styles.headerCell, {width: 80}]}>ค้างส่ง</Text>
                       <Text style={[styles.headerCell, {width: 80}]}>ยืมเมื่อ</Text>
-                      <Text style={[styles.headerCell, {width: 80}]}>นัดล่าสุด</Text>
-                      {/* 🌟 เพิ่มหัวคอลัมน์ คืนเมื่อ */}
+                      <Text style={[styles.headerCell, {width: 130}]}>นัดล่าสุด</Text>
                       <Text style={[styles.headerCell, {width: 80}]}>คืนเมื่อ</Text>
                       <Text style={[styles.headerCell, {width: 100}]}>สถานะ</Text>
                       <Text style={[styles.headerCell, {width: 90}]}>จัดการ</Text>
@@ -564,37 +560,36 @@ export default function ReportDetailScreen({ navigation, route }) {
 
                       return (
                         <View key={index} style={styles.tableDataRow}>
-                          <Text style={[styles.dataCell, {width: 130}]} numberOfLines={1}>{item.member_name}</Text>
-                          <Text style={[styles.dataCell, {width: 130}]} numberOfLines={1}>{item.equipment}</Text>
+                          <Text style={[styles.dataCell, {width: 120}]} numberOfLines={1}>{item.member_name}</Text>
+                          <Text style={[styles.dataCell, {width: 145}]} numberOfLines={1}>{item.equipment}</Text>
                           
-                          <View style={[styles.dataCell, {width: 70, alignItems: 'center'}]}>
+                          <View style={[styles.dataCell, {width: 55, alignItems: 'center'}]}>
                             <Text style={{ fontSize: 13, fontWeight: 'bold', color: (item.equipment_status === 'ปกติ' || item.equipment_status === 'ใช้งาน') ? '#10B981' : '#EF4444' }}>
                               {item.equipment_status === 'ใช้งาน' ? 'ปกติ' : (item.equipment_status || 'ปกติ')}
                             </Text>
                           </View>
 
-                          <Text style={[styles.dataCell, {width: 50, fontWeight: 'bold', color: '#374151'}]}>
+                          <Text style={[styles.dataCell, {width: 135, fontWeight: 'bold', color: '#374151'}]}>
                             {originalAmount}
                           </Text>
 
-                          <Text style={[styles.dataCell, {width: 60, fontWeight: 'bold', color: '#10B981'}]}>
+                          <Text style={[styles.dataCell, {width: 50, fontWeight: 'bold', color: '#10B981'}]}>
                             {returnedAmount}
                           </Text>
 
-                          <Text style={[styles.dataCell, {width: 60, fontWeight: 'bold', color: '#D93025'}]}>
+                          <Text style={[styles.dataCell, {width: 80, fontWeight: 'bold', color: '#D93025'}]}>
                             {pendingAmount}
                           </Text>
                           
-                          <Text style={[styles.dataCell, {width: 80}]}>{formatDate(item.borrow_date)}</Text>
+                          <Text style={[styles.dataCell, {width: 100}]}>{formatDate(item.borrow_date)}</Text>
                           <Text style={[styles.dataCell, {width: 80}]}>{statusInfo.displayExpectedDate}</Text>
-                          {/* 🌟 แสดงวันที่คืนเมื่อ */}
-                          <Text style={[styles.dataCell, {width: 80}]}>{formatDate(item.return_date)}</Text>
+                          <Text style={[styles.dataCell, {width: 140}]}>{formatDate(item.return_date)}</Text>
                           
-                          <View style={[styles.dataCell, {width: 100, alignItems: 'center', paddingVertical: 4}]}>
+                          <View style={[styles.dataCell, {width: 75, alignItems: 'center', paddingVertical: 4}]}>
                             {renderStatusBadge(statusInfo)}
                           </View>
 
-                          <View style={[styles.dataCell, {width: 90, alignItems: 'center'}]}>
+                          <View style={[styles.dataCell, {width: 130, alignItems: 'center'}]}>
                             {showNotifyButton ? (
                               <TouchableOpacity style={styles.notifyBtn} onPress={() => handleNotifyUser(item, statusInfo.days)}>
                                 <Ionicons name="mail-outline" size={14} color="#FFF" style={{marginRight: 4}} />

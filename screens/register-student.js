@@ -154,6 +154,9 @@ export default function RegisterStudent({ navigation }) {
   const [popupType, setPopupType] = useState('success'); 
   const [popupMessage, setPopupMessage] = useState('');
 
+  // 🌟 ใช้ URL ของ Render
+  const API_URL = 'https://rmutk-sport.onrender.com';
+
   const handleFacultyChange = (val) => {
     setSelectedFaculty(val);
     setSelectedMajor(null);
@@ -210,7 +213,8 @@ export default function RegisterStudent({ navigation }) {
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
-      const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/request-otp', {
+      // 🌟 เอา header ngrok ออก
+      const response = await fetch(`${API_URL}/api/request-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail, type: 'student', studentId: studentId }),
@@ -247,7 +251,8 @@ export default function RegisterStudent({ navigation }) {
 
     setIsLoading(true);
     try {
-      const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/verify-otp', {
+      // 🌟 เอา header ngrok ออก
+      const response = await fetch(`${API_URL}/api/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), otp: otpCode }),
@@ -286,7 +291,8 @@ export default function RegisterStudent({ navigation }) {
     };
 
     try {
-      const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/register/student', {
+      // 🌟 เอา header ngrok ออก
+      const response = await fetch(`${API_URL}/api/register/student`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(studentData),

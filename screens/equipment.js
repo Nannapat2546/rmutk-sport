@@ -59,7 +59,8 @@ export default function EquipmentScreen({ navigation }) {
   const [editingId, setEditingId] = useState(null);
   const [isSuccessModalVisible, setSuccessModalVisible] = useState(false);
 
-  const API_URL = 'https://envision-stumble-kept.ngrok-free.dev'; 
+  // 🌟 ใช้ URL ของ Render
+  const API_URL = 'https://rmutk-sport.onrender.com'; 
 
   useEffect(() => {
     if (currentView === 'main') fetchEquipment();
@@ -69,10 +70,8 @@ export default function EquipmentScreen({ navigation }) {
   const fetchEquipment = async () => {
     setIsLoading(true);
     try {
-      // 🌟 จุดที่แก้ไข 1: เพิ่ม Header ตอนดึงข้อมูลอุปกรณ์
-      const res = await fetch(`${API_URL}/api/inventory/manage`, {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
-      });
+      // 🌟 เอา header ngrok ออก
+      const res = await fetch(`${API_URL}/api/inventory/manage`);
       const data = await res.json();
       if (data && Array.isArray(data)) {
         setEquipList(data);
@@ -87,10 +86,8 @@ export default function EquipmentScreen({ navigation }) {
 
   const fetchCategories = async () => {
     try {
-      // 🌟 จุดที่แก้ไข 2: เพิ่ม Header ตอนดึงข้อมูลหมวดหมู่
-      const res = await fetch(`${API_URL}/api/categories`, {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
-      });
+      // 🌟 เอา header ngrok ออก
+      const res = await fetch(`${API_URL}/api/categories`);
       const data = await res.json();
       if (Array.isArray(data)) setCategories(data);
       else setCategories([]);
@@ -110,12 +107,11 @@ export default function EquipmentScreen({ navigation }) {
   const handleSaveCategory = async () => {
     if (!newCategoryName) return showAlert('แจ้งเตือน', 'กรุณากรอกชื่อประเภท');
     try {
-      // 🌟 จุดที่แก้ไข 3: เพิ่ม Header ตอนบันทึกหมวดหมู่
+      // 🌟 เอา header ngrok ออก
       const res = await fetch(`${API_URL}/api/categories`, {
         method: 'POST',
         headers: { 
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ name: newCategoryName })
       });
@@ -133,10 +129,9 @@ export default function EquipmentScreen({ navigation }) {
 
   const handleDeleteCategory = async (id) => {
     try {
-      // 🌟 จุดที่แก้ไข 4: เพิ่ม Header ตอนลบหมวดหมู่
+      // 🌟 เอา header ngrok ออก
       const res = await fetch(`${API_URL}/api/categories/${id}`, { 
-        method: 'DELETE',
-        headers: { 'ngrok-skip-browser-warning': 'true' }
+        method: 'DELETE'
       });
       if (res.ok) fetchCategories();
       else showAlert('ลบไม่สำเร็จ', 'อาจมีอุปกรณ์ที่ใช้งานหมวดหมู่นี้อยู่');
@@ -148,10 +143,9 @@ export default function EquipmentScreen({ navigation }) {
   const handleDeleteEquipment = (id) => {
     const executeDelete = async () => {
       try {
-        // 🌟 จุดที่แก้ไข 5: เพิ่ม Header ตอนลบอุปกรณ์
+        // 🌟 เอา header ngrok ออก
         const res = await fetch(`${API_URL}/api/inventory/${id}`, { 
-          method: 'DELETE',
-          headers: { 'ngrok-skip-browser-warning': 'true' }
+          method: 'DELETE'
         });
         if (res.ok) fetchEquipment();
         else showAlert('ข้อผิดพลาด', 'ไม่สามารถลบอุปกรณ์ได้');
@@ -201,10 +195,9 @@ export default function EquipmentScreen({ navigation }) {
   const handleRepairEquipment = (id) => {
     const executeRepair = async () => {
       try {
-        // 🌟 จุดที่แก้ไข 6: เพิ่ม Header ตอนกดซ่อมอุปกรณ์
+        // 🌟 เอา header ngrok ออก
         const res = await fetch(`${API_URL}/api/inventory/${id}/repair`, { 
-          method: 'POST',
-          headers: { 'ngrok-skip-browser-warning': 'true' }
+          method: 'POST'
         });
         if (res.ok) {
           showAlert('สำเร็จ', 'นำอุปกรณ์ที่ซ่อมแซมกลับเข้า "สต็อกว่าง" เรียบร้อยแล้ว!');
@@ -276,12 +269,11 @@ export default function EquipmentScreen({ navigation }) {
     const url = editingId ? `${API_URL}/api/inventory/${editingId}` : `${API_URL}/api/inventory`;
 
     try {
-      // 🌟 จุดที่แก้ไข 7: เพิ่ม Header ตอนบันทึกอุปกรณ์
+      // 🌟 เอา header ngrok ออก
       const res = await fetch(url, {
         method: method,
         headers: { 
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(equipData)
       });

@@ -7,7 +7,9 @@ import { Ionicons } from '@expo/vector-icons';
 
 export default function FitnessScreen({ navigation, route }) {
   const qrData = route.params?.qrData || '';
-  const API_URL = 'https://envision-stumble-kept.ngrok-free.dev'; 
+  
+  // 🌟 ใช้ URL ของ Render
+  const API_URL = 'https://rmutk-sport.onrender.com'; 
   
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState(null);
@@ -50,12 +52,8 @@ export default function FitnessScreen({ navigation, route }) {
 
   const fetchUserData = async (code) => {
     try {
-      // 🌟 จุดที่แก้ไข 1: เพิ่ม Header ทะลุ ngrok ตอนดึงข้อมูลผู้ใช้งาน
-      const response = await fetch(`${API_URL}/api/users/scan/${code}`, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
-      });
+      // 🌟 เอา header ngrok ออก
+      const response = await fetch(`${API_URL}/api/users/scan/${code}`);
       const data = await response.json();
       
       if (response.ok) {
@@ -70,12 +68,8 @@ export default function FitnessScreen({ navigation, route }) {
 
   const fetchSettings = async () => {
     try {
-      // 🌟 จุดที่แก้ไข 2: เพิ่ม Header ทะลุ ngrok ตอนดึงข้อมูลการตั้งค่าแอดมิน
-      const response = await fetch(`${API_URL}/api/admin/settings`, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
-      });
+      // 🌟 เอา header ngrok ออก
+      const response = await fetch(`${API_URL}/api/admin/settings`);
       const data = await response.json();
       
       const ppNo = data.promptpay_no || data.promptpay || data.promptpay_number || '';
@@ -103,12 +97,11 @@ export default function FitnessScreen({ navigation, route }) {
         staff_name: staffName 
       };
 
-      // 🌟 จุดที่แก้ไข 3: เพิ่ม Header ทะลุ ngrok ตอนส่งข้อมูลบันทึกการชำระเงิน
+      // 🌟 เอา header ngrok ออก
       const response = await fetch(`${API_URL}/api/fitness-usage`, {
         method: 'POST',
         headers: { 
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(requestBody)
       });

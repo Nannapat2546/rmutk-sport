@@ -20,7 +20,8 @@ export default function StaffDashboard({ route, navigation }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSavingPwd, setIsSavingPwd] = useState(false);
 
-  const API_URL = 'https://envision-stumble-kept.ngrok-free.dev'; 
+  // 🌟 ใช้ URL ของ Render
+  const API_URL = 'https://rmutk-sport.onrender.com'; 
   const currentUser = route.params?.user || {};
 
   const menuItems = [
@@ -68,6 +69,7 @@ export default function StaffDashboard({ route, navigation }) {
 
     setIsSavingPwd(true);
     try {
+      // 🌟 เอา header ngrok ออก
       const res = await fetch(`${API_URL}/api/change-password`, {
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' },

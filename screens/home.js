@@ -18,7 +18,8 @@ const majorNameThai = {
 };
 
 export default function Dashboard({ route, navigation }) {
-  const API_URL = 'https://envision-stumble-kept.ngrok-free.dev';
+  // 🌟 ใช้ URL ของ Render
+  const API_URL = 'https://rmutk-sport.onrender.com';
   
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,11 +63,8 @@ export default function Dashboard({ route, navigation }) {
   const fetchEquipmentData = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/inventory`, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
-      }); 
+      // 🌟 เอา header ngrok ออก
+      const response = await fetch(`${API_URL}/api/inventory`); 
       const data = await response.json();
       
       if(Array.isArray(data)) {
@@ -95,11 +93,8 @@ export default function Dashboard({ route, navigation }) {
     try {
       let notifs = [];
 
-      const fitRes = await fetch(`${API_URL}/api/fitness-history/${targetAccountId}`, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
-      });
+      // 🌟 เอา header ngrok ออก
+      const fitRes = await fetch(`${API_URL}/api/fitness-history/${targetAccountId}`);
       if (fitRes.ok) {
         const fitData = await fitRes.json();
         fitData.forEach(item => {
@@ -117,11 +112,8 @@ export default function Dashboard({ route, navigation }) {
       }
 
       if (role !== 'external') {
-        const eqRes = await fetch(`${API_URL}/api/history/${targetAccountId}`, {
-          headers: {
-            'ngrok-skip-browser-warning': 'true'
-          }
-        });
+        // 🌟 เอา header ngrok ออก
+        const eqRes = await fetch(`${API_URL}/api/history/${targetAccountId}`);
         if (eqRes.ok) {
           const eqData = await eqRes.json();
           eqData.forEach(item => {
@@ -176,11 +168,8 @@ export default function Dashboard({ route, navigation }) {
       }
 
       try {
-        const adminNotifRes = await fetch(`${API_URL}/api/notifications/${targetAccountId}`, {
-          headers: {
-            'ngrok-skip-browser-warning': 'true'
-          }
-        });
+        // 🌟 เอา header ngrok ออก
+        const adminNotifRes = await fetch(`${API_URL}/api/notifications/${targetAccountId}`);
         if (adminNotifRes.ok) {
           const adminNotifsData = await adminNotifRes.json();
           adminNotifsData.forEach(item => {

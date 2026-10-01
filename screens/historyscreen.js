@@ -7,7 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 export default function HistoryScreen({ navigation, route }) {
   const accountId = route.params?.accountId; 
-  const API_URL = 'https://envision-stumble-kept.ngrok-free.dev'; 
+  // 🌟 ใช้ URL ของ Render
+  const API_URL = 'https://rmutk-sport.onrender.com'; 
 
   const [isLoading, setIsLoading] = useState(true);
   const [historyData, setHistoryData] = useState([]);
@@ -20,60 +21,6 @@ export default function HistoryScreen({ navigation, route }) {
       setIsLoading(false);
     }
   }, [accountId]);
-
-  const fetchAllHistory = async () => {
-    setIsLoading(true);
-    try {
-      // 🌟 จุดที่ 1: เพิ่ม Header ทะลุ ngrok ดึงประวัติการยืมอุปกรณ์
-      const resBorrow = await fetch(`${API_URL}/api/history/${accountId}`, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
-      });
-      const dataBorrow = await resBorrow.json();
-      
-      if (resBorrow.ok) {
-        const formattedBorrow = dataBorrow.map(item => ({
-          id: item.id,
-          equipment: item.equipment,
-          amount: item.amount,
-          borrowDate: formatDate(item.borrow_date),
-          returnDate: item.return_date ? formatDate(item.return_date) : '-',
-          equipmentStatus: (item.equipment_status === 'ใช้งาน' || item.equipment_status === 'ปกติ') ? 'ปกติ' : (item.equipment_status || 'ปกติ'),
-          ...calculateStatus(item.borrow_date, item.return_date)
-        }));
-        setHistoryData(formattedBorrow);
-      } else {
-        setHistoryData([]);
-      }
-
-      // 🌟 จุดที่ 2: เพิ่ม Header ทะลุ ngrok ดึงประวัติการเข้าใช้ฟิตเนส
-      const resFitness = await fetch(`${API_URL}/api/fitness-history/${accountId}`, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
-      });
-      const dataFitness = await resFitness.json();
-
-      if (resFitness.ok) {
-        const formattedFitness = dataFitness.map(item => ({
-          id: item.id,
-          checkInDate: formatDate(item.check_in_time),
-          serviceFee: `${parseFloat(item.service_fee)} บาท`,
-          paymentType: item.payment_type === 'cash' ? 'เงินสด' : 'สแกน QR'
-        }));
-        setFitnessData(formattedFitness);
-      } else {
-        setFitnessData([]);
-      }
-
-    } catch (error) {
-      console.error(error);
-      Alert.alert('ข้อผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const formatDate = (dateString) => {
     if (!dateString) return '-';
@@ -104,6 +51,51 @@ export default function HistoryScreen({ navigation, route }) {
     }
     
     return { status: 'กำลังยืม', isLate: false };
+  };
+
+  const fetchAllHistory = async () => {
+    setIsLoading(true);
+    try {
+      // 🌟 เอา header ngrok ออก
+      const resBorrow = await fetch(`${API_URL}/api/history/${accountId}`);
+      const dataBorrow = await resBorrow.json();
+      
+      if (resBorrow.ok) {
+        const formattedBorrow = dataBorrow.map(item => ({
+          id: item.id,
+          equipment: item.equipment,
+          amount: item.amount,
+          borrowDate: formatDate(item.borrow_date),
+          returnDate: item.return_date ? formatDate(item.return_date) : '-',
+          equipmentStatus: (item.equipment_status === 'ใช้งาน' || item.equipment_status === 'ปกติ') ? 'ปกติ' : (item.equipment_status || 'ปกติ'),
+          ...calculateStatus(item.borrow_date, item.return_date)
+        }));
+        setHistoryData(formattedBorrow);
+      } else {
+        setHistoryData([]); 
+      }
+
+      // 🌟 เอา header ngrok ออก
+      const resFitness = await fetch(`${API_URL}/api/fitness-history/${accountId}`);
+      const dataFitness = await resFitness.json();
+
+      if (resFitness.ok) {
+        const formattedFitness = dataFitness.map(item => ({
+          id: item.id,
+          checkInDate: formatDate(item.check_in_time),
+          serviceFee: `${parseFloat(item.service_fee)} บาท`,
+          paymentType: item.payment_type === 'cash' ? 'เงินสด' : 'สแกน QR'
+        }));
+        setFitnessData(formattedFitness);
+      } else {
+        setFitnessData([]); 
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('ข้อผิดพลาด', 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (!accountId) {

@@ -94,6 +94,11 @@ export default function AdminDashboard({ navigation, route }) {
   });
   const [savingSettings, setSavingSettings] = useState(false);
 
+  // 🌟 ใช้ URL จริงที่อัปเดตแล้ว (สมมติว่าเป็นโดเมนของ Render ตามที่คุณกล่าวถึง หรือ URL ที่ถูกต้อง)
+  // หาก Render URL ของคุณคือ https://rmutk-sport-backend.onrender.com โปรดเปลี่ยน `API_URL`
+  // ตอนนี้ใช้ https://rmutk-sport.onrender.com เป็นค่าตั้งต้นตามโค้ดก่อนหน้า
+  const API_URL = 'https://rmutk-sport.onrender.com';
+
   const showMessage = (title, message) => {
     if (Platform.OS === 'web') {
       window.alert(`${title}\n\n${message}`);
@@ -104,7 +109,8 @@ export default function AdminDashboard({ navigation, route }) {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/dashboard-stats?mode=${viewMode}&month=${selectedMonth}`, {
+      // 🌟 ใช้ API_URL และคง ngrok header ไว้ชั่วคราวเผื่อสลับกลับ
+      const response = await fetch(`${API_URL}/api/admin/dashboard-stats?mode=${viewMode}&month=${selectedMonth}`, {
         headers: { 'ngrok-skip-browser-warning': 'true' }
       });
       if (response.ok) {
@@ -119,7 +125,7 @@ export default function AdminDashboard({ navigation, route }) {
   const fetchUsers = async () => {
     try {
       setLoadingUsers(true);
-      const response = await fetch('https://rmutk-sport.onrender.com/api/admin/users', {
+      const response = await fetch(`${API_URL}/api/admin/users`, {
         headers: { 'ngrok-skip-browser-warning': 'true' }
       });
       if (response.ok) {
@@ -135,7 +141,7 @@ export default function AdminDashboard({ navigation, route }) {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/admin/settings', {
+      const response = await fetch(`${API_URL}/api/admin/settings`, {
         headers: { 'ngrok-skip-browser-warning': 'true' }
       });
       if (response.ok) {
@@ -158,7 +164,7 @@ export default function AdminDashboard({ navigation, route }) {
   const saveSettings = async () => {
     setSavingSettings(true);
     try {
-      const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/admin/settings', {
+      const response = await fetch(`${API_URL}/api/admin/settings`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -194,7 +200,7 @@ export default function AdminDashboard({ navigation, route }) {
     }
 
     try {
-      const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/change-password', {
+      const response = await fetch(`${API_URL}/api/change-password`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -222,7 +228,7 @@ export default function AdminDashboard({ navigation, route }) {
   const togglePermission = async (userId, field, currentValue) => {
     try {
       setUsers(users.map(u => u.id === userId ? { ...u, [field]: !currentValue } : u));
-      await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/users/${userId}/permissions`, {
+      await fetch(`${API_URL}/api/admin/users/${userId}/permissions`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -248,7 +254,7 @@ export default function AdminDashboard({ navigation, route }) {
     }
 
     try {
-      const res = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/create-staff`, {
+      const res = await fetch(`${API_URL}/api/admin/create-staff`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -292,7 +298,7 @@ export default function AdminDashboard({ navigation, route }) {
         bodyData.password = editPassword; // ส่งรหัสผ่านไปเฉพาะเมื่อมีการพิมพ์ใหม่
       }
 
-      const res = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/users/${editUserId}`, {
+      const res = await fetch(`${API_URL}/api/admin/users/${editUserId}`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -317,7 +323,7 @@ export default function AdminDashboard({ navigation, route }) {
   const handleDeleteStaff = (userId, userName) => {
     const executeDelete = async () => {
       try {
-        const res = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/users/${userId}`, { 
+        const res = await fetch(`${API_URL}/api/admin/users/${userId}`, { 
           method: 'DELETE',
           headers: { 'ngrok-skip-browser-warning': 'true' }
         });
@@ -376,7 +382,7 @@ export default function AdminDashboard({ navigation, route }) {
 
   const openUserDetails = async (user) => {
     try {
-      const res = await fetch(`https://envision-stumble-kept.ngrok-free.dev/api/admin/users/${user.id}/detail`, {
+      const res = await fetch(`${API_URL}/api/admin/users/${user.id}/detail`, {
         headers: { 'ngrok-skip-browser-warning': 'true' }
       });
       if (res.ok) {

@@ -26,6 +26,9 @@ export default function LoginScreen({ navigation }) {
   const [popupType, setPopupType] = useState('success'); 
   const [popupMessage, setPopupMessage] = useState('');
 
+  // 🌟 ใช้ URL ของ Render
+  const API_URL = 'https://rmutk-sport.onrender.com';
+
   // ฟังก์ชันจัดการ Pop-up
   const showPopup = (type, message) => {
     setPopupType(type);
@@ -53,7 +56,8 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
 
     try {
-      const response = await fetch('https://envision-stumble-kept.ngrok-free.dev/api/login-admin', {
+      // 🌟 ใช้ URL Render และเอา Header ngrok ออก
+      const response = await fetch(`${API_URL}/api/login-admin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -75,7 +79,7 @@ export default function LoginScreen({ navigation }) {
       }
     } catch (error) {
       console.error('Login Error:', error);
-      showPopup('error', 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบว่าเปิดระบบหลังบ้านแล้ว');
+      showPopup('error', 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบว่าระบบหลังบ้านออนไลน์อยู่');
     } finally {
       setLoading(false);
     }
@@ -290,7 +294,6 @@ const styles = StyleSheet.create({
     fontSize: 12, 
     color: '#9CA3AF' 
   },
-
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalBox: { width: 300, backgroundColor: '#FFF', borderRadius: 16, padding: 25, alignItems: 'center', elevation: 5 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', marginTop: 10, marginBottom: 8 },
