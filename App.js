@@ -21,11 +21,7 @@ import MemberListScreen from './screens/memberlistscreen';
 import ReportScreen from './screens/reportscreen';         
 import ReportDetailScreen from './screens/reportdetailscreen';
 import HistoryScreen from './screens/historyscreen'; 
-
-// 🌟 จุดที่ 1: ตรวจสอบชื่อไฟล์ตรงนี้ให้ตรงกับในโฟลเดอร์ของคุณ!
-// ถ้าชื่อไฟล์ของคุณเป็นตัวเล็กหมด ให้ใช้บรรทัดนี้:
 import FitnessScannerScreen from './screens/fitnessscannerscreen';
-// (ถ้าไฟล์คุณชื่อ fitnessscannerscreen.js ให้แก้ด้านบนเป็น './screens/fitnessscannerscreen')
 
 const Stack = createNativeStackNavigator();
 
@@ -45,10 +41,7 @@ export default function App() {
             <Stack.Screen name="Borrow" component={BorrowScreen} />
             <Stack.Screen name="Return" component={ReturnScreen} />
             <Stack.Screen name="Fitness" component={FitnessScreen} />
-            
-            {/* 🌟 จุดที่ 2: เพิ่มหน้า FitnessScanner เข้ามาในระบบนำทางตรงนี้ */}
             <Stack.Screen name="FitnessScanner" component={FitnessScannerScreen} />
-            
             <Stack.Screen name="Equipment" component={EquipmentScreen} />
             <Stack.Screen name="MemberList" component={MemberListScreen} /> 
             <Stack.Screen name="Report" component={ReportScreen} />         
