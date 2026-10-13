@@ -12,9 +12,12 @@ const monthOptions = [
   { id: '9', name: 'กันยายน' }, { id: '10', name: 'ตุลาคม' }, { id: '11', name: 'พฤศจิกายน' }, { id: '12', name: 'ธันวาคม' },
 ];
 
+// ดึง API URL จาก Env หากไม่มีให้ใช้ Ngrok URL สำรอง
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://envision-stumble-kept.ngrok-free.dev'; 
+
 export default function ReportScreen({ navigation }) {
-  const API_URL = 'https://envision-stumble-kept.ngrok-free.dev'; 
   const [isLoading, setIsLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState(null);
   const [stats, setStats] = useState(null);
   
   const [viewMode, setViewMode] = useState('daily'); 
@@ -30,23 +33,30 @@ export default function ReportScreen({ navigation }) {
 
   const fetchDashboardStats = async () => {
     setIsLoading(true);
+    setErrorMsg(null);
     try {
-      // 🌟 จุดที่แก้ไข 1: เพิ่ม Header ทะลุ ngrok สำหรับดึงข้อมูลสถิติ
       const response = await fetch(`${API_URL}/api/admin/dashboard-stats?mode=${viewMode}&month=${selectedMonth}`, {
+        method: 'GET',
         headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
           'ngrok-skip-browser-warning': 'true'
         }
       });
-      const data = await response.json();
       
-      if (response.ok) {
-        setStats(data);
-        if (data.overdue > 0 && viewMode === 'daily') {
-          autoSendNotification();
-        }
+      if (!response.ok) {
+        throw new Error(`Server Response Error (${response.status})`);
+      }
+
+      const data = await response.json();
+      setStats(data);
+
+      if (data.overdue > 0 && viewMode === 'daily') {
+        autoSendNotification();
       }
     } catch (error) {
-      console.error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้', error);
+      console.error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้:', error);
+      setErrorMsg('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ (กรุณาเช็ก Ngrok หรือ CORS)');
     } finally {
       setIsLoading(false);
     }
@@ -54,10 +64,10 @@ export default function ReportScreen({ navigation }) {
 
   const autoSendNotification = async () => {
     try {
-      // 🌟 จุดที่แก้ไข 2: เพิ่ม Header ทะลุ ngrok สำหรับยิงแจ้งเตือนอัตโนมัติ
       await fetch(`${API_URL}/api/admin/notify-overdue`, { 
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'ngrok-skip-browser-warning': 'true'
         }
       });
@@ -65,15 +75,6 @@ export default function ReportScreen({ navigation }) {
       console.log('⚠️ ไม่สามารถยิงแจ้งเตือนอัตโนมัติได้:', error);
     }
   };
-
-  if (isLoading && !stats) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#1E3A8A" />
-        <Text style={{ marginTop: 10, color: '#666' }}>กำลังโหลดแดชบอร์ด...</Text>
-      </View>
-    );
-  }
 
   const maxChartValue = stats?.chartBar ? Math.max(...stats.chartBar.map(d => d.value), 1) : 1;
   
@@ -95,6 +96,7 @@ export default function ReportScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
+        {/* Header Section */}
         <View style={styles.headerRow}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
@@ -145,12 +147,23 @@ export default function ReportScreen({ navigation }) {
           </View>
         </View>
 
+        {/* State Displays */}
         {isLoading ? (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color="#1E3A8A" />
+            <Text style={{ marginTop: 10, color: '#666' }}>กำลังโหลดข้อมูล...</Text>
+          </View>
+        ) : errorMsg ? (
+          <View style={styles.errorBox}>
+            <Ionicons name="warning-outline" size={40} color="#EF4444" />
+            <Text style={styles.errorText}>{errorMsg}</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={fetchDashboardStats}>
+              <Text style={styles.retryBtnText}>ลองใหม่อีกครั้ง</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <>
+            {/* Summary Cards */}
             <View style={styles.summaryGrid}>
               <View style={styles.summaryCard}>
                 <View style={styles.cardHeader}>
@@ -203,8 +216,9 @@ export default function ReportScreen({ navigation }) {
               </View>
             </View>
 
+            {/* Charts Row */}
             <View style={styles.chartsRow}>
-              
+              {/* Bar Chart */}
               <View style={styles.barChartCard}>
                 <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5}}>
                    <View>
@@ -233,7 +247,6 @@ export default function ReportScreen({ navigation }) {
                           style={[styles.barItem, viewMode === 'monthly' && selectedMonth !== 'all' && { minWidth: 20, marginRight: 5 }]}
                         >
                           <View style={{ flex: 1, width: '100%', alignItems: 'center', justifyContent: 'flex-end', position: 'relative' }}>
-                            
                             {selectedBarIndex === index && (
                               <View style={[styles.tooltipBubble, { bottom: `${barHeightPercent}%` }]}>
                                 <Text style={styles.tooltipText}>{item.value} คน</Text>
@@ -254,6 +267,7 @@ export default function ReportScreen({ navigation }) {
                 </View>
               </View>
 
+              {/* Payment Donut */}
               <View style={styles.donutChartCard}>
                 <Text style={styles.chartTitle}>สัดส่วนวิธีชำระเงิน</Text>
                 <Text style={styles.chartSubtitle}>เงินสด {stats?.cash || 0} บ. • QR {stats?.qr || 0} บ.</Text>
@@ -283,6 +297,7 @@ export default function ReportScreen({ navigation }) {
               </View>
             </View>
 
+            {/* Popular Equipment */}
             <View style={styles.chartsRow}>
               <View style={[styles.barChartCard, { flex: 1, minHeight: 250, marginTop: 15 }]}>
                 <Text style={styles.chartTitle}>5 อันดับอุปกรณ์ที่ถูกยืมมากที่สุด</Text>
@@ -313,10 +328,10 @@ export default function ReportScreen({ navigation }) {
                 </View>
               </View>
             </View>
-
           </>
         )}
 
+        {/* Detailed Report Navigation */}
         <Text style={[styles.chartTitle, { marginTop: 25, marginBottom: 15 }]}>รายงานแบบละเอียด</Text>
         
         <TouchableOpacity style={styles.menuDetailBtn} onPress={() => navigation.navigate('ReportDetail', { reportType: 'borrow' })}>
@@ -344,6 +359,11 @@ const styles = StyleSheet.create({
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F7F6', minHeight: 300 },
   scrollContent: { padding: 20, paddingBottom: 40 },
   
+  errorBox: { backgroundColor: '#FEF2F2', padding: 24, borderRadius: 12, borderWidth: 1, borderColor: '#FCA5A5', alignItems: 'center', marginVertical: 20 },
+  errorText: { fontSize: 14, color: '#991B1B', marginTop: 10, textAlign: 'center', fontWeight: '500' },
+  retryBtn: { marginTop: 15, backgroundColor: '#EF4444', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8 },
+  retryBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
+
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, flexWrap: 'wrap', gap: 15, zIndex: 10 },
   backButton: { marginRight: 15, padding: 5 },
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#0F172A' },
