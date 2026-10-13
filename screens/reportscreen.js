@@ -31,6 +31,7 @@ export default function ReportScreen({ navigation }) {
   const fetchDashboardStats = async () => {
     setIsLoading(true);
     try {
+      // 🌟 จุดที่แก้ไข 1: เพิ่ม Header ทะลุ ngrok สำหรับดึงข้อมูลสถิติ
       const response = await fetch(`${API_URL}/api/admin/dashboard-stats?mode=${viewMode}&month=${selectedMonth}`, {
         headers: {
           'ngrok-skip-browser-warning': 'true'
@@ -53,6 +54,7 @@ export default function ReportScreen({ navigation }) {
 
   const autoSendNotification = async () => {
     try {
+      // 🌟 จุดที่แก้ไข 2: เพิ่ม Header ทะลุ ngrok สำหรับยิงแจ้งเตือนอัตโนมัติ
       await fetch(`${API_URL}/api/admin/notify-overdue`, { 
         method: 'POST',
         headers: {
@@ -404,32 +406,38 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F4F7F6' },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F7F6', minHeight: 300 },
   scrollContent: { padding: 20, paddingBottom: 40 },
+  
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, flexWrap: 'wrap', gap: 15, zIndex: 10 },
   backButton: { marginRight: 15, padding: 5 },
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#0F172A' },
   headerSubtitle: { fontSize: 13, color: '#64748B', marginTop: 2 },
+
   toggleGroup: { flexDirection: 'row', backgroundColor: '#E2E8F0', borderRadius: 8, padding: 4 },
   toggleBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6 },
   toggleBtnActive: { backgroundColor: '#FFFFFF', ...Platform.select({ web: { boxShadow: '0px 1px 3px rgba(0,0,0,0.1)' }, default: { elevation: 1 } }) },
   toggleText: { fontSize: 14, fontWeight: '600', color: '#64748B' },
   toggleTextActive: { color: '#1E3A8A' },
+  
   monthDropdownBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, borderWidth: 1, borderColor: '#CBD5E1', height: 38 },
   monthDropdownText: { fontSize: 14, fontWeight: '600', color: '#334155', marginRight: 8 },
   monthDropdownList: { position: 'absolute', top: 45, right: 0, width: 160, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5, elevation: 5 },
   monthDropdownItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
   monthDropdownItemText: { fontSize: 13, color: '#475569' },
+
   summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 20, zIndex: 1 },
-  summaryCard: { flexGrow: 1, flexBasis: '30%', minWidth: 150, backgroundColor: '#FFF', padding: 20, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#E2E8F0', marginRight: 5 },
+  summaryCard: { flexGrow: 1, flexBasis: '23%', minWidth: 150, backgroundColor: '#FFF', padding: 20, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#E2E8F0', marginRight: 5 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   cardTitle: { fontSize: 14, fontWeight: '700', color: '#334155' },
   cardValueRow: { flexDirection: 'row', alignItems: 'baseline', marginBottom: 15 },
   cardValue: { fontSize: 32, fontWeight: 'bold', color: '#0F172A', marginRight: 5 },
   cardUnit: { fontSize: 14, fontWeight: '600', color: '#0F172A' },
   cardFooterText: { fontSize: 12, color: '#94A3B8' },
+
   chartsRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 15, zIndex: 1 },
   barChartCard: { flexGrow: 2, flexBasis: '60%', minWidth: 300, backgroundColor: '#FFF', padding: 20, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' },
   chartTitle: { fontSize: 16, fontWeight: 'bold', color: '#0F172A' },
   chartSubtitle: { fontSize: 12, color: '#64748B', marginTop: 4 },
+  
   chartArea: { height: 230, paddingBottom: 20, paddingTop: 30 },
   barsContainer: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: 10 },
   barItem: { alignItems: 'center', flex: 1, height: '100%', justifyContent: 'flex-end' },
@@ -437,9 +445,33 @@ const styles = StyleSheet.create({
   barFill: { width: '100%', backgroundColor: '#1E3A8A', borderRadius: 4 }, 
   barLabel: { fontSize: 11, color: '#64748B', position: 'absolute', bottom: -25 },
   xAxisLine: { height: 1, backgroundColor: '#E2E8F0', width: '100%', position: 'absolute', bottom: 0 },
-  tooltipBubble: { position: 'absolute', marginBottom: 8, backgroundColor: '#0F172A', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, zIndex: 100, ...Platform.select({ web: { boxShadow: '0px 2px 5px rgba(0,0,0,0.3)' }, default: { elevation: 5 } }) },
+
+  tooltipBubble: { 
+    position: 'absolute', 
+    marginBottom: 8, 
+    backgroundColor: '#0F172A', 
+    paddingHorizontal: 10, 
+    paddingVertical: 6, 
+    borderRadius: 6, 
+    zIndex: 100,
+    ...Platform.select({ web: { boxShadow: '0px 2px 5px rgba(0,0,0,0.3)' }, default: { elevation: 5 } })
+  },
   tooltipText: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
-  tooltipArrow: { position: 'absolute', bottom: -4, left: '50%', marginLeft: -4, width: 0, height: 0, borderLeftWidth: 4, borderRightWidth: 4, borderTopWidth: 4, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: '#0F172A' },
+  tooltipArrow: {
+    position: 'absolute',
+    bottom: -4,
+    left: '50%',
+    marginLeft: -4,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 4,
+    borderRightWidth: 4,
+    borderTopWidth: 4,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#0F172A'
+  },
+
   donutChartCard: { flexGrow: 1, flexBasis: '35%', minWidth: 250, backgroundColor: '#FFF', padding: 20, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0' },
   donutContainer: { alignItems: 'center', justifyContent: 'center', marginVertical: 30 },
   donutRing: { width: 160, height: 160, borderRadius: 80, borderWidth: 25, borderColor: '#1E3A8A', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', position: 'relative' },
@@ -451,6 +483,7 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center' },
   legendDot: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
   legendText: { fontSize: 12, color: '#334155', fontWeight: '500' },
+
   menuDetailBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFF', padding: 18, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 10 },
   menuDetailText: { fontSize: 14, fontWeight: '600', color: '#334155' }
 });
