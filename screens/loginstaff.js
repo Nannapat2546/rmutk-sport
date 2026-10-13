@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,20 @@ export default function LoginStaffScreen({ navigation }) {
   // 🌟 ใช้ URL ของ Render
   const API_URL = 'https://rmutk-sport.onrender.com';
 
+  // ⚡ ปลุกเซิร์ฟเวอร์ Render ทันทีที่เปิดหน้านี้ขึ้นมา (ไม่ต้องรอให้กดปุ่มเข้าสู่ระบบ)
+  useEffect(() => {
+    const warmupServer = async () => {
+      try {
+        await fetch(`${API_URL}/api/ping`);
+        console.log('⚡ ส่งสัญญาณปลุก Backend บน Render เรียบร้อย');
+      } catch (err) {
+        console.log('Warmup server status:', err.message);
+      }
+    };
+
+    warmupServer();
+  }, []);
+
   // 🌟 ฟังก์ชันจัดการ Pop-up
   const showPopup = (type, message) => {
     setPopupType(type);
@@ -53,7 +67,6 @@ export default function LoginStaffScreen({ navigation }) {
     setLoading(true);
 
     try {
-      // 🌟 ใช้ URL Render และเอา Header ngrok ออก
       const response = await fetch(`${API_URL}/api/login-staff`, {
         method: 'POST',
         headers: {
