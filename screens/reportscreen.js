@@ -14,97 +14,123 @@ const monthOptions = [
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://envision-stumble-kept.ngrok-free.dev'; 
 
-// 🌟 Mock Data คำนวณตามอัตรา: นักศึกษา 5 บาท / บุคคลภายนอก 30 บาท
+// 🌟 Mock Data ที่ปรับขนาดให้พอดี สมจริง (วันละ 5-10 คน) และแต่ละเดือนไม่ซ้ำกัน
 const getMockData = (mode, month) => {
   if (mode === 'daily') {
-    // นักศึกษา 18 คน (90 บ.) + บุคคลภายนอก 30 คน (900 บ.) = 48 คน (990 บาท)
+    // รายวัน: เข้าใช้ประมาณ 10 คน/วัน (นศ. 8 คน x 5 บ. = 40 บ. | บุคคลภายนอก 4 คน x 30 บ. = 120 บ.)
     return {
-      fitnessUsers: 48,
-      revenue: 990,
-      cash: 290,
-      qr: 700,
-      borrowed: 18,
-      notReturned: 4,
-      overdue: 2,
+      fitnessUsers: 10,
+      revenue: 160,
+      cash: 50,
+      qr: 110,
+      borrowed: 6,
+      notReturned: 1,
+      overdue: 0,
       chartBar: [
-        { label: '07:00', value: 6 },
-        { label: '09:00', value: 14 },
-        { label: '11:00', value: 10 },
-        { label: '13:00', value: 8 },
-        { label: '15:00', value: 22 },
-        { label: '17:00', value: 38 },
-        { label: '19:00', value: 28 },
-        { label: '21:00', value: 12 }
+        { label: '07:00', value: 1 },
+        { label: '09:00', value: 1 },
+        { label: '11:00', value: 1 },
+        { label: '13:00', value: 1 },
+        { label: '15:00', value: 2 },
+        { label: '17:00', value: 3 },
+        { label: '19:00', value: 1 },
+        { label: '21:00', value: 0 }
       ],
-      peakUsage: { label: '17:00', value: 38 },
+      peakUsage: { label: '17:00', value: 3 },
       popularEquipment: [
-        { label: 'ฟุตบอล', value: 15 },
-        { label: 'บาสเกตบอล', value: 10 },
-        { label: 'ไม้แบดมินตัน', value: 8 },
-        { label: 'วอลเลย์บอล', value: 5 },
-        { label: 'ลูกปิงปอง', value: 3 }
+        { label: 'ฟุตบอล', value: 4 },
+        { label: 'บาสเกตบอล', value: 3 },
+        { label: 'ไม้แบดมินตัน', value: 2 },
+        { label: 'วอลเลย์บอล', value: 1 },
+        { label: 'ลูกปิงปอง', value: 1 }
       ]
     };
   }
 
   if (mode === 'monthly') {
     if (month === 'all') {
-      // นักศึกษา 600 คน (3,000 บ.) + บุคคลภายนอก 820 คน (24,600 บ.) = 1,420 คน (27,600 บาท)
+      // ภาพรวมทั้งปี: แต่ละเดือนผันแปรไม่เท่ากันตามฤดูกาลจริง
+      const yearlyMonthlyData = [
+        { label: 'ม.ค.', value: 145 },
+        { label: 'ก.พ.', value: 130 },
+        { label: 'มี.ค.', value: 165 },
+        { label: 'เม.ย.', value: 85 },  // ช่วงปิดเทอม/สงกรานต์
+        { label: 'พ.ค.', value: 210 },  // เปิดเทอม
+        { label: 'มิ.ย.', value: 185 },
+        { label: 'ก.ค.', value: 160 },
+        { label: 'ส.ค.', value: 195 },
+        { label: 'ก.ย.', value: 175 },
+        { label: 'ต.ค.', value: 120 },  // ช่วงสอบ/ปิดเทอมย่อย
+        { label: 'พ.ย.', value: 150 },
+        { label: 'ธ.ค.', value: 110 }   // วันหยุดสิ้นปี
+      ];
+
+      const totalUsers = yearlyMonthlyData.reduce((acc, item) => acc + item.value, 0); // รวม 1,830 คนทั้งปี
+      const totalRev = 22900; // คิดตามอัตรา นศ. 5 บ. / บุคคลภายนอก 30 บ.
+      const cashRev = 6900;
+      const qrRev = 16000;
+
       return {
-        fitnessUsers: 1420,
-        revenue: 27600,
-        cash: 7600,
-        qr: 20000,
-        borrowed: 420,
-        notReturned: 8,
-        overdue: 3,
-        chartBar: [
-          { label: 'ม.ค.', value: 105 },
-          { label: 'ก.พ.', value: 120 },
-          { label: 'มี.ค.', value: 135 },
-          { label: 'เม.ย.', value: 85 },
-          { label: 'พ.ค.', value: 150 },
-          { label: 'มิ.ย.', value: 125 },
-          { label: 'ก.ค.', value: 140 },
-          { label: 'ส.ค.', value: 165 },
-          { label: 'ก.ย.', value: 130 },
-          { label: 'ต.ค.', value: 115 },
-          { label: 'พ.ย.', value: 95 },
-          { label: 'ธ.ค.', value: 90 }
-        ],
-        peakUsage: { label: 'สิงหาคม', value: 165 },
+        fitnessUsers: totalUsers,
+        revenue: totalRev,
+        cash: cashRev,
+        qr: qrRev,
+        borrowed: 185,
+        notReturned: 3,
+        overdue: 1,
+        chartBar: yearlyMonthlyData,
+        peakUsage: { label: 'พฤษภาคม', value: 210 },
         popularEquipment: [
-          { label: 'ฟุตบอล', value: 158 },
-          { label: 'บาสเกตบอล', value: 112 },
-          { label: 'ไม้แบดมินตัน', value: 84 },
-          { label: 'วอลเลย์บอล', value: 48 },
-          { label: 'ลูกปิงปอง', value: 24 }
+          { label: 'ฟุตบอล', value: 65 },
+          { label: 'บาสเกตบอล', value: 48 },
+          { label: 'ไม้แบดมินตัน', value: 35 },
+          { label: 'วอลเลย์บอล', value: 22 },
+          { label: 'ลูกปิงปอง', value: 15 }
         ]
       };
     } else {
-      // รายวัน 1-31 วัน: นักศึกษา 160 คน (800 บ.) + บุคคลภายนอก 220 คน (6,600 บ.) = 380 คน (7,400 บาท)
-      const daysInMonth = Array.from({ length: 31 }, (_, i) => {
+      // ระบุเดือน (1-12): สร้างกราฟรายวัน (1-30/31 วัน) ที่แต่ละเดือนสุ่มต่างกัน วันละ 3-8 คน
+      const mInt = parseInt(month) || 1;
+      const daysInMonths = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+      const totalDays = daysInMonths[mInt - 1] || 30;
+
+      let currentMonthUsers = 0;
+      const daysData = Array.from({ length: totalDays }, (_, i) => {
         const dayNum = i + 1;
-        const val = Math.floor(Math.sin(i) * 12) + 15;
-        return { label: `${dayNum}`, value: Math.max(3, val) };
+        // สูตรคณิตศาสตร์อิงตามลำดับเดือน (mInt) เพื่อให้แต่ละเดือนได้ค่าแตกต่างกัน
+        const pseudoVal = Math.floor(Math.abs(Math.sin(i * 1.5 + mInt * 2.3)) * 6) + 3; // วันละ 3 - 8 คน
+        currentMonthUsers += pseudoVal;
+        return { label: `${dayNum}`, value: pseudoVal };
       });
 
+      let maxDay = daysData[0];
+      daysData.forEach(d => {
+        if (d.value > maxDay.value) maxDay = d;
+      });
+
+      // คำนวณยอดเงินของเดือนนั้นๆ (นศ. 65% @ 5 บ. | บุคคลภายนอก 35% @ 30 บ.)
+      const studentCount = Math.round(currentMonthUsers * 0.65);
+      const externalCount = currentMonthUsers - studentCount;
+      const mRevenue = (studentCount * 5) + (externalCount * 30);
+      const mCash = Math.round(mRevenue * 0.3);
+      const mQr = mRevenue - mCash;
+
       return {
-        fitnessUsers: 380,
-        revenue: 7400,
-        cash: 2200,
-        qr: 5200,
-        borrowed: 95,
-        notReturned: 3,
-        overdue: 1,
-        chartBar: daysInMonth,
-        peakUsage: { label: 'วันที่ 18', value: 27 },
+        fitnessUsers: currentMonthUsers,
+        revenue: mRevenue,
+        cash: mCash,
+        qr: mQr,
+        borrowed: Math.round(currentMonthUsers * 0.25),
+        notReturned: Math.floor(mInt % 3),
+        overdue: Math.floor(mInt % 2),
+        chartBar: daysData,
+        peakUsage: { label: `วันที่ ${maxDay.label}`, value: maxDay.value },
         popularEquipment: [
-          { label: 'ฟุตบอล', value: 38 },
-          { label: 'บาสเกตบอล', value: 26 },
-          { label: 'ไม้แบดมินตัน', value: 18 },
-          { label: 'วอลเลย์บอล', value: 10 },
-          { label: 'ลูกปิงปอง', value: 5 }
+          { label: 'ฟุตบอล', value: Math.round(currentMonthUsers * 0.12) },
+          { label: 'บาสเกตบอล', value: Math.round(currentMonthUsers * 0.08) },
+          { label: 'ไม้แบดมินตัน', value: Math.round(currentMonthUsers * 0.05) },
+          { label: 'วอลเลย์บอล', value: Math.round(currentMonthUsers * 0.03) },
+          { label: 'ลูกปิงปอง', value: Math.round(currentMonthUsers * 0.02) }
         ]
       };
     }
