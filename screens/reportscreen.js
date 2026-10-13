@@ -91,14 +91,6 @@ export default function ReportScreen({ navigation }) {
   const cashPercent = totalRevenue > 0 ? (stats?.cash / totalRevenue) * 100 : 0;
   const qrPercent = totalRevenue > 0 ? (stats?.qr / totalRevenue) * 100 : 0;
 
-  // 🌟 คำนวณข้อมูลใหม่
-  const studentUsage = stats?.fitnessUsageByType?.find(r => r.role === 'student');
-  const externalUsage = stats?.fitnessUsageByType?.find(r => r.role === 'external');
-  const studentCount = studentUsage?.count || 0;
-  const externalCount = externalUsage?.count || 0;
-  const totalUsageCount = studentCount + externalCount || 1;
-  const studentPct = (studentCount / totalUsageCount) * 100;
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -160,7 +152,6 @@ export default function ReportScreen({ navigation }) {
         ) : (
           <>
             <View style={styles.summaryGrid}>
-              {/* Card 1: ฟิตเนส */}
               <View style={styles.summaryCard}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>ผู้เข้าใช้ฟิตเนส</Text>
@@ -173,7 +164,6 @@ export default function ReportScreen({ navigation }) {
                 <Text style={styles.cardFooterText}>ข้อมูล: {displayDateStr}</Text>
               </View>
 
-              {/* Card 2: ยอดเงิน */}
               <View style={styles.summaryCard}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>ยอดเงินค่าบริการ</Text>
@@ -186,7 +176,6 @@ export default function ReportScreen({ navigation }) {
                 <Text style={styles.cardFooterText}>เงินสด {stats?.cash || 0} บ. • QR {stats?.qr || 0} บ.</Text>
               </View>
 
-              {/* Card 3: ยืมอุปกรณ์ */}
               <View style={styles.summaryCard}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>อุปกรณ์ที่ถูกยืม</Text>
@@ -199,7 +188,6 @@ export default function ReportScreen({ navigation }) {
                 <Text style={styles.cardFooterText}>{stats?.notReturned || 0} รายการที่ยังไม่คืน</Text>
               </View>
 
-              {/* Card 4: ค้างส่ง */}
               <View style={[styles.summaryCard, { borderColor: stats?.overdue > 0 ? '#FCA5A5' : '#E2E8F0' }]}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>เกินกำหนดคืน</Text>
@@ -213,36 +201,10 @@ export default function ReportScreen({ navigation }) {
                   {stats?.overdue > 0 ? 'แจ้งเตือนแล้ว' : 'ต้องติดตามทวงคืน'}
                 </Text>
               </View>
-
-              {/* 🌟 NEW Card 5: สมาชิกทั้งหมด */}
-              <View style={styles.summaryCard}>
-                <View style={styles.cardHeader}>
-                  <Text style={styles.cardTitle}>สมาชิกในระบบ</Text>
-                  <Ionicons name="id-card-outline" size={20} color="#64748B" />
-                </View>
-                <View style={styles.cardValueRow}>
-                  <Text style={styles.cardValue}>{stats?.totalMembers || 0}</Text>
-                  <Text style={styles.cardUnit}>บัญชี</Text>
-                </View>
-                <Text style={styles.cardFooterText}>นศ. และ บุคคลภายนอก</Text>
-              </View>
-
-              {/* 🌟 NEW Card 6: อุปกรณ์ชำรุดสะสม */}
-              <View style={styles.summaryCard}>
-                <View style={styles.cardHeader}>
-                  <Text style={styles.cardTitle}>อุปกรณ์ชำรุดสะสม</Text>
-                  <Ionicons name="construct-outline" size={20} color="#F59E0B" />
-                </View>
-                <View style={styles.cardValueRow}>
-                  <Text style={styles.cardValue}>{stats?.brokenEquipmentTotal || 0}</Text>
-                  <Text style={styles.cardUnit}>ชิ้น</Text>
-                </View>
-                <Text style={styles.cardFooterText}>รอซ่อม/จำหน่ายออก</Text>
-              </View>
-
             </View>
 
             <View style={styles.chartsRow}>
+              
               <View style={styles.barChartCard}>
                 <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5}}>
                    <View>
@@ -271,12 +233,14 @@ export default function ReportScreen({ navigation }) {
                           style={[styles.barItem, viewMode === 'monthly' && selectedMonth !== 'all' && { minWidth: 20, marginRight: 5 }]}
                         >
                           <View style={{ flex: 1, width: '100%', alignItems: 'center', justifyContent: 'flex-end', position: 'relative' }}>
+                            
                             {selectedBarIndex === index && (
                               <View style={[styles.tooltipBubble, { bottom: `${barHeightPercent}%` }]}>
                                 <Text style={styles.tooltipText}>{item.value} คน</Text>
                                 <View style={styles.tooltipArrow} />
                               </View>
                             )}
+
                             <View style={styles.barBackground}>
                               {item.value > 0 && <View style={[styles.barFill, { height: `${barHeightPercent}%` }]} />}
                             </View>
@@ -320,7 +284,7 @@ export default function ReportScreen({ navigation }) {
             </View>
 
             <View style={styles.chartsRow}>
-              <View style={[styles.barChartCard, { flex: 1.5, minHeight: 250, marginTop: 15 }]}>
+              <View style={[styles.barChartCard, { flex: 1, minHeight: 250, marginTop: 15 }]}>
                 <Text style={styles.chartTitle}>5 อันดับอุปกรณ์ที่ถูกยืมมากที่สุด</Text>
                 <Text style={styles.chartSubtitle}>
                   {viewMode === 'monthly' ? 'สถิติรวมของเดือนที่เลือก' : 'สถิติรายวัน'}
@@ -348,33 +312,6 @@ export default function ReportScreen({ navigation }) {
                   )}
                 </View>
               </View>
-
-              {/* 🌟 NEW Chart Card: สัดส่วนประเภทผู้ใช้งานฟิตเนส */}
-              <View style={[styles.donutChartCard, { flex: 1, minHeight: 250, marginTop: 15 }]}>
-                <Text style={styles.chartTitle}>สัดส่วนประเภทผู้เข้าใช้ฟิตเนส</Text>
-                <Text style={styles.chartSubtitle}>ตามจำนวนครั้งการเข้าใช้งาน</Text>
-                <View style={{ flex: 1, justifyContent: 'center', marginTop: 10 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
-                    <Text style={{fontSize: 13, color: '#475569', fontWeight: 'bold'}}>นักศึกษา</Text>
-                    <Text style={{fontSize: 13, color: '#10B981', fontWeight: 'bold'}}>{studentCount} คน</Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 }}>
-                    <Text style={{fontSize: 13, color: '#475569', fontWeight: 'bold'}}>บุคคลภายนอก</Text>
-                    <Text style={{fontSize: 13, color: '#F59E0B', fontWeight: 'bold'}}>{externalCount} คน</Text>
-                  </View>
-                  
-                  {/* Progress Bar ซ้อนกัน */}
-                  <View style={{ width: '100%', height: 20, backgroundColor: '#F1F5F9', borderRadius: 10, overflow: 'hidden', flexDirection: 'row', marginBottom: 10 }}>
-                    <View style={{ width: `${studentPct}%`, height: '100%', backgroundColor: '#10B981' }} />
-                    <View style={{ width: `${100 - studentPct}%`, height: '100%', backgroundColor: '#F59E0B' }} />
-                  </View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={{fontSize: 12, color: '#10B981'}}>{studentPct.toFixed(0)}%</Text>
-                    <Text style={{fontSize: 12, color: '#F59E0B'}}>{(100 - studentPct).toFixed(0)}%</Text>
-                  </View>
-                </View>
-              </View>
-
             </View>
 
           </>
