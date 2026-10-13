@@ -197,6 +197,13 @@ app.post('/api/register/outsider', async (req, res) => {
   } catch (error) { res.status(500).json({ message: 'อีเมล/รหัสบัตรประชาชน นี้ถูกใช้ไปแล้ว หรือไม่สามารถบันทึกได้' }); }
 });
 
+// ==========================================
+// 1. เพิ่ม API Endpoint สำหรับปลุกเซิร์ฟเวอร์ (Ping)
+// ==========================================
+app.get('/api/ping', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'Server is awake' });
+});
+
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   try {
