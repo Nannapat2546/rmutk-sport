@@ -375,6 +375,9 @@ app.get('/api/members', async (req, res) => {
   } catch (error) { res.status(500).json({ message: 'ดึงข้อมูลไม่สำเร็จ' }); }
 });
 
+// ==========================================
+// 🌟 อัปเดต API: Dashboard Report (เพิ่มข้อมูลใหม่)
+// ==========================================
 app.get('/api/reports/dashboard', async (req, res) => {
   try {
     const borrowRes = await pool.query(`SELECT t.id as transaction_id, a.email, COALESCE(s.full_name, e.full_name) as member_name, inv.item_name as equipment, COALESCE(t.return_condition, 'ใช้งาน') as equipment_status, GREATEST(t.qty, t.original_qty) as amount, t.created_at as borrow_date, t.return_date as return_date, t.promised_return_date as expected_return_date FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN accounts a ON t.borrower_account_id = a.id LEFT JOIN students s ON t.borrower_account_id = s.account_id LEFT JOIN externals e ON t.borrower_account_id = e.account_id WHERE t.return_date IS NOT NULL ORDER BY t.return_date DESC LIMIT 50`);
@@ -382,8 +385,25 @@ app.get('/api/reports/dashboard', async (req, res) => {
     const pendingRes = await pool.query(`SELECT t.id as transaction_id, a.email, COALESCE(s.full_name, e.full_name) as member_name, inv.item_name as equipment, 'ใช้งาน' as equipment_status, GREATEST(t.qty, t.original_qty) as amount, t.qty as pending_amount, t.created_at as borrow_date, t.promised_return_date as expected_return_date, t.last_notified_date FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN accounts a ON t.borrower_account_id = a.id LEFT JOIN students s ON t.borrower_account_id = s.account_id LEFT JOIN externals e ON t.borrower_account_id = e.account_id WHERE t.return_date IS NULL ORDER BY t.created_at ASC`);
     
     const popularRes = await pool.query(`SELECT c.name as category_name, inv.item_name as equipment, COUNT(t.id) as borrow_count FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN equipment_categories c ON inv.category_id = c.id GROUP BY c.name, inv.item_name ORDER BY borrow_count DESC LIMIT 10`);
+    
     const fitnessRes = await pool.query(`SELECT COALESCE(s.full_name, e.full_name) as member_name, a.account_type as role, f.check_in_time, f.service_fee, f.payment_type FROM fitness_usage f JOIN accounts a ON f.user_account_id = a.id LEFT JOIN students s ON a.id = s.account_id LEFT JOIN externals e ON a.id = e.account_id ORDER BY f.check_in_time DESC LIMIT 50`);
-    res.status(200).json({ borrowReport: borrowRes.rows, pendingReport: pendingRes.rows, popularReport: popularRes.rows, fitnessReport: fitnessRes.rows });
+
+    // --- ข้อมูลใหม่ ---
+    const overdueRes = await pool.query(`SELECT t.id as transaction_id, a.email, COALESCE(s.full_name, e.full_name) as member_name, inv.item_name as equipment, t.qty as pending_amount, t.created_at as borrow_date, t.promised_return_date as expected_return_date, t.last_notified_date FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN accounts a ON t.borrower_account_id = a.id LEFT JOIN students s ON t.borrower_account_id = s.account_id LEFT JOIN externals e ON t.borrower_account_id = e.account_id WHERE t.return_date IS NULL AND DATE(t.promised_return_date) < CURRENT_DATE ORDER BY t.promised_return_date ASC`);
+    
+    const topBorrowersRes = await pool.query(`SELECT COALESCE(s.full_name, e.full_name) as member_name, a.account_type as role, COUNT(t.id) as borrow_times, SUM(t.qty) as total_items FROM transactions t JOIN accounts a ON t.borrower_account_id = a.id LEFT JOIN students s ON a.id = s.account_id LEFT JOIN externals e ON a.id = e.account_id GROUP BY member_name, role ORDER BY borrow_times DESC LIMIT 10`);
+    
+    const inventorySummaryRes = await pool.query(`SELECT COUNT(id) as total_types, COALESCE(SUM(stock), 0) as total_items_in_system FROM inventory WHERE active = true OR active IS NULL`);
+
+    res.status(200).json({ 
+      borrowReport: borrowRes.rows, 
+      pendingReport: pendingRes.rows, 
+      popularReport: popularRes.rows, 
+      fitnessReport: fitnessRes.rows,
+      overdueReport: overdueRes.rows,
+      topBorrowersReport: topBorrowersRes.rows,
+      inventorySummary: inventorySummaryRes.rows[0]
+    });
   } catch (error) { res.status(500).json({ message: 'ดึงข้อมูลรายงานไม่สำเร็จ' }); }
 });
 
@@ -415,6 +435,9 @@ app.post('/api/change-password', async (req, res) => {
   } catch (error) { res.status(500).json({ message: 'เปลี่ยนรหัสผ่านไม่สำเร็จ' }); }
 });
 
+// ==========================================
+// 🌟 อัปเดต API: Admin Dashboard Stats (เพิ่มข้อมูลใหม่)
+// ==========================================
 app.get('/api/admin/dashboard-stats', async (req, res) => {
   const { mode = 'daily', month = 'all' } = req.query;
   try {
@@ -441,6 +464,11 @@ app.get('/api/admin/dashboard-stats', async (req, res) => {
     const overdueRes = await pool.query(`SELECT COUNT(*) as total FROM transactions WHERE return_date IS NULL AND DATE(promised_return_date) < CURRENT_DATE`);
     const popularEqRes = await pool.query(`SELECT inv.item_name as label, SUM(t.qty) as value FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id WHERE ${transFilter} GROUP BY inv.item_name ORDER BY value DESC LIMIT 5`);
     
+    // --- ข้อมูลใหม่ ---
+    const totalMembersRes = await pool.query(`SELECT COUNT(*) as total_members FROM accounts WHERE account_type IN ('student', 'external')`);
+    const fitnessByTypeRes = await pool.query(`SELECT a.account_type, COUNT(*) as count, COALESCE(SUM(f.service_fee), 0) as revenue FROM fitness_usage f JOIN accounts a ON f.user_account_id = a.id WHERE ${fitFilter} GROUP BY a.account_type`);
+    const brokenItemsRes = await pool.query(`SELECT COALESCE(SUM(qty), 0) as broken_total FROM transactions WHERE return_date IS NOT NULL AND return_condition = 'ชำรุด'`);
+
     let chartBar = [];
     let peakUsage = { label: '-', value: 0 };
     
@@ -466,7 +494,25 @@ app.get('/api/admin/dashboard-stats', async (req, res) => {
     }
     chartBar.forEach(c => { if(c.value > peakUsage.value) { peakUsage = { label: c.label, value: c.value }; } });
 
-    res.status(200).json({ fitnessUsers: parseInt(fitnessRes.rows[0].total_users), revenue: parseInt(fitnessRes.rows[0].total_revenue), cash: parseInt(fitnessRes.rows[0].cash), qr: parseInt(fitnessRes.rows[0].qr), borrowed: parseInt(borrowRes.rows[0].total), notReturned: parseInt(pendingRes.rows[0].total), overdue: parseInt(overdueRes.rows[0].total), chartBar: chartBar, peakUsage: peakUsage, popularEquipment: popularEqRes.rows.map(r => ({ label: r.label, value: parseInt(r.value) })) });
+    res.status(200).json({ 
+      fitnessUsers: parseInt(fitnessRes.rows[0].total_users), 
+      revenue: parseInt(fitnessRes.rows[0].total_revenue), 
+      cash: parseInt(fitnessRes.rows[0].cash), 
+      qr: parseInt(fitnessRes.rows[0].qr), 
+      borrowed: parseInt(borrowRes.rows[0].total), 
+      notReturned: parseInt(pendingRes.rows[0].total), 
+      overdue: parseInt(overdueRes.rows[0].total), 
+      chartBar: chartBar, 
+      peakUsage: peakUsage, 
+      popularEquipment: popularEqRes.rows.map(r => ({ label: r.label, value: parseInt(r.value) })),
+      totalMembers: parseInt(totalMembersRes.rows[0].total_members),
+      brokenEquipmentTotal: parseInt(brokenItemsRes.rows[0].broken_total),
+      fitnessUsageByType: fitnessByTypeRes.rows.map(r => ({
+        role: r.account_type,
+        count: parseInt(r.count),
+        revenue: parseInt(r.revenue)
+      }))
+    });
   } catch (error) { res.status(500).json({ message: 'ดึงข้อมูลสถิติไม่สำเร็จ' }); }
 });
 
