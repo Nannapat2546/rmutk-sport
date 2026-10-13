@@ -77,9 +77,9 @@ export default function ReportDetailScreen({ navigation, route }) {
 
       if (res.ok) {
         if(Platform.OS === 'web') {
-          window.alert(`ส่งอีเมลแจ้งเตือนไปยัง ${item.member_name} เรียบร้อยแล้ว`);
+          window.alert(`ส่งอีเมลแจ้งเตือนไปยัง ${item.member_name} (${item.email}) เรียบร้อยแล้ว`);
         } else {
-          Alert.alert('สำเร็จ', `ส่งอีเมลแจ้งเตือนไปยัง ${item.member_name} เรียบร้อยแล้ว`);
+          Alert.alert('สำเร็จ', `ส่งอีเมลแจ้งเตือนไปยัง ${item.member_name} (${item.email}) เรียบร้อยแล้ว`);
         }
 
         const updatedPending = reports.pendingReport.map(r => {
@@ -120,17 +120,31 @@ export default function ReportDetailScreen({ navigation, route }) {
     return `${day}/${month}/${year}`;
   };
 
+  // 🌟 ฟังก์ชันคำนวณสถานะและวันนัดล่าสุดที่ปรับปรุงแล้ว
   const getStatusInfo = (item, type = reportType) => {
     const originalAmount = parseInt(item.amount) || 0;
     const pendingAmount = parseInt(item.pending_amount) || originalAmount;
+    const returnedAmount = originalAmount > pendingAmount ? originalAmount - pendingAmount : 0;
     
-    // 🌟 แก้ไข: ดึงวันที่นัดคืนมาแสดงผลเสมอ ไม่ว่าจะคืนของบางส่วนไปแล้วหรือไม่
-    let targetDateStr = item.expected_return_date ? item.expected_return_date : item.borrow_date; 
-    let displayExpectedDate = item.expected_return_date ? formatDate(item.expected_return_date) : '-';
+    // 1. นัดล่าสุด: แสดงเฉพาะเมื่อทำการคืนไม่ครบ (returnedAmount > 0) และมีวันนัด expected_return_date เท่านั้น
+    const isPartialReturn = returnedAmount > 0 && pendingAmount > 0;
+    const displayExpectedDate = (isPartialReturn && item.expected_return_date) 
+      ? formatDate(item.expected_return_date) 
+      : '-';
+
+    // 2. กำหนดวันคืน: ถ้ายืมปกติ ต้องคืนภายในวันนั้นเลย (borrow_date) เว้นแต่คืนไม่ครบและระบุวันนัดใหม่
+    const targetDateStr = (isPartialReturn && item.expected_return_date) 
+      ? item.expected_return_date 
+      : item.borrow_date; 
+
+    if (!targetDateStr) {
+      return { isLate: false, days: 0, text: 'กำลังยืม', type: 'pending_ok', displayExpectedDate };
+    }
 
     const targetDate = new Date(targetDateStr);
     targetDate.setHours(0, 0, 0, 0); 
 
+    // กรณีคืนครบแล้ว (ดูในรายงานยืม-คืน)
     if (item.return_date && type !== 'pending') {
       const retDate = new Date(item.return_date);
       retDate.setHours(0, 0, 0, 0);
@@ -141,12 +155,22 @@ export default function ReportDetailScreen({ navigation, route }) {
       return { isLate: false, days: 0, text: 'คืนตรงเวลา', type: 'returned_ok', displayExpectedDate };
     }
 
+    // กรณียังอยู่ระหว่างยืม หรือคืนยังไม่ครบ
     const now = new Date();
     now.setHours(0, 0, 0, 0); 
     const diffTime = now.getTime() - targetDate.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-    if (diffDays > 0) return { isLate: true, days: diffDays, text: `ล่าช้า ${diffDays} วัน`, type: 'pending_late', expectedDateStr: formatDate(targetDateStr), displayExpectedDate };
+    if (diffDays > 0) {
+      return { 
+        isLate: true, 
+        days: diffDays, 
+        text: `ล่าช้า ${diffDays} วัน`, 
+        type: 'pending_late', 
+        expectedDateStr: displayExpectedDate, 
+        displayExpectedDate 
+      };
+    }
     return { isLate: false, days: 0, text: 'กำลังยืม', type: 'pending_ok', displayExpectedDate };
   };
 
@@ -235,7 +259,7 @@ export default function ReportDetailScreen({ navigation, route }) {
         ];
       });
     } else if (reportType === 'pending') {
-      headers = ['สมาชิก', 'อุปกรณ์', 'สภาพ', 'ยืมไป (ชิ้น)', 'คืนแล้ว (ชิ้น)', 'ค้างส่ง (ชิ้น)', 'ยืมเมื่อ', 'นัดคืนล่าสุด', 'คืนเมื่อ', 'สถานะ'];
+      headers = ['สมาชิก', 'อุปกรณ์', 'สภาพ', 'ยืมไป (ชิ้น)', 'คืนแล้ว (ชิ้น)', 'ค้างส่ง (ชิ้น)', 'ยืมเมื่อ', 'นัดล่าสุด', 'คืนเมื่อ', 'สถานะ'];
       rows = filteredData.map(item => {
         const statusInfo = getStatusInfo(item, 'pending');
         const originalAmount = parseInt(item.amount) || 0;
@@ -285,10 +309,10 @@ export default function ReportDetailScreen({ navigation, route }) {
     if (statusInfo.type === 'returned_late' || statusInfo.type === 'pending_late') {
       return (
         <View style={{ alignItems: 'center' }}>
-          <View style={[styles.badge, {backgroundColor: '#FEE2E2', marginBottom: 4}]}>
+          <View style={[styles.badge, {backgroundColor: '#FEE2E2', marginBottom: 2}]}>
             <Text style={[styles.badgeText, {color: '#EF4444'}]}>{statusInfo.text}</Text>
           </View>
-          {statusInfo.type === 'pending_late' && statusInfo.expectedDateStr !== '-' && (
+          {statusInfo.type === 'pending_late' && statusInfo.expectedDateStr && statusInfo.expectedDateStr !== '-' && (
             <Text style={{ fontSize: 10, color: '#EF4444' }}>(นัด: {statusInfo.expectedDateStr})</Text>
           )}
         </View>
@@ -519,16 +543,16 @@ export default function ReportDetailScreen({ navigation, route }) {
                   <>
                     <View style={styles.tableHeaderRow}>
                       <Text style={[styles.headerCell, {width: 130}]}>สมาชิก</Text>
-                      <Text style={[styles.headerCell, {width: 130}]}>อุปกรณ์</Text>
+                      <Text style={[styles.headerCell, {width: 140}]}>อุปกรณ์</Text>
                       <Text style={[styles.headerCell, {width: 70}]}>สภาพ</Text>
-                      <Text style={[styles.headerCell, {width: 120}]}>จำนวนที่ยืม</Text>
-                      <Text style={[styles.headerCell, {width: 60}]}>คืนแล้ว</Text>
-                      <Text style={[styles.headerCell, {width: 80}]}>ค้างส่ง</Text>
-                      <Text style={[styles.headerCell, {width: 80}]}>ยืมเมื่อ</Text>
-                      <Text style={[styles.headerCell, {width: 130}]}>นัดล่าสุด</Text>
-                      <Text style={[styles.headerCell, {width: 80}]}>คืนเมื่อ</Text>
+                      <Text style={[styles.headerCell, {width: 100}]}>จำนวนที่ยืม</Text>
+                      <Text style={[styles.headerCell, {width: 70}]}>คืนแล้ว</Text>
+                      <Text style={[styles.headerCell, {width: 70}]}>ค้างส่ง</Text>
+                      <Text style={[styles.headerCell, {width: 90}]}>ยืมเมื่อ</Text>
+                      <Text style={[styles.headerCell, {width: 90}]}>นัดล่าสุด</Text>
+                      <Text style={[styles.headerCell, {width: 90}]}>คืนเมื่อ</Text>
                       <Text style={[styles.headerCell, {width: 100}]}>สถานะ</Text>
-                      <Text style={[styles.headerCell, {width: 90}]}>จัดการ</Text>
+                      <Text style={[styles.headerCell, {width: 110}]}>จัดการ</Text>
                     </View>
                     {filteredData.map((item, index) => {
                       const statusInfo = getStatusInfo(item, 'pending');
@@ -547,36 +571,36 @@ export default function ReportDetailScreen({ navigation, route }) {
 
                       return (
                         <View key={index} style={styles.tableDataRow}>
-                          <Text style={[styles.dataCell, {width: 120}]} numberOfLines={1}>{item.member_name}</Text>
-                          <Text style={[styles.dataCell, {width: 145}]} numberOfLines={1}>{item.equipment}</Text>
+                          <Text style={[styles.dataCell, {width: 130}]} numberOfLines={1}>{item.member_name}</Text>
+                          <Text style={[styles.dataCell, {width: 140}]} numberOfLines={1}>{item.equipment}</Text>
                           
-                          <View style={[styles.dataCell, {width: 55, alignItems: 'center'}]}>
+                          <View style={[styles.dataCell, {width: 70, alignItems: 'center'}]}>
                             <Text style={{ fontSize: 13, fontWeight: 'bold', color: (item.equipment_status === 'ปกติ' || item.equipment_status === 'ใช้งาน') ? '#10B981' : '#EF4444' }}>
                               {item.equipment_status === 'ใช้งาน' ? 'ปกติ' : (item.equipment_status || 'ปกติ')}
                             </Text>
                           </View>
 
-                          <Text style={[styles.dataCell, {width: 135, fontWeight: 'bold', color: '#374151'}]}>
+                          <Text style={[styles.dataCell, {width: 100, fontWeight: 'bold', color: '#374151'}]}>
                             {originalAmount}
                           </Text>
 
-                          <Text style={[styles.dataCell, {width: 50, fontWeight: 'bold', color: '#10B981'}]}>
+                          <Text style={[styles.dataCell, {width: 70, fontWeight: 'bold', color: '#10B981'}]}>
                             {returnedAmount}
                           </Text>
 
-                          <Text style={[styles.dataCell, {width: 80, fontWeight: 'bold', color: '#D93025'}]}>
+                          <Text style={[styles.dataCell, {width: 70, fontWeight: 'bold', color: '#D93025'}]}>
                             {pendingAmount}
                           </Text>
                           
-                          <Text style={[styles.dataCell, {width: 100}]}>{formatDate(item.borrow_date)}</Text>
-                          <Text style={[styles.dataCell, {width: 130}]}>{statusInfo.displayExpectedDate}</Text>
-                          <Text style={[styles.dataCell, {width: 140}]}>{formatDate(item.return_date)}</Text>
+                          <Text style={[styles.dataCell, {width: 90}]}>{formatDate(item.borrow_date)}</Text>
+                          <Text style={[styles.dataCell, {width: 90}]}>{statusInfo.displayExpectedDate}</Text>
+                          <Text style={[styles.dataCell, {width: 90}]}>{formatDate(item.return_date)}</Text>
                           
-                          <View style={[styles.dataCell, {width: 75, alignItems: 'center', paddingVertical: 4}]}>
+                          <View style={[styles.dataCell, {width: 100, alignItems: 'center', paddingVertical: 4}]}>
                             {renderStatusBadge(statusInfo)}
                           </View>
 
-                          <View style={[styles.dataCell, {width: 130, alignItems: 'center'}]}>
+                          <View style={[styles.dataCell, {width: 110, alignItems: 'center'}]}>
                             {showNotifyButton ? (
                               <TouchableOpacity style={styles.notifyBtn} onPress={() => handleNotifyUser(item, statusInfo.days)}>
                                 <Ionicons name="mail-outline" size={14} color="#FFF" style={{marginRight: 4}} />
@@ -669,7 +693,7 @@ const styles = StyleSheet.create({
   exportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 6, height: 40, paddingHorizontal: 15, backgroundColor: '#FFF' },
   exportBtnText: { fontSize: 13, color: '#374151', marginLeft: 6, fontWeight: 'bold' },
 
-  tableContainer: { backgroundColor: '#FFF', borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden', minWidth: 1000, zIndex: 1 },
+  tableContainer: { backgroundColor: '#FFF', borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden', minWidth: 1050, zIndex: 1 },
   tableHeaderRow: { flexDirection: 'row', backgroundColor: '#F9FAFB', borderBottomWidth: 1, borderBottomColor: '#E5E7EB', paddingVertical: 14 },
   headerCell: { fontSize: 13, fontWeight: 'bold', color: '#374151', textAlign: 'center' },
   tableDataRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingVertical: 14, alignItems: 'center' },
@@ -688,11 +712,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
     alignItems: 'center',
-    justifyContent: 'center',
+    justify: 'center',
   },
   notifyBtnText: {
     color: '#FFF',
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: 'bold',
   }
 });
