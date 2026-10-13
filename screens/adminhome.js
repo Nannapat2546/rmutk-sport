@@ -56,10 +56,7 @@ export default function AdminDashboard({ navigation, route }) {
     fitnessUsers: 0, revenue: 0, cash: 0, qr: 0, borrowed: 0, notReturned: 0, overdue: 0,
     chartBar: [],
     peakUsage: { label: '-', value: 0 },
-    popularEquipment: [],
-    totalMembers: 0, 
-    brokenEquipmentTotal: 0, 
-    fitnessUsageByType: []
+    popularEquipment: []
   });
 
   const [users, setUsers] = useState([]);
@@ -97,6 +94,9 @@ export default function AdminDashboard({ navigation, route }) {
   });
   const [savingSettings, setSavingSettings] = useState(false);
 
+  // 🌟 ใช้ URL จริงที่อัปเดตแล้ว (สมมติว่าเป็นโดเมนของ Render ตามที่คุณกล่าวถึง หรือ URL ที่ถูกต้อง)
+  // หาก Render URL ของคุณคือ https://rmutk-sport-backend.onrender.com โปรดเปลี่ยน `API_URL`
+  // ตอนนี้ใช้ https://rmutk-sport.onrender.com เป็นค่าตั้งต้นตามโค้ดก่อนหน้า
   const API_URL = 'https://rmutk-sport.onrender.com';
 
   const showMessage = (title, message) => {
@@ -109,6 +109,7 @@ export default function AdminDashboard({ navigation, route }) {
 
   const fetchDashboardData = async () => {
     try {
+      // 🌟 ใช้ API_URL และคง ngrok header ไว้ชั่วคราวเผื่อสลับกลับ
       const response = await fetch(`${API_URL}/api/admin/dashboard-stats?mode=${viewMode}&month=${selectedMonth}`, {
         headers: { 'ngrok-skip-browser-warning': 'true' }
       });
@@ -427,14 +428,6 @@ export default function AdminDashboard({ navigation, route }) {
 
   const generalUsers = users.filter(u => u.account_type === 'student' || u.account_type === 'external');
   const staffUsers = users.filter(u => u.account_type === 'staff');
-
-  // 🌟 คำนวณสัดส่วนฟิตเนส
-  const studentUsage = stats?.fitnessUsageByType?.find(r => r.role === 'student');
-  const externalUsage = stats?.fitnessUsageByType?.find(r => r.role === 'external');
-  const studentCount = studentUsage?.count || 0;
-  const externalCount = externalUsage?.count || 0;
-  const totalUsageCount = studentCount + externalCount || 1;
-  const studentPct = (studentCount / totalUsageCount) * 100;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -758,20 +751,6 @@ export default function AdminDashboard({ navigation, route }) {
                       <View style={styles.metricValueContainer}><Text style={styles.metricValue}>{stats.overdue}</Text><Text style={styles.metricUnit}>รายการ</Text></View>
                       <Text style={[styles.metricSubtext, {color: stats.overdue > 0 ? '#EF4444' : '#64748B'}]}>ต้องติดตามทวงคืน</Text>
                     </View>
-
-                    {/* 🌟 NEW: สมาชิกในระบบ */}
-                    <View style={styles.metricCard}>
-                      <View style={styles.metricHeader}><Text style={styles.metricTitle}>สมาชิกในระบบ</Text><Ionicons name="id-card-outline" size={20} color="#64748B" /></View>
-                      <View style={styles.metricValueContainer}><Text style={styles.metricValue}>{stats.totalMembers || 0}</Text><Text style={styles.metricUnit}>บัญชี</Text></View>
-                      <Text style={styles.metricSubtext}>นศ. และ บุคคลภายนอก</Text>
-                    </View>
-
-                    {/* 🌟 NEW: อุปกรณ์ชำรุด */}
-                    <View style={styles.metricCard}>
-                      <View style={styles.metricHeader}><Text style={styles.metricTitle}>อุปกรณ์ชำรุดสะสม</Text><Ionicons name="construct-outline" size={20} color="#F59E0B" /></View>
-                      <View style={styles.metricValueContainer}><Text style={styles.metricValue}>{stats.brokenEquipmentTotal || 0}</Text><Text style={styles.metricUnit}>ชิ้น</Text></View>
-                      <Text style={styles.metricSubtext}>รอซ่อม/จำหน่ายออก</Text>
-                    </View>
                   </View>
 
                   <View style={styles.chartsRow}>
@@ -826,7 +805,7 @@ export default function AdminDashboard({ navigation, route }) {
 
                     <View style={styles.donutChartCard}>
                       <Text style={styles.chartTitle}>สัดส่วนวิธีชำระเงิน</Text>
-                      <Text style={styles.chartSubtitle}>เงินสด {stats.cash} บ. · QR {stats.qr} บ.</Text>
+                      <Text style={styles.chartSubtitle}>เงินสด {stats?.cash || 0} บ. · QR {stats?.qr || 0} บ.</Text>
                       <View style={styles.donutContainer}>
                         <View style={styles.donutCircle}>
                           <View style={styles.donutInnerCircle}>
@@ -843,7 +822,7 @@ export default function AdminDashboard({ navigation, route }) {
                   </View>
 
                   <View style={styles.chartsRow}>
-                    <View style={[styles.barChartCard, { flex: 1.5, minHeight: 250, marginTop: 15 }]}>
+                    <View style={[styles.barChartCard, { flex: 1, minHeight: 250, marginTop: 15 }]}>
                       <Text style={styles.chartTitle}>5 อันดับอุปกรณ์ที่ถูกยืมมากที่สุด</Text>
                       <Text style={styles.chartSubtitle}>
                         {viewMode === 'monthly' ? 'สถิติตามเดือนที่เลือก' : 'สถิติรายวัน'}
@@ -871,33 +850,6 @@ export default function AdminDashboard({ navigation, route }) {
                         )}
                       </View>
                     </View>
-
-                    {/* 🌟 NEW Chart Card: สัดส่วนประเภทผู้ใช้งานฟิตเนส */}
-                    <View style={[styles.donutChartCard, { flex: 1, minHeight: 250, marginTop: 15 }]}>
-                      <Text style={styles.chartTitle}>สัดส่วนประเภทผู้เข้าใช้ฟิตเนส</Text>
-                      <Text style={styles.chartSubtitle}>ตามจำนวนครั้งการเข้าใช้งาน</Text>
-                      <View style={{ flex: 1, justifyContent: 'center', marginTop: 10 }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
-                          <Text style={{fontSize: 13, color: '#475569', fontWeight: 'bold'}}>นักศึกษา</Text>
-                          <Text style={{fontSize: 13, color: '#10B981', fontWeight: 'bold'}}>{studentCount} คน</Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 }}>
-                          <Text style={{fontSize: 13, color: '#475569', fontWeight: 'bold'}}>บุคคลภายนอก</Text>
-                          <Text style={{fontSize: 13, color: '#F59E0B', fontWeight: 'bold'}}>{externalCount} คน</Text>
-                        </View>
-                        
-                        {/* Progress Bar ซ้อนกัน */}
-                        <View style={{ width: '100%', height: 20, backgroundColor: '#F1F5F9', borderRadius: 10, overflow: 'hidden', flexDirection: 'row', marginBottom: 10 }}>
-                          <View style={{ width: `${studentPct}%`, height: '100%', backgroundColor: '#10B981' }} />
-                          <View style={{ width: `${100 - studentPct}%`, height: '100%', backgroundColor: '#F59E0B' }} />
-                        </View>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                          <Text style={{fontSize: 12, color: '#10B981'}}>{studentPct.toFixed(0)}%</Text>
-                          <Text style={{fontSize: 12, color: '#F59E0B'}}>{(100 - studentPct).toFixed(0)}%</Text>
-                        </View>
-                      </View>
-                    </View>
-
                   </View>
 
                 </View>
