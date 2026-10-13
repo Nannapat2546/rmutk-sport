@@ -1,3 +1,4 @@
+
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
@@ -6,13 +7,20 @@ const Tesseract = require('tesseract.js');
 
 const app = express();
 
-// 🌟 จุดที่แก้ไข: กำหนดให้ CORS อนุญาต Custom Header และ Preflight (OPTIONS)
+// 🌟 จุดที่แก้ไข 1: ปรับ origin ให้รองรับ credentials
 app.use(cors({
-  origin: '*',
+  origin: true, // เปลี่ยนจาก '*' เป็น true เพื่อให้ทำงานคู่กับ credentials: true ได้
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'ngrok-skip-browser-warning'],
   credentials: true
 }));
+
+// 🌟 จุดที่แก้ไข 2: เปลี่ยน '*' เป็น '/*' เพื่อแก้ปัญหา Server Crash
+app.options('/*', cors()); 
+
+app.use(express.json({ limit: '50mb' })); 
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
 
 app.options('*', cors()); // ปลดล็อก Preflight Request ทั้งหมด
 
