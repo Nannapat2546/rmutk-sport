@@ -6,12 +6,15 @@ const Tesseract = require('tesseract.js');
 
 const app = express();
 
-// 🌟 แก้ไขที่ 1: ตั้งค่า CORS ให้รองรับ Header จาก Ngrok / Vercel Web
+// 🌟 จุดที่แก้ไข: กำหนดให้ CORS อนุญาต Custom Header และ Preflight (OPTIONS)
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'ngrok-skip-browser-warning']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'ngrok-skip-browser-warning'],
+  credentials: true
 }));
+
+app.options('*', cors()); // ปลดล็อก Preflight Request ทั้งหมด
 
 app.use(express.json({ limit: '50mb' })); 
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -139,7 +142,6 @@ app.post('/api/request-otp', async (req, res) => {
   `;
 
   try {
-    // 🌟 แก้ไขที่ 2: แก้ Syntax Error บริเวณ Subject
     await fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -495,7 +497,7 @@ app.put('/api/admin/users/:id/permissions', async (req, res) => {
 app.get('/api/admin/users/:id/detail', async (req, res) => {
   try {
     const query = `SELECT a.id, a.account_type, s.student_id, s.full_name as student_name, s.faculty, s.major, s.phone as student_phone, s.profile_image as student_img, e.citizen_id, e.full_name as external_name, e.phone as external_phone, e.id_card_image, e.profile_image as external_img, st.full_name as staff_name, st.department, ad.full_name as admin_name FROM accounts a LEFT JOIN students s ON a.id = s.account_id LEFT JOIN externals e ON a.id = e.account_id LEFT JOIN staffs st ON a.id = st.account_id LEFT JOIN admins ad ON a.id = ad.account_id WHERE a.id = $1`;
-    const result = await pool.query(query, [req.params.id]);
+    const result = await pool.query(query);
     const u = result.rows[0];
     res.status(200).json({ phone: u.student_phone || u.external_phone || '-', student_id: u.student_id || '', faculty: u.faculty || '', major: u.major || '', citizen_id: u.citizen_id || '', profile_image: u.student_img || u.external_img || '', id_card_image: u.id_card_image || '' });
   } catch (error) { res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูล' }); }
@@ -582,12 +584,11 @@ app.post('/api/ocr', async (req, res) => {
   } catch (error) { res.status(500).json({ message: 'อ่านข้อความไม่สำเร็จ', text: '' }); }
 });
 
-// 🌟 แก้ไขที่ 3: ปรับปรุง API แจ้งเตือนค้างส่ง ให้รองรับทั้งการยิงรายบุคคล และยิงอัตโนมัติจาก Dashboard
+// 🌟 รองรับทั้ง /api/notify-overdue และ /api/admin/notify-overdue
 app.post(['/api/notify-overdue', '/api/admin/notify-overdue'], async (req, res) => {
   const { transaction_id, email, memberName, equipment } = req.body || {};
 
   try {
-    // 1. ถ้าระบุอีเมลผู้ใช้มา แสดงว่าเป็นการส่งแจ้งเตือนรายบุคคล
     if (email) {
       await fetch(GOOGLE_SCRIPT_URL, {
         method: 'POST',
@@ -612,7 +613,6 @@ app.post(['/api/notify-overdue', '/api/admin/notify-overdue'], async (req, res) 
       return res.status(200).json({ message: 'ส่งแจ้งเตือนสำเร็จ' });
     }
 
-    // 2. ถ้าไม่ได้ระบุอีเมลมา (ยิงอัตโนมัติจาก Dashboard) -> ดึงรายการที่เกินกำหนดทุกคนแล้วยิงแจ้งเตือน
     const overdueQuery = `
       SELECT t.id as transaction_id, a.email, COALESCE(s.full_name, e.full_name, 'สมาชิก') as member_name, inv.item_name as equipment
       FROM transactions t
