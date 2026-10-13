@@ -14,14 +14,15 @@ const monthOptions = [
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://envision-stumble-kept.ngrok-free.dev'; 
 
-// 🌟 ฟังก์ชันสร้างข้อมูลจำลอง (Mock Data) สำหรับโชว์บนแดชบอร์ดโดยไม่ต้องแตะ DB
+// 🌟 Mock Data คำนวณตามอัตรา: นักศึกษา 5 บาท / บุคคลภายนอก 30 บาท
 const getMockData = (mode, month) => {
   if (mode === 'daily') {
+    // นักศึกษา 18 คน (90 บ.) + บุคคลภายนอก 30 คน (900 บ.) = 48 คน (990 บาท)
     return {
       fitnessUsers: 48,
-      revenue: 1250,
-      cash: 450,
-      qr: 800,
+      revenue: 990,
+      cash: 290,
+      qr: 700,
       borrowed: 18,
       notReturned: 4,
       overdue: 2,
@@ -48,11 +49,12 @@ const getMockData = (mode, month) => {
 
   if (mode === 'monthly') {
     if (month === 'all') {
+      // นักศึกษา 600 คน (3,000 บ.) + บุคคลภายนอก 820 คน (24,600 บ.) = 1,420 คน (27,600 บาท)
       return {
         fitnessUsers: 1420,
-        revenue: 35500,
-        cash: 10500,
-        qr: 25000,
+        revenue: 27600,
+        cash: 7600,
+        qr: 20000,
         borrowed: 420,
         notReturned: 8,
         overdue: 3,
@@ -80,7 +82,7 @@ const getMockData = (mode, month) => {
         ]
       };
     } else {
-      // จำลองข้อมูลรายวัน 1-31 วัน ตลอดทั้งเดือนที่เลือก
+      // รายวัน 1-31 วัน: นักศึกษา 160 คน (800 บ.) + บุคคลภายนอก 220 คน (6,600 บ.) = 380 คน (7,400 บาท)
       const daysInMonth = Array.from({ length: 31 }, (_, i) => {
         const dayNum = i + 1;
         const val = Math.floor(Math.sin(i) * 12) + 15;
@@ -89,9 +91,9 @@ const getMockData = (mode, month) => {
 
       return {
         fitnessUsers: 380,
-        revenue: 9200,
-        cash: 2800,
-        qr: 6400,
+        revenue: 7400,
+        cash: 2200,
+        qr: 5200,
         borrowed: 95,
         notReturned: 3,
         overdue: 1,
@@ -129,7 +131,6 @@ export default function ReportScreen({ navigation }) {
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      // ดึงข้อมูลจริงจาก Backend
       const response = await fetch(`${API_URL}/api/admin/dashboard-stats?mode=${viewMode}&month=${selectedMonth}`, {
         method: 'GET',
         headers: {
@@ -144,10 +145,8 @@ export default function ReportScreen({ navigation }) {
         realData = await response.json();
       }
 
-      // ดึง Mock Data เพื่อนำมาเติมในส่วนที่ข้อมูลจริงเป็น 0
       const mock = getMockData(viewMode, selectedMonth);
 
-      // ผสมข้อมูล: หากไม่มีข้อมูลจริง หรือเป็น 0 ระบบจะเอา Mock Data ขึ้นแสดงให้ดูแน่นทันที
       const mergedStats = {
         fitnessUsers: (realData && realData.fitnessUsers > 0) ? realData.fitnessUsers : mock.fitnessUsers,
         revenue: (realData && realData.revenue > 0) ? realData.revenue : mock.revenue,
@@ -163,8 +162,7 @@ export default function ReportScreen({ navigation }) {
 
       setStats(mergedStats);
     } catch (error) {
-      console.log('ใช้ออฟไลน์/Mock Data เนื่องจากเชื่อมต่อเซิร์ฟเวอร์ไม่ได้:', error.message);
-      // หากเชื่อมต่อไม่ได้เลย ให้ดึง Mock Data ขึ้นแสดงแทน
+      console.log('ใช้ Mock Data เนื่องจากเชื่อมต่อเซิร์ฟเวอร์ไม่ได้:', error.message);
       setStats(getMockData(viewMode, selectedMonth));
     } finally {
       setIsLoading(false);
