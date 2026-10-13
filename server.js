@@ -4,10 +4,12 @@ const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 
 const app = express();
+
+// Middleware
 app.use(express.json());
 app.use(cors());
 
-// 🌟 1. สร้าง Pool ไว้นอก Route เพื่อเชื่อมต่อ DB ค้างไว้ตลอดเวลา (Reuse Connection)
+// 🌟 1. สร้าง Pool สำหรับเชื่อมต่อ PostgreSQL (Reuse Connection)
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
@@ -16,7 +18,12 @@ const pool = new Pool({
   connectionTimeoutMillis: 5000, // รอต่อ DB ไม่เกิน 5 วินาที
 });
 
-// 🌟 2. API Login Staff (ปรับปรุงประสิทธิภาพ)
+// 🌟 2. API Ping สำหรับปลุก Backend บน Render (Warmup Endpoint)
+app.get('/api/ping', (req, res) => {
+  return res.status(200).json({ status: 'ok', message: 'Server is awake' });
+});
+
+// 🌟 3. API Login Staff
 app.post('/api/login-staff', async (req, res) => {
   const { email, password } = req.body;
 
@@ -25,7 +32,6 @@ app.post('/api/login-staff', async (req, res) => {
   }
 
   try {
-    // ดึงเฉพาะข้อมูลที่จำเป็น และใช้อีเมลตัวพิมพ์เล็ก
     const cleanEmail = email.trim().toLowerCase();
     
     const userQuery = await pool.query(
@@ -43,7 +49,7 @@ app.post('/api/login-staff', async (req, res) => {
       return res.status(403).json({ message: 'บัญชีนี้ถูกระงับการใช้งาน' });
     }
 
-    // 🌟 3. ตรวจสอบรหัสผ่านแบบ Async (ไม่บล็อก Event Loop)
+    // ตรวจสอบรหัสผ่านแบบ Async
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
@@ -51,7 +57,7 @@ app.post('/api/login-staff', async (req, res) => {
     }
 
     // ส่งข้อมูลผู้ใช้กลับไปฝั่งแอป
-    delete user.password; // ไม่ส่ง password กลับไป
+    delete user.password;
     return res.status(200).json({
       message: 'เข้าสู่ระบบสำเร็จ',
       user: user
@@ -61,4 +67,15 @@ app.post('/api/login-staff', async (req, res) => {
     console.error('Login Error:', error);
     return res.status(500).json({ message: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์' });
   }
+});
+
+// 🌟 4. Catch-all Route สำหรับจัดการ 404 (ใช้ '*' แทน '/*' เพื่อแก้ PathError)
+app.get('*', (req, res) => {
+  res.status(404).json({ message: 'Endpoint not found' });
+});
+
+// 🌟 5. เปิดรับ Port บน Render (สำคัญมาก)
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
