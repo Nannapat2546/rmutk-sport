@@ -5,7 +5,14 @@ const bcrypt = require('bcrypt');
 const Tesseract = require('tesseract.js'); 
 
 const app = express();
-app.use(cors());
+
+// 🌟 แก้ไขที่ 1: ตั้งค่า CORS ให้รองรับ Header จาก Ngrok / Vercel Web
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'ngrok-skip-browser-warning']
+}));
+
 app.use(express.json({ limit: '50mb' })); 
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -132,8 +139,10 @@ app.post('/api/request-otp', async (req, res) => {
   `;
 
   try {
+    // 🌟 แก้ไขที่ 2: แก้ Syntax Error บริเวณ Subject
     await fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         to: email,
         subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} - RMUTK Sports`,
@@ -272,9 +281,6 @@ app.get('/api/users/scan/:code', async (req, res) => {
   } catch (error) { res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูล' }); }
 });
 
-// ==========================================
-// 🌟 อัปเดต API การยืม (ป้องกันการยืมซ้อน)
-// ==========================================
 app.post('/api/borrow', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -289,7 +295,6 @@ app.post('/api/borrow', async (req, res) => {
     
     const realAccountId = userCheck.rows[0].account_id;
 
-    // 🌟 เช็คว่ามีรายการค้างคืนหรือไม่ ถ้ามีให้บล็อกการยืมใหม่ทันที
     const pendingCheck = await client.query(`SELECT id FROM transactions WHERE borrower_account_id = $1 AND return_date IS NULL LIMIT 1`, [realAccountId]);
     if (pendingCheck.rows.length > 0) {
       await client.query('ROLLBACK');
@@ -577,32 +582,77 @@ app.post('/api/ocr', async (req, res) => {
   } catch (error) { res.status(500).json({ message: 'อ่านข้อความไม่สำเร็จ', text: '' }); }
 });
 
-app.post('/api/notify-overdue', async (req, res) => {
-  const { transaction_id, email, memberName, equipment } = req.body;
-  if (!email) return res.status(400).json({ message: 'ไม่พบอีเมลของผู้ใช้ในระบบ' });
+// 🌟 แก้ไขที่ 3: ปรับปรุง API แจ้งเตือนค้างส่ง ให้รองรับทั้งการยิงรายบุคคล และยิงอัตโนมัติจาก Dashboard
+app.post(['/api/notify-overdue', '/api/admin/notify-overdue'], async (req, res) => {
+  const { transaction_id, email, memberName, equipment } = req.body || {};
 
   try {
-    await fetch(GOOGLE_SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        to: email,
-        subject: `[แจ้งเตือน] เกินกำหนดส่งคืนอุปกรณ์กีฬา (${equipment})`,
-        html: `
-          <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ccc; border-radius: 10px;">
-            <h2 style="color: #EF4444;">แจ้งเตือนอุปกรณ์ค้างส่ง</h2>
-            <p>เรียนคุณ <b>${memberName}</b>,</p>
-            <p>ระบบพบว่าท่านยังไม่ได้ทำการส่งคืนอุปกรณ์ <b>${equipment}</b> ซึ่งขณะนี้เกินกำหนดระยะเวลาแล้ว</p>
-            <p>รบกวนนำอุปกรณ์มาติดต่อคืนที่ศูนย์กีฬาโดยเร็วที่สุดครับ</p>
-          </div>
-        `
-      })
-    });
-    
-    if (transaction_id) {
-      await pool.query('UPDATE transactions SET last_notified_date = CURRENT_TIMESTAMP WHERE id = $1', [transaction_id]);
+    // 1. ถ้าระบุอีเมลผู้ใช้มา แสดงว่าเป็นการส่งแจ้งเตือนรายบุคคล
+    if (email) {
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: email,
+          subject: `[แจ้งเตือน] เกินกำหนดส่งคืนอุปกรณ์กีฬา (${equipment || 'อุปกรณ์กีฬา'})`,
+          html: `
+            <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ccc; border-radius: 10px;">
+              <h2 style="color: #EF4444;">แจ้งเตือนอุปกรณ์ค้างส่ง</h2>
+              <p>เรียนคุณ <b>${memberName || 'สมาชิก'}</b>,</p>
+              <p>ระบบพบว่าท่านยังไม่ได้ทำการส่งคืนอุปกรณ์ <b>${equipment || 'อุปกรณ์กีฬา'}</b> ซึ่งขณะนี้เกินกำหนดระยะเวลาแล้ว</p>
+              <p>รบกวนนำอุปกรณ์มาติดต่อคืนที่ศูนย์กีฬาโดยเร็วที่สุดครับ</p>
+            </div>
+          `
+        })
+      });
+
+      if (transaction_id) {
+        await pool.query('UPDATE transactions SET last_notified_date = CURRENT_TIMESTAMP WHERE id = $1', [transaction_id]);
+      }
+      return res.status(200).json({ message: 'ส่งแจ้งเตือนสำเร็จ' });
     }
-    
-    res.status(200).json({ message: 'ส่งแจ้งเตือนสำเร็จ' });
+
+    // 2. ถ้าไม่ได้ระบุอีเมลมา (ยิงอัตโนมัติจาก Dashboard) -> ดึงรายการที่เกินกำหนดทุกคนแล้วยิงแจ้งเตือน
+    const overdueQuery = `
+      SELECT t.id as transaction_id, a.email, COALESCE(s.full_name, e.full_name, 'สมาชิก') as member_name, inv.item_name as equipment
+      FROM transactions t
+      JOIN inventory inv ON t.inventory_id = inv.id
+      LEFT JOIN accounts a ON t.borrower_account_id = a.id
+      LEFT JOIN students s ON t.borrower_account_id = s.account_id
+      LEFT JOIN externals e ON t.borrower_account_id = e.account_id
+      WHERE t.return_date IS NULL AND DATE(t.promised_return_date) < CURRENT_DATE
+    `;
+    const overdueList = await pool.query(overdueQuery);
+
+    if (overdueList.rows.length === 0) {
+      return res.status(200).json({ message: 'ไม่มีรายการที่เกินกำหนดคืน' });
+    }
+
+    let sendCount = 0;
+    for (const item of overdueList.rows) {
+      if (item.email) {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: item.email,
+            subject: `[แจ้งเตือน] เกินกำหนดส่งคืนอุปกรณ์กีฬา (${item.equipment})`,
+            html: `
+              <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ccc; border-radius: 10px;">
+                <h2 style="color: #EF4444;">แจ้งเตือนอุปกรณ์ค้างส่ง</h2>
+                <p>เรียนคุณ <b>${item.member_name}</b>,</p>
+                <p>ระบบพบว่าท่านยังไม่ได้ทำการส่งคืนอุปกรณ์ <b>${item.equipment}</b> ซึ่งขณะนี้เกินกำหนดระยะเวลาแล้ว</p>
+                <p>รบกวนนำอุปกรณ์มาติดต่อคืนที่ศูนย์กีฬาโดยเร็วที่สุดครับ</p>
+              </div>
+            `
+          })
+        });
+        await pool.query('UPDATE transactions SET last_notified_date = CURRENT_TIMESTAMP WHERE id = $1', [item.transaction_id]);
+        sendCount++;
+      }
+    }
+
+    res.status(200).json({ message: `ส่งแจ้งเตือนอัตโนมัติสำเร็จ ${sendCount} รายการ` });
   } catch (error) {
     console.error('Notify Error:', error);
     res.status(500).json({ message: 'ระบบส่งอีเมลขัดข้อง กรุณาลองใหม่' });
