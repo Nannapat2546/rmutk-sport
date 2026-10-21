@@ -18,12 +18,14 @@ app.get('/api/ping', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is awake' });
 });
 
+// 🌟 ปรับจูน Pool: เพิ่ม min: 2 เพื่อให้อุ่นท่อ DB พร้อมใช้งานทันที ไม่เสียเวลาต่อใหม่
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://postgres.qeglmdrtanxflxgshrdy:0807780787bua@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres', 
   ssl: { rejectUnauthorized: false },
-  max: 10,
+  max: 15,
+  min: 2,                     // เลี้ยงท่อเชื่อมต่อไว้อย่างน้อย 2 ท่อตลอดเวลา
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 3000,
 });
 
 const initDB = async () => {
@@ -194,10 +196,23 @@ app.post('/api/register/outsider', async (req, res) => {
   } catch (error) { res.status(500).json({ message: 'อีเมล/รหัสบัตรประชาชน นี้ถูกใช้ไปแล้ว หรือไม่สามารถบันทึกได้' }); }
 });
 
+// 🌟 สปีด Login นักศึกษา/บุคคลภายนอก: ใช้ LEFT JOIN ดึงข้อมูลครบใน Query เดียว
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const accountResult = await pool.query(`SELECT id, account_type, password_hash, is_active FROM accounts WHERE LOWER(email) = LOWER($1)`, [email.trim()]);
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const query = `
+      SELECT 
+        a.id, a.email, a.account_type, a.password_hash, a.is_active,
+        s.student_id, s.full_name as student_name, s.faculty, s.major, s.phone as student_phone,
+        e.citizen_id, e.full_name as external_name, e.phone as external_phone
+      FROM accounts a
+      LEFT JOIN students s ON a.id = s.account_id
+      LEFT JOIN externals e ON a.id = e.account_id
+      WHERE LOWER(a.email) = $1
+      LIMIT 1
+    `;
+    const accountResult = await pool.query(query, [cleanEmail]);
     if (accountResult.rows.length === 0) return res.status(401).json({ message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
     
     const account = accountResult.rows[0];
@@ -206,25 +221,45 @@ app.post('/api/login', async (req, res) => {
     let isPasswordMatch = account.password_hash.startsWith('$') ? await bcrypt.compare(password, account.password_hash) : (password === account.password_hash);
     if (!isPasswordMatch) return res.status(401).json({ message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
 
-    let userData = { accountId: account.id, email: email, role: account.account_type };
+    let userData = { accountId: account.id, email: account.email, role: account.account_type };
 
     if (account.account_type === 'student') {
-      const studentResult = await pool.query(`SELECT student_id, full_name, faculty, major, phone FROM students WHERE account_id = $1`, [account.id]);
-      if (studentResult.rows.length > 0) userData = { ...userData, ...studentResult.rows[0] }; 
+      userData = { 
+        ...userData, 
+        student_id: account.student_id, 
+        full_name: account.student_name, 
+        faculty: account.faculty, 
+        major: account.major, 
+        phone: account.student_phone 
+      }; 
     } else if (account.account_type === 'external') {
-      const externalResult = await pool.query(`SELECT citizen_id, full_name, phone FROM externals WHERE account_id = $1`, [account.id]);
-      if (externalResult.rows.length > 0) userData = { ...userData, ...externalResult.rows[0] };
+      userData = { 
+        ...userData, 
+        citizen_id: account.citizen_id, 
+        full_name: account.external_name, 
+        phone: account.external_phone 
+      };
     }
 
     res.status(200).json({ message: 'เข้าสู่ระบบสำเร็จ', role: account.account_type, user: userData });
   } catch (error) { res.status(500).json({ message: 'เซิร์ฟเวอร์มีปัญหา ไม่สามารถเข้าสู่ระบบได้' }); }
 });
 
+// 🌟 สปีด Login เจ้าหน้าที่: ใช้ LEFT JOIN ดึงข้อมูลครบใน Query เดียว
 app.post('/api/login-staff', async (req, res) => {
   const email = (req.body.email || '').trim().toLowerCase();
   const { password } = req.body;
   try {
-    const accountResult = await pool.query(`SELECT id, email, account_type, password_hash, is_active, can_manage_inventory FROM accounts WHERE LOWER(email) = $1 AND account_type = 'staff'`, [email]);
+    const query = `
+      SELECT 
+        a.id, a.email, a.account_type, a.password_hash, a.is_active, a.can_manage_inventory,
+        st.full_name, st.department
+      FROM accounts a
+      LEFT JOIN staffs st ON a.id = st.account_id
+      WHERE LOWER(a.email) = $1 AND a.account_type = 'staff'
+      LIMIT 1
+    `;
+    const accountResult = await pool.query(query, [email]);
     if (accountResult.rows.length === 0) return res.status(401).json({ message: 'อีเมลเจ้าหน้าที่ไม่ถูกต้อง หรือไม่มีสิทธิ์เข้าถึง' });
 
     const account = accountResult.rows[0];
@@ -233,17 +268,35 @@ app.post('/api/login-staff', async (req, res) => {
     let isPasswordMatch = account.password_hash.startsWith('$') ? await bcrypt.compare(password, account.password_hash) : (password === account.password_hash);
     if (!isPasswordMatch) return res.status(401).json({ message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
 
-    const staffResult = await pool.query(`SELECT full_name, department FROM staffs WHERE account_id = $1`, [account.id]);
-    let staffData = staffResult.rows.length > 0 ? staffResult.rows[0] : {};
-
-    res.status(200).json({ message: 'เข้าสู่ระบบเจ้าหน้าที่สำเร็จ', role: account.account_type, user: { accountId: account.id, email: account.email, canManageInventory: account.can_manage_inventory, ...staffData } });
+    res.status(200).json({ 
+      message: 'เข้าสู่ระบบเจ้าหน้าที่สำเร็จ', 
+      role: account.account_type, 
+      user: { 
+        accountId: account.id, 
+        email: account.email, 
+        canManageInventory: account.can_manage_inventory, 
+        full_name: account.full_name || '', 
+        department: account.department || '' 
+      } 
+    });
   } catch (error) { res.status(500).json({ message: 'เซิร์ฟเวอร์มีปัญหา ไม่สามารถเข้าสู่ระบบได้' }); }
 });
 
+// 🌟 สปีด Login แอดมิน: ใช้ LEFT JOIN ดึงข้อมูลครบใน Query เดียว
 app.post('/api/login-admin', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const accountResult = await pool.query(`SELECT id, email, account_type, password_hash, is_active FROM accounts WHERE LOWER(email) = LOWER($1) AND account_type = 'admin'`, [email.trim()]);
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const query = `
+      SELECT 
+        a.id, a.email, a.account_type, a.password_hash, a.is_active,
+        ad.full_name
+      FROM accounts a
+      LEFT JOIN admins ad ON a.id = ad.account_id
+      WHERE LOWER(a.email) = $1 AND a.account_type = 'admin'
+      LIMIT 1
+    `;
+    const accountResult = await pool.query(query, [cleanEmail]);
     if (accountResult.rows.length === 0) return res.status(401).json({ message: 'อีเมลผู้ดูแลระบบไม่ถูกต้อง หรือไม่มีสิทธิ์เข้าถึง' });
 
     const account = accountResult.rows[0];
@@ -252,8 +305,7 @@ app.post('/api/login-admin', async (req, res) => {
     let isPasswordMatch = account.password_hash.startsWith('$') ? await bcrypt.compare(password, account.password_hash) : (password === account.password_hash);
     if (!isPasswordMatch) return res.status(401).json({ message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
 
-    const adminResult = await pool.query(`SELECT full_name FROM admins WHERE account_id = $1`, [account.id]);
-    let adminName = adminResult.rows.length > 0 ? adminResult.rows[0].full_name : 'Super Admin';
+    let adminName = account.full_name || 'Super Admin';
 
     res.status(200).json({ message: 'เข้าสู่ระบบผู้ดูแลระบบสำเร็จ', role: account.account_type, user: { accountId: account.id, email: account.email, name: adminName } });
   } catch (error) { res.status(500).json({ message: 'เซิร์ฟเวอร์มีปัญหา ไม่สามารถเข้าสู่ระบบได้' }); }
