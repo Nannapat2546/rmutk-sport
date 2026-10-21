@@ -18,12 +18,12 @@ app.get('/api/ping', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is awake' });
 });
 
-// 🌟 ปรับจูน Pool: เพิ่ม min: 2 เพื่อให้อุ่นท่อ DB พร้อมใช้งานทันที ไม่เสียเวลาต่อใหม่
+// 🌟 ปรับจูน Pool: เลี้ยงท่อเชื่อมต่อไว้อย่างน้อย 2 ท่อตลอดเวลา
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://postgres.qeglmdrtanxflxgshrdy:0807780787bua@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres', 
   ssl: { rejectUnauthorized: false },
   max: 15,
-  min: 2,                     // เลี้ยงท่อเชื่อมต่อไว้อย่างน้อย 2 ท่อตลอดเวลา
+  min: 2,                     
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 3000,
 });
@@ -38,7 +38,21 @@ const initDB = async () => {
     
     await pool.query(`CREATE TABLE IF NOT EXISTS staffs (id SERIAL PRIMARY KEY, account_id INT REFERENCES accounts(id) ON DELETE CASCADE, full_name VARCHAR(100) NOT NULL, department VARCHAR(100), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
     await pool.query(`CREATE TABLE IF NOT EXISTS admins (id SERIAL PRIMARY KEY, account_id INT REFERENCES accounts(id) ON DELETE CASCADE, full_name VARCHAR(100) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
-    console.log('✅ Database schema verified.');
+
+    // 🚀 เพิ่ม Database Indexes เร่งสปีด Login & Dashboard (รันอัตโนมัติ)
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_accounts_lower_email ON accounts (LOWER(email));`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_students_account_id ON students (account_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_externals_account_id ON externals (account_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_staffs_account_id ON staffs (account_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_admins_account_id ON admins (account_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_transactions_borrower ON transactions (borrower_account_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_transactions_inventory ON transactions (inventory_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_transactions_return_date ON transactions (return_date);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions (created_at);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_fitness_usage_user ON fitness_usage (user_account_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_fitness_usage_checkin ON fitness_usage (check_in_time DESC);`);
+
+    console.log('✅ Database schema and performance indexes verified.');
   } catch (err) {
     console.error('DB Init Error:', err.message);
   }
@@ -196,7 +210,7 @@ app.post('/api/register/outsider', async (req, res) => {
   } catch (error) { res.status(500).json({ message: 'อีเมล/รหัสบัตรประชาชน นี้ถูกใช้ไปแล้ว หรือไม่สามารถบันทึกได้' }); }
 });
 
-// 🌟 สปีด Login นักศึกษา/บุคคลภายนอก: ใช้ LEFT JOIN ดึงข้อมูลครบใน Query เดียว
+// 🌟 สปีด Login นักศึกษา/บุคคลภายนอก: ใช้ LEFT JOIN + Index ดึงข้อมูลเร็วที่สุด
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -245,7 +259,7 @@ app.post('/api/login', async (req, res) => {
   } catch (error) { res.status(500).json({ message: 'เซิร์ฟเวอร์มีปัญหา ไม่สามารถเข้าสู่ระบบได้' }); }
 });
 
-// 🌟 สปีด Login เจ้าหน้าที่: ใช้ LEFT JOIN ดึงข้อมูลครบใน Query เดียว
+// 🌟 สปีด Login เจ้าหน้าที่: ใช้ LEFT JOIN + Index ดึงข้อมูลเร็วที่สุด
 app.post('/api/login-staff', async (req, res) => {
   const email = (req.body.email || '').trim().toLowerCase();
   const { password } = req.body;
@@ -282,7 +296,7 @@ app.post('/api/login-staff', async (req, res) => {
   } catch (error) { res.status(500).json({ message: 'เซิร์ฟเวอร์มีปัญหา ไม่สามารถเข้าสู่ระบบได้' }); }
 });
 
-// 🌟 สปีด Login แอดมิน: ใช้ LEFT JOIN ดึงข้อมูลครบใน Query เดียว
+// 🌟 สปีด Login แอดมิน: ใช้ LEFT JOIN + Index ดึงข้อมูลเร็วที่สุด
 app.post('/api/login-admin', async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -478,24 +492,25 @@ app.post('/api/change-password', async (req, res) => {
   } catch (error) { res.status(500).json({ message: 'เปลี่ยนรหัสผ่านไม่สำเร็จ' }); }
 });
 
-// 🌟 สปีด API สถิติแอดมิน: ยิง Query พร้อมกันด้วย Promise.all
+// 🌟 สปีด API สถิติแอดมิน: ใช้ Range Condition + B-Tree Index + Promise.all
 app.get('/api/admin/dashboard-stats', async (req, res) => {
   const { mode = 'daily', month = 'all' } = req.query;
   try {
-    let fitFilter = "DATE(check_in_time) = CURRENT_DATE";
-    let transFilter = "DATE(t.created_at) = CURRENT_DATE";
-    let rawTransFilter = "DATE(created_at) = CURRENT_DATE";
+    // ใช้ Range Condition เพื่อให้ PostgreSQL ใช้ B-Tree Index ได้โดยตรง
+    let fitFilter = "check_in_time >= CURRENT_DATE AND check_in_time < CURRENT_DATE + INTERVAL '1 day'";
+    let transFilter = "t.created_at >= CURRENT_DATE AND t.created_at < CURRENT_DATE + INTERVAL '1 day'";
+    let rawTransFilter = "created_at >= CURRENT_DATE AND created_at < CURRENT_DATE + INTERVAL '1 day'";
 
     if (mode === 'monthly') {
       if (month === 'all') {
-        fitFilter = "EXTRACT(YEAR FROM check_in_time) = EXTRACT(YEAR FROM CURRENT_DATE)";
-        transFilter = "EXTRACT(YEAR FROM t.created_at) = EXTRACT(YEAR FROM CURRENT_DATE)";
-        rawTransFilter = "EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)";
+        fitFilter = "check_in_time >= DATE_TRUNC('year', CURRENT_DATE) AND check_in_time < DATE_TRUNC('year', CURRENT_DATE) + INTERVAL '1 year'";
+        transFilter = "t.created_at >= DATE_TRUNC('year', CURRENT_DATE) AND t.created_at < DATE_TRUNC('year', CURRENT_DATE) + INTERVAL '1 year'";
+        rawTransFilter = "created_at >= DATE_TRUNC('year', CURRENT_DATE) AND created_at < DATE_TRUNC('year', CURRENT_DATE) + INTERVAL '1 year'";
       } else {
         const m = parseInt(month);
-        fitFilter = `EXTRACT(YEAR FROM check_in_time) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM check_in_time) = ${m}`;
-        transFilter = `EXTRACT(YEAR FROM t.created_at) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM t.created_at) = ${m}`;
-        rawTransFilter = `EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM created_at) = ${m}`;
+        fitFilter = `check_in_time >= MAKE_DATE(EXTRACT(YEAR FROM CURRENT_DATE)::int, ${m}, 1) AND check_in_time < MAKE_DATE(EXTRACT(YEAR FROM CURRENT_DATE)::int, ${m}, 1) + INTERVAL '1 month'`;
+        transFilter = `t.created_at >= MAKE_DATE(EXTRACT(YEAR FROM CURRENT_DATE)::int, ${m}, 1) AND t.created_at < MAKE_DATE(EXTRACT(YEAR FROM CURRENT_DATE)::int, ${m}, 1) + INTERVAL '1 month'`;
+        rawTransFilter = `created_at >= MAKE_DATE(EXTRACT(YEAR FROM CURRENT_DATE)::int, ${m}, 1) AND created_at < MAKE_DATE(EXTRACT(YEAR FROM CURRENT_DATE)::int, ${m}, 1) + INTERVAL '1 month'`;
       }
     }
 
@@ -512,7 +527,7 @@ app.get('/api/admin/dashboard-stats', async (req, res) => {
       pool.query(`SELECT COUNT(*) as total_users, COALESCE(SUM(service_fee), 0) as total_revenue, COALESCE(SUM(CASE WHEN payment_type = 'cash' THEN service_fee ELSE 0 END), 0) as cash, COALESCE(SUM(CASE WHEN payment_type = 'qr' THEN service_fee ELSE 0 END), 0) as qr FROM fitness_usage WHERE ${fitFilter}`),
       pool.query(`SELECT COALESCE(SUM(qty), 0) as total FROM transactions WHERE ${rawTransFilter}`),
       pool.query(`SELECT COALESCE(SUM(qty), 0) as total FROM transactions WHERE return_date IS NULL`),
-      pool.query(`SELECT COUNT(*) as total FROM transactions WHERE return_date IS NULL AND DATE(promised_return_date) < CURRENT_DATE`),
+      pool.query(`SELECT COUNT(*) as total FROM transactions WHERE return_date IS NULL AND promised_return_date < CURRENT_DATE`),
       pool.query(`SELECT inv.item_name as label, SUM(t.qty) as value FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id WHERE ${transFilter} GROUP BY inv.item_name ORDER BY value DESC LIMIT 5`),
       pool.query(chartQuery)
     ]);
@@ -606,21 +621,39 @@ app.put('/api/admin/settings', async (req, res) => {
   } catch (error) { res.status(500).json({ message: 'อัปเดตไม่สำเร็จ' }); }
 });
 
+// 🌟 สปีด API กิจกรรมล่าสุด: ยิง Query แบบขนานด้วย Promise.all
 app.get('/api/recent-activities', async (req, res) => {
   try {
     let allActivities = [];
-    try {
-      const fitRes = await pool.query(`SELECT f.*, COALESCE(s.full_name, a.email, 'สมาชิก') as member_name FROM fitness_usage f LEFT JOIN accounts a ON f.user_account_id = a.id LEFT JOIN students s ON a.id = s.account_id ORDER BY f.check_in_time DESC LIMIT 10`);
-      fitRes.rows.forEach(row => { allActivities.push({ type: 'fitness', id: `fit_${row.id}`, title: `เข้าฟิตเนส: ${row.member_name}`, detail: `ชำระค่าบริการ ${row.service_fee || 0} บาท`, date: row.check_in_time, staffName: 'เจ้าหน้าที่' }); });
-    } catch (err) {}
-    try {
-      const transRes = await pool.query(`SELECT t.*, i.item_name as equipment_name, COALESCE(s.full_name, a.email, 'สมาชิก') as member_name FROM transactions t LEFT JOIN inventory i ON t.inventory_id = i.id LEFT JOIN accounts a ON t.borrower_account_id = a.id LEFT JOIN students s ON a.id = s.account_id ORDER BY t.borrow_date DESC LIMIT 20`);
-      transRes.rows.forEach(row => {
-        const borrowQty = parseInt(row.borrowed_qty ?? row.amount ?? row.qty ?? 0);
-        const equipName = row.equipment_name || row.item_name || 'อุปกรณ์';
-        allActivities.push({ type: 'borrow', id: `bor_${row.transaction_id || row.id}`, title: `ยืมอุปกรณ์: ${row.member_name}`, detail: `ยืม ${equipName} จำนวน ${borrowQty} ชิ้น`, date: row.borrow_date, staffName: 'เจ้าหน้าที่' });
+    const [fitRes, transRes] = await Promise.all([
+      pool.query(`SELECT f.*, COALESCE(s.full_name, a.email, 'สมาชิก') as member_name FROM fitness_usage f LEFT JOIN accounts a ON f.user_account_id = a.id LEFT JOIN students s ON a.id = s.account_id ORDER BY f.check_in_time DESC LIMIT 10`).catch(() => ({ rows: [] })),
+      pool.query(`SELECT t.*, i.item_name as equipment_name, COALESCE(s.full_name, a.email, 'สมาชิก') as member_name FROM transactions t LEFT JOIN inventory i ON t.inventory_id = i.id LEFT JOIN accounts a ON t.borrower_account_id = a.id LEFT JOIN students s ON a.id = s.account_id ORDER BY t.created_at DESC LIMIT 20`).catch(() => ({ rows: [] }))
+    ]);
+
+    fitRes.rows.forEach(row => { 
+      allActivities.push({ 
+        type: 'fitness', 
+        id: `fit_${row.id}`, 
+        title: `เข้าฟิตเนส: ${row.member_name}`, 
+        detail: `ชำระค่าบริการ ${row.service_fee || 0} บาท`, 
+        date: row.check_in_time, 
+        staffName: 'เจ้าหน้าที่' 
+      }); 
+    });
+
+    transRes.rows.forEach(row => {
+      const borrowQty = parseInt(row.borrowed_qty ?? row.amount ?? row.qty ?? 0);
+      const equipName = row.equipment_name || row.item_name || 'อุปกรณ์';
+      allActivities.push({ 
+        type: 'borrow', 
+        id: `bor_${row.transaction_id || row.id}`, 
+        title: `ยืมอุปกรณ์: ${row.member_name}`, 
+        detail: `ยืม ${equipName} จำนวน ${borrowQty} ชิ้น`, 
+        date: row.borrow_date || row.created_at, 
+        staffName: 'เจ้าหน้าที่' 
       });
-    } catch (err) {}
+    });
+
     allActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
     res.json(allActivities.slice(0, 30));
   } catch (error) { res.status(500).json({ message: 'ไม่สามารถดึงข้อมูลประวัติได้' }); }
