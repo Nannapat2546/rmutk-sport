@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, ScrollView, 
-  Platform, SafeAreaView, ActivityIndicator, RefreshControl, Switch, TextInput, Modal, Alert, Image 
+  Platform, SafeAreaView, ActivityIndicator, RefreshControl, Switch, TextInput, Modal, Alert, Image,
+  useWindowDimensions, StatusBar 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -42,7 +43,6 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://rmutk-sport.onrender
 // 🌟 ฟังก์ชันจำลองข้อมูลที่ปรับขนาดให้พอดี สมจริง (วันละ 5-10 คน) และแต่ละเดือนไม่ซ้ำกัน
 const getMockData = (mode, month) => {
   if (mode === 'daily') {
-    // รายวัน: เข้าใช้ประมาณ 10 คน/วัน (นศ. 8 คน x 5 บ. = 40 บ. | บุคคลภายนอก 4 คน x 30 บ. = 120 บ.)
     return {
       fitnessUsers: 10,
       revenue: 160,
@@ -74,23 +74,22 @@ const getMockData = (mode, month) => {
 
   if (mode === 'monthly') {
     if (month === 'all') {
-      // ภาพรวมทั้งปี: แต่ละเดือนผันแปรไม่เท่ากันตามสถิติการเรียน
       const yearlyMonthlyData = [
         { label: 'ม.ค.', value: 145 },
         { label: 'ก.พ.', value: 130 },
         { label: 'มี.ค.', value: 165 },
-        { label: 'เม.ย.', value: 85 },  // ช่วงปิดเทอม/สงกรานต์
-        { label: 'พ.ค.', value: 210 },  // เปิดเทอม
+        { label: 'เม.ย.', value: 85 },
+        { label: 'พ.ค.', value: 210 },
         { label: 'มิ.ย.', value: 185 },
         { label: 'ก.ค.', value: 160 },
         { label: 'ส.ค.', value: 195 },
         { label: 'ก.ย.', value: 175 },
-        { label: 'ต.ค.', value: 120 },  // ช่วงสอบ/ปิดเทอมย่อย
+        { label: 'ต.ค.', value: 120 },
         { label: 'พ.ย.', value: 150 },
-        { label: 'ธ.ค.', value: 110 }   // วันหยุดสิ้นปี
+        { label: 'ธ.ค.', value: 110 }
       ];
 
-      const totalUsers = yearlyMonthlyData.reduce((acc, item) => acc + item.value, 0); // รวม 1,830 คนทั้งปี
+      const totalUsers = yearlyMonthlyData.reduce((acc, item) => acc + item.value, 0);
       const totalRev = 22900;
       const cashRev = 6900;
       const qrRev = 16000;
@@ -114,7 +113,6 @@ const getMockData = (mode, month) => {
         ]
       };
     } else {
-      // ระบุเดือน (1-12): สร้างกราฟรายวัน (1-30/31 วัน) ที่แต่ละเดือนต่างกัน วันละ 3-8 คน
       const mInt = parseInt(month) || 1;
       const daysInMonths = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
       const totalDays = daysInMonths[mInt - 1] || 30;
@@ -122,7 +120,7 @@ const getMockData = (mode, month) => {
       let currentMonthUsers = 0;
       const daysData = Array.from({ length: totalDays }, (_, i) => {
         const dayNum = i + 1;
-        const pseudoVal = Math.floor(Math.abs(Math.sin(i * 1.5 + mInt * 2.3)) * 6) + 3; // วันละ 3 - 8 คน
+        const pseudoVal = Math.floor(Math.abs(Math.sin(i * 1.5 + mInt * 2.3)) * 6) + 3;
         currentMonthUsers += pseudoVal;
         return { label: `${dayNum}`, value: pseudoVal };
       });
@@ -161,6 +159,10 @@ const getMockData = (mode, month) => {
 };
 
 export default function AdminDashboard({ navigation, route }) {
+  const { width: windowWidth } = useWindowDimensions();
+  const isMobile = windowWidth < 768;
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   const [activeMenu, setActiveMenu] = useState('dashboard');
   const [viewMode, setViewMode] = useState('daily'); 
   const [selectedMonth, setSelectedMonth] = useState('all'); 
@@ -533,7 +535,13 @@ export default function AdminDashboard({ navigation, route }) {
   };
 
   const MenuItem = ({ id, icon, title }) => (
-    <TouchableOpacity style={[styles.menuItem, activeMenu === id && styles.menuItemActive]} onPress={() => setActiveMenu(id)}>
+    <TouchableOpacity 
+      style={[styles.menuItem, activeMenu === id && styles.menuItemActive]} 
+      onPress={() => {
+        setActiveMenu(id);
+        if (isMobile) setIsMobileMenuOpen(false);
+      }}
+    >
       <Ionicons name={icon} size={20} color={activeMenu === id ? '#1E293B' : '#64748B'} style={styles.menuIcon} />
       <Text style={[styles.menuText, activeMenu === id && styles.menuTextActive]}>{title}</Text>
     </TouchableOpacity>
@@ -564,9 +572,40 @@ export default function AdminDashboard({ navigation, route }) {
   const generalUsers = users.filter(u => u.account_type === 'student' || u.account_type === 'external');
   const staffUsers = users.filter(u => u.account_type === 'staff');
 
-  return (
-    <SafeAreaView style={styles.container}>
+  const renderSidebarContent = () => (
+    <>
+      <View style={styles.logoContainer}>
+        <View style={styles.logoCircle}><Ionicons name="shield-checkmark" size={28} color="#FFFFFF" /></View>
+        <Text style={styles.logoText}>RMUTK Admin</Text>
+      </View>
       
+      <ScrollView style={styles.menuContainer} showsVerticalScrollIndicator={false}>
+        <Text style={styles.menuSectionTitle}>ภาพรวม</Text>
+        <MenuItem id="dashboard" icon="grid-outline" title="แดชบอร์ดภาพรวม" />
+        <Text style={styles.menuSectionTitle}>ผู้ดูแลระบบ</Text>
+        <MenuItem id="users" icon="people-outline" title="จัดการผู้ใช้งาน" />
+        <MenuItem id="roles" icon="shield-checkmark-outline" title="กำหนดสิทธิ์" />
+        <MenuItem id="settings" icon="settings-outline" title="ตั้งค่าระบบ" />
+      </ScrollView>
+
+      <View style={styles.bottomMenu}>
+        <TouchableOpacity style={styles.changePasswordBtn} onPress={() => { setIsPasswordModalOpen(true); if(isMobile) setIsMobileMenuOpen(false); }}>
+          <Ionicons name="key-outline" size={20} color="#6366F1" style={styles.menuIcon} />
+          <Text style={styles.changePasswordText}>เปลี่ยนรหัสผ่าน</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={20} color="#EF4444" style={styles.menuIcon} />
+          <Text style={styles.logoutText}>ออกจากระบบ</Text>
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+
+  return (
+    <SafeAreaView style={[styles.container, { paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0, flexDirection: isMobile ? 'column' : 'row' }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
       {/* ----------------- Modal ดูรายละเอียดผู้ใช้ทั่วไป ----------------- */}
       <Modal animationType="fade" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalOverlay}>
@@ -755,38 +794,41 @@ export default function AdminDashboard({ navigation, route }) {
         </View>
       </Modal>
 
-      {/* ----------------- แถบเมนูด้านข้าง (Sidebar) ----------------- */}
-      <View style={styles.sidebar}>
-        <View style={styles.logoContainer}>
-          <View style={styles.logoCircle}><Ionicons name="shield-checkmark" size={28} color="#FFFFFF" /></View>
-          <Text style={styles.logoText}>RMUTK Admin</Text>
+      {/* ----------------- แถบเมนูด้านข้าง (Sidebar) / Mobile TopBar ----------------- */}
+      {isMobile ? (
+        <View style={styles.mobileBarWrapper}>
+          <View style={styles.mobileHeaderBar}>
+            <View style={styles.mobileLogoRow}>
+              <View style={styles.mobileLogoCircle}>
+                <Ionicons name="shield-checkmark" size={20} color="#FFFFFF" />
+              </View>
+              <Text style={styles.mobileLogoText}>RMUTK Admin</Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.mobileMenuToggle} 
+              onPress={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name={isMobileMenuOpen ? "close" : "menu"} size={26} color="#1E293B" />
+            </TouchableOpacity>
+          </View>
+
+          {isMobileMenuOpen && (
+            <View style={styles.mobileDropdownMenu}>
+              {renderSidebarContent()}
+            </View>
+          )}
         </View>
-        
-        <ScrollView style={styles.menuContainer} showsVerticalScrollIndicator={false}>
-          <Text style={styles.menuSectionTitle}>ภาพรวม</Text>
-          <MenuItem id="dashboard" icon="grid-outline" title="แดชบอร์ดภาพรวม" />
-          <Text style={styles.menuSectionTitle}>ผู้ดูแลระบบ</Text>
-          <MenuItem id="users" icon="people-outline" title="จัดการผู้ใช้งาน" />
-          <MenuItem id="roles" icon="shield-checkmark-outline" title="กำหนดสิทธิ์" />
-          <MenuItem id="settings" icon="settings-outline" title="ตั้งค่าระบบ" />
-        </ScrollView>
-
-        <View style={styles.bottomMenu}>
-          <TouchableOpacity style={styles.changePasswordBtn} onPress={() => setIsPasswordModalOpen(true)}>
-            <Ionicons name="key-outline" size={20} color="#6366F1" style={styles.menuIcon} />
-            <Text style={styles.changePasswordText}>เปลี่ยนรหัสผ่าน</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={20} color="#EF4444" style={styles.menuIcon} />
-            <Text style={styles.logoutText}>ออกจากระบบ</Text>
-          </TouchableOpacity>
+      ) : (
+        <View style={styles.sidebar}>
+          {renderSidebarContent()}
         </View>
-      </View>
+      )}
 
+      {/* ----------------- ส่วนเนื้อหาหลัก (Main Content) ----------------- */}
       <View style={styles.mainContent}>
         
-        <View style={styles.dashboardHeader}>
+        <View style={[styles.dashboardHeader, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 12 }]}>
           <View>
             <Text style={styles.headerTitle}>
               {activeMenu === 'dashboard' ? 'แดชบอร์ดภาพรวม' : activeMenu === 'users' ? 'จัดการผู้ใช้งานทั่วไป' : activeMenu === 'roles' ? 'กำหนดสิทธิ์เจ้าหน้าที่' : 'ตั้งค่าระบบ'}
@@ -797,7 +839,7 @@ export default function AdminDashboard({ navigation, route }) {
           </View>
           
           {activeMenu === 'dashboard' && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               
               <View style={styles.toggleGroup}>
                 <TouchableOpacity style={[styles.toggleBtn, viewMode === 'daily' && styles.toggleBtnActive]} onPress={() => setViewMode('daily')}>
@@ -860,85 +902,87 @@ export default function AdminDashboard({ navigation, route }) {
           
           {/* ----------------- 1. แดชบอร์ดภาพรวม ----------------- */}
           {activeMenu === 'dashboard' && (
-            <View style={{ zIndex: 10 }}>
+            <View style={{ zIndex: 1 }}>
               {loading && !refreshing ? (
                 <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#1E3A8A" /></View>
               ) : (
                 <View style={{ zIndex: 1 }}>
                   <View style={styles.summaryRow}>
-                    <View style={styles.metricCard}>
-                      <View style={styles.metricHeader}><Text style={styles.metricTitle}>ผู้เข้าใช้ฟิตเนส</Text><Ionicons name="people-outline" size={20} color="#64748B" /></View>
-                      <View style={styles.metricValueContainer}><Text style={styles.metricValue}>{stats.fitnessUsers}</Text><Text style={styles.metricUnit}>คน</Text></View>
-                      <Text style={styles.metricSubtext}>ข้อมูล: {displayDateStr}</Text>
+                    <View style={[styles.metricCard, isMobile && { minWidth: '47%', margin: 4, padding: 14 }]}>
+                      <View style={styles.metricHeader}><Text style={styles.metricTitle} numberOfLines={1}>ผู้เข้าใช้ฟิตเนส</Text><Ionicons name="people-outline" size={18} color="#64748B" /></View>
+                      <View style={styles.metricValueContainer}><Text style={[styles.metricValue, isMobile && { fontSize: 24 }]}>{stats.fitnessUsers}</Text><Text style={styles.metricUnit}>คน</Text></View>
+                      <Text style={styles.metricSubtext} numberOfLines={1}>ข้อมูล: {displayDateStr}</Text>
                     </View>
-                    <View style={styles.metricCard}>
-                      <View style={styles.metricHeader}><Text style={styles.metricTitle}>ยอดเงินค่าบริการ</Text><Ionicons name="cash-outline" size={20} color="#64748B" /></View>
-                      <View style={styles.metricValueContainer}><Text style={styles.metricValue}>{stats.revenue}</Text><Text style={styles.metricUnit}>บาท</Text></View>
-                      <Text style={styles.metricSubtext}>เงินสด {stats.cash} บ. · QR {stats.qr} บ.</Text>
+                    <View style={[styles.metricCard, isMobile && { minWidth: '47%', margin: 4, padding: 14 }]}>
+                      <View style={styles.metricHeader}><Text style={styles.metricTitle} numberOfLines={1}>ยอดเงินค่าบริการ</Text><Ionicons name="cash-outline" size={18} color="#64748B" /></View>
+                      <View style={styles.metricValueContainer}><Text style={[styles.metricValue, isMobile && { fontSize: 24 }]}>{stats.revenue}</Text><Text style={styles.metricUnit}>บาท</Text></View>
+                      <Text style={styles.metricSubtext} numberOfLines={1}>สด {stats.cash} • QR {stats.qr}</Text>
                     </View>
-                    <View style={styles.metricCard}>
-                      <View style={styles.metricHeader}><Text style={styles.metricTitle}>อุปกรณ์ที่ถูกยืม</Text><Ionicons name="cube-outline" size={20} color="#64748B" /></View>
-                      <View style={styles.metricValueContainer}><Text style={styles.metricValue}>{stats.borrowed}</Text><Text style={styles.metricUnit}>ชิ้น</Text></View>
-                      <Text style={styles.metricSubtext}>{stats.notReturned} รายการที่ยังไม่คืน</Text>
+                    <View style={[styles.metricCard, isMobile && { minWidth: '47%', margin: 4, padding: 14 }]}>
+                      <View style={styles.metricHeader}><Text style={styles.metricTitle} numberOfLines={1}>อุปกรณ์ที่ถูกยืม</Text><Ionicons name="cube-outline" size={18} color="#64748B" /></View>
+                      <View style={styles.metricValueContainer}><Text style={[styles.metricValue, isMobile && { fontSize: 24 }]}>{stats.borrowed}</Text><Text style={styles.metricUnit}>ชิ้น</Text></View>
+                      <Text style={styles.metricSubtext} numberOfLines={1}>{stats.notReturned} รายการยังไม่คืน</Text>
                     </View>
-                    <View style={styles.metricCard}>
-                      <View style={styles.metricHeader}><Text style={styles.metricTitle}>เกินกำหนดคืน</Text><Ionicons name="calendar-outline" size={20} color="#64748B" /></View>
-                      <View style={styles.metricValueContainer}><Text style={styles.metricValue}>{stats.overdue}</Text><Text style={styles.metricUnit}>รายการ</Text></View>
-                      <Text style={[styles.metricSubtext, {color: stats.overdue > 0 ? '#EF4444' : '#64748B'}]}>ต้องติดตามทวงคืน</Text>
+                    <View style={[styles.metricCard, isMobile && { minWidth: '47%', margin: 4, padding: 14 }]}>
+                      <View style={styles.metricHeader}><Text style={styles.metricTitle} numberOfLines={1}>เกินกำหนดคืน</Text><Ionicons name="calendar-outline" size={18} color={stats.overdue > 0 ? '#EF4444' : '#64748B'} /></View>
+                      <View style={styles.metricValueContainer}><Text style={[styles.metricValue, isMobile && { fontSize: 24 }, stats.overdue > 0 && { color: '#EF4444' }]}>{stats.overdue}</Text><Text style={[styles.metricUnit, stats.overdue > 0 && { color: '#EF4444' }]}>รายการ</Text></View>
+                      <Text style={[styles.metricSubtext, {color: stats.overdue > 0 ? '#EF4444' : '#64748B'}]} numberOfLines={1}>ต้องติดตามทวงคืน</Text>
                     </View>
                   </View>
 
                   <View style={styles.chartsRow}>
-                    <View style={styles.barChartCard}>
-                      <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5}}>
-                         <View>
+                    <View style={[styles.barChartCard, isMobile && { minWidth: '100%', padding: 16 }]}>
+                      <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5, flexWrap: 'wrap', gap: 6}}>
+                         <View style={{ flex: 1, minWidth: 150 }}>
                            <Text style={styles.chartTitle}>จำนวนผู้เข้าใช้ฟิตเนส</Text>
                            <Text style={styles.chartSubtitle}>
                              {viewMode === 'monthly' ? (selectedMonth === 'all' ? 'นับรวมตลอดทั้งปี (แบ่งตามเดือน)' : `นับตามวันที่ในเดือน ${monthOptions.find(m=>m.id===selectedMonth)?.name}`) : 'นับตามรอบ 2 ชั่วโมง'}
                            </Text>
                          </View>
-                         <View style={{alignItems: 'flex-end'}}>
-                           <Text style={{fontSize: 12, color: '#64748B'}}>ช่วงที่มีผู้ใช้เยอะที่สุด</Text>
-                           <Text style={{fontSize: 16, fontWeight: 'bold', color: '#00A87E'}}>
+                         <View style={{alignItems: isMobile ? 'flex-start' : 'flex-end'}}>
+                           <Text style={{fontSize: 11, color: '#64748B'}}>ช่วงที่มีผู้ใช้เยอะที่สุด</Text>
+                           <Text style={{fontSize: 14, fontWeight: 'bold', color: '#00A87E'}}>
                               {stats?.peakUsage?.label || '-'} ({stats?.peakUsage?.value || 0} คน)
                            </Text>
                          </View>
                       </View>
                       
-                      <View style={[styles.chartArea, viewMode === 'monthly' && selectedMonth !== 'all' && { overflowX: 'auto' }]}>
-                        <View style={[styles.barsContainer, viewMode === 'monthly' && selectedMonth !== 'all' && { width: Platform.OS === 'web' ? '150%' : '200%' }]}>
-                          {stats?.chartBar && stats.chartBar.map((item, index) => {
-                            const barHeightPercent = maxChartValue > 0 ? (item.value / maxChartValue) * 100 : 0;
-                            return (
-                              <TouchableOpacity 
-                                key={index} 
-                                activeOpacity={0.8}
-                                onPress={() => setSelectedBarIndex(selectedBarIndex === index ? null : index)}
-                                style={[styles.barItem, viewMode === 'monthly' && selectedMonth !== 'all' && { minWidth: 20, marginRight: 5 }]}
-                              >
-                                <View style={{ flex: 1, width: '100%', alignItems: 'center', justifyContent: 'flex-end', position: 'relative' }}>
-                                  
-                                  {selectedBarIndex === index && (
-                                    <View style={[styles.tooltipBubble, { bottom: `${barHeightPercent}%` }]}>
-                                      <Text style={styles.tooltipText}>{item.value} คน</Text>
-                                      <View style={styles.tooltipArrow} />
-                                    </View>
-                                  )}
+                      <View style={styles.chartArea}>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={true} nestedScrollEnabled contentContainerStyle={{ minWidth: '100%' }}>
+                          <View style={[styles.barsContainer, viewMode === 'monthly' && selectedMonth !== 'all' && { width: Platform.OS === 'web' ? '150%' : 700 }]}>
+                            {stats?.chartBar && stats.chartBar.map((item, index) => {
+                              const barHeightPercent = maxChartValue > 0 ? (item.value / maxChartValue) * 100 : 0;
+                              return (
+                                <TouchableOpacity 
+                                  key={index} 
+                                  activeOpacity={0.8}
+                                  onPress={() => setSelectedBarIndex(selectedBarIndex === index ? null : index)}
+                                  style={[styles.barItem, viewMode === 'monthly' && selectedMonth !== 'all' && { minWidth: 20, marginRight: 5 }]}
+                                >
+                                  <View style={{ flex: 1, width: '100%', alignItems: 'center', justifyContent: 'flex-end', position: 'relative' }}>
+                                    
+                                    {selectedBarIndex === index && (
+                                      <View style={[styles.tooltipBubble, { bottom: `${barHeightPercent}%` }]}>
+                                        <Text style={styles.tooltipText}>{item.value} คน</Text>
+                                        <View style={styles.tooltipArrow} />
+                                      </View>
+                                    )}
 
-                                  <View style={styles.barBackground}>
-                                    {item.value > 0 && <View style={[styles.barFill, { height: `${barHeightPercent}%` }]} />}
+                                    <View style={styles.barBackground}>
+                                      {item.value > 0 && <View style={[styles.barFill, { height: `${barHeightPercent}%` }]} />}
+                                    </View>
                                   </View>
-                                </View>
-                                <Text style={styles.barLabel}>{item.label}</Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
+                                  <Text style={styles.barLabel}>{item.label}</Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </ScrollView>
                         <View style={styles.xAxisLine} />
                       </View>
                     </View>
 
-                    <View style={styles.donutChartCard}>
+                    <View style={[styles.donutChartCard, isMobile && { minWidth: '100%', marginTop: 12 }]}>
                       <Text style={styles.chartTitle}>สัดส่วนวิธีชำระเงิน</Text>
                       <Text style={styles.chartSubtitle}>เงินสด {stats?.cash || 0} บ. · QR {stats?.qr || 0} บ.</Text>
                       <View style={styles.donutContainer}>
@@ -957,7 +1001,7 @@ export default function AdminDashboard({ navigation, route }) {
                   </View>
 
                   <View style={styles.chartsRow}>
-                    <View style={[styles.barChartCard, { flex: 1, minHeight: 250, marginTop: 15 }]}>
+                    <View style={[styles.barChartCard, { flex: 1, minHeight: 250, marginTop: 15 }, isMobile && { minWidth: '100%', padding: 16 }]}>
                       <Text style={styles.chartTitle}>5 อันดับอุปกรณ์ที่ถูกยืมมากที่สุด</Text>
                       <Text style={styles.chartSubtitle}>
                         {viewMode === 'monthly' ? 'สถิติตามเดือนที่เลือก' : 'สถิติรายวัน'}
@@ -971,8 +1015,8 @@ export default function AdminDashboard({ navigation, route }) {
                             return (
                               <View key={index} style={{ marginBottom: 15 }}>
                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                                  <Text style={{ fontSize: 14, color: '#1E293B', fontWeight: '600' }}>{index + 1}. {item.label}</Text>
-                                  <Text style={{ fontSize: 14, color: '#00A87E', fontWeight: 'bold' }}>{item.value} ชิ้น</Text>
+                                  <Text style={{ fontSize: 13, color: '#1E293B', fontWeight: '600' }}>{index + 1}. {item.label}</Text>
+                                  <Text style={{ fontSize: 13, color: '#00A87E', fontWeight: 'bold' }}>{item.value} ชิ้น</Text>
                                 </View>
                                 <View style={{ width: '100%', height: 10, backgroundColor: '#F1F5F9', borderRadius: 5, overflow: 'hidden' }}>
                                   <View style={{ width: `${pct}%`, height: '100%', backgroundColor: '#00A87E', borderRadius: 5 }} />
@@ -998,40 +1042,42 @@ export default function AdminDashboard({ navigation, route }) {
               {loadingUsers ? (
                 <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#1E3A8A" /></View>
               ) : (
-                <View style={{ overflow: 'hidden' }}>
-                  <View style={styles.tableHeader}>
-                    <Text style={[styles.tableCol, {flex: 2}]}>ชื่อ-นามสกุล</Text>
-                    <Text style={[styles.tableCol, {flex: 2}]}>อีเมล</Text>
-                    <Text style={[styles.tableCol, {flex: 1.5}]}>ประเภท</Text>
-                    <Text style={[styles.tableCol, {flex: 1, textAlign: 'center'}]}>ระงับบัญชี</Text>
-                    <Text style={[styles.tableCol, {flex: 1, textAlign: 'center'}]}>รายละเอียด</Text>
-                  </View>
-                  {generalUsers.map((user, index) => {
-                    const roleUI = getRoleLabel(user.account_type);
-                    return (
-                      <View key={user.id} style={[styles.tableRow, index % 2 !== 0 && {backgroundColor: '#F8FAFC'}]}>
-                        <Text style={[styles.tableCell, {flex: 2, fontWeight: 'bold'}]} numberOfLines={1}>{user.full_name}</Text>
-                        <Text style={[styles.tableCell, {flex: 2, color: '#64748B'}]} numberOfLines={1}>{user.email}</Text>
-                        
-                        <View style={[styles.tableCell, {flex: 1.5}]}>
-                          <View style={[styles.badge, { backgroundColor: roleUI.bg }]}>
-                            <Text style={[styles.badgeText, { color: roleUI.color }]}>{roleUI.text}</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                  <View style={{ minWidth: 650 }}>
+                    <View style={styles.tableHeader}>
+                      <Text style={[styles.tableCol, {flex: 2}]}>ชื่อ-นามสกุล</Text>
+                      <Text style={[styles.tableCol, {flex: 2}]}>อีเมล</Text>
+                      <Text style={[styles.tableCol, {flex: 1.5}]}>ประเภท</Text>
+                      <Text style={[styles.tableCol, {flex: 1, textAlign: 'center'}]}>ระงับบัญชี</Text>
+                      <Text style={[styles.tableCol, {flex: 1, textAlign: 'center'}]}>รายละเอียด</Text>
+                    </View>
+                    {generalUsers.map((user, index) => {
+                      const roleUI = getRoleLabel(user.account_type);
+                      return (
+                        <View key={user.id} style={[styles.tableRow, index % 2 !== 0 && {backgroundColor: '#F8FAFC'}]}>
+                          <Text style={[styles.tableCell, {flex: 2, fontWeight: 'bold'}]} numberOfLines={1}>{user.full_name}</Text>
+                          <Text style={[styles.tableCell, {flex: 2, color: '#64748B'}]} numberOfLines={1}>{user.email}</Text>
+                          
+                          <View style={[styles.tableCell, {flex: 1.5}]}>
+                            <View style={[styles.badge, { backgroundColor: roleUI.bg }]}>
+                              <Text style={[styles.badgeText, { color: roleUI.color }]}>{roleUI.text}</Text>
+                            </View>
+                          </View>
+
+                          <View style={[styles.tableCell, {flex: 1, alignItems: 'center'}]}>
+                            <Switch value={user.is_active} onValueChange={() => togglePermission(user.id, 'is_active', user.is_active)} trackColor={{ false: '#EF4444', true: '#10B981' }} />
+                          </View>
+                          <View style={[styles.tableCell, {flex: 1, alignItems: 'center'}]}>
+                            <TouchableOpacity style={styles.actionBtn} onPress={() => openUserDetails(user)}>
+                              <Ionicons name="eye-outline" size={18} color="#2563EB" />
+                              <Text style={styles.actionBtnText}>ดูข้อมูล</Text>
+                            </TouchableOpacity>
                           </View>
                         </View>
-
-                        <View style={[styles.tableCell, {flex: 1, alignItems: 'center'}]}>
-                          <Switch value={user.is_active} onValueChange={() => togglePermission(user.id, 'is_active', user.is_active)} trackColor={{ false: '#EF4444', true: '#10B981' }} />
-                        </View>
-                        <View style={[styles.tableCell, {flex: 1, alignItems: 'center'}]}>
-                          <TouchableOpacity style={styles.actionBtn} onPress={() => openUserDetails(user)}>
-                            <Ionicons name="eye-outline" size={20} color="#2563EB" />
-                            <Text style={styles.actionBtnText}>ดูข้อมูล</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
               )}
             </View>
           )}
@@ -1047,60 +1093,64 @@ export default function AdminDashboard({ navigation, route }) {
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableCol, {flex: 2}]}>ชื่อผู้ใช้งาน</Text>
-                <Text style={[styles.tableCol, {flex: 1.5}]}>ประเภท</Text>
-                <Text style={[styles.tableCol, {flex: 1, textAlign: 'center'}]}>สถานะการระงับ</Text>
-                <Text style={[styles.tableCol, {flex: 1, textAlign: 'center'}]}>จัดการ</Text>
-              </View>
-              {staffUsers.map((user, index) => {
-                const roleUI = getRoleLabel(user.account_type);
-                return (
-                  <View key={user.id} style={[styles.tableRow, index % 2 !== 0 && {backgroundColor: '#F8FAFC'}]}>
-                    <Text style={[styles.tableCell, {flex: 2, fontWeight: 'bold'}]} numberOfLines={1}>{user.full_name}</Text>
-                    
-                    <View style={[styles.tableCell, {flex: 1.5}]}>
-                      <View style={[styles.badge, { backgroundColor: roleUI.bg }]}>
-                        <Text style={[styles.badgeText, { color: roleUI.color }]}>{roleUI.text}</Text>
-                      </View>
-                    </View>
-
-                    <View style={[styles.tableCell, {flex: 1, alignItems: 'center'}]}>
-                      <Switch 
-                        value={user.is_active} 
-                        onValueChange={() => togglePermission(user.id, 'is_active', user.is_active)} 
-                        trackColor={{ false: '#EF4444', true: '#10B981' }} 
-                      />
-                    </View>
-                    
-                    <View style={[styles.tableCell, {flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center'}]}>
-                      <TouchableOpacity 
-                        style={{ padding: 6, marginRight: 8, backgroundColor: '#DBEAFE', borderRadius: 6 }} 
-                        onPress={() => openEditStaffModal(user)}
-                      >
-                        <Ionicons name="pencil-outline" size={18} color="#2563EB" />
-                      </TouchableOpacity>
-
-                      <TouchableOpacity 
-                        style={{ padding: 6, backgroundColor: '#FEE2E2', borderRadius: 6 }} 
-                        onPress={() => handleDeleteStaff(user.id, user.full_name)}
-                      >
-                        <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                      </TouchableOpacity>
-                    </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                <View style={{ minWidth: 600 }}>
+                  <View style={styles.tableHeader}>
+                    <Text style={[styles.tableCol, {flex: 2}]}>ชื่อผู้ใช้งาน</Text>
+                    <Text style={[styles.tableCol, {flex: 1.5}]}>ประเภท</Text>
+                    <Text style={[styles.tableCol, {flex: 1, textAlign: 'center'}]}>สถานะการระงับ</Text>
+                    <Text style={[styles.tableCol, {flex: 1, textAlign: 'center'}]}>จัดการ</Text>
                   </View>
-                );
-              })}
+                  {staffUsers.map((user, index) => {
+                    const roleUI = getRoleLabel(user.account_type);
+                    return (
+                      <View key={user.id} style={[styles.tableRow, index % 2 !== 0 && {backgroundColor: '#F8FAFC'}]}>
+                        <Text style={[styles.tableCell, {flex: 2, fontWeight: 'bold'}]} numberOfLines={1}>{user.full_name}</Text>
+                        
+                        <View style={[styles.tableCell, {flex: 1.5}]}>
+                          <View style={[styles.badge, { backgroundColor: roleUI.bg }]}>
+                            <Text style={[styles.badgeText, { color: roleUI.color }]}>{roleUI.text}</Text>
+                          </View>
+                        </View>
+
+                        <View style={[styles.tableCell, {flex: 1, alignItems: 'center'}]}>
+                          <Switch 
+                            value={user.is_active} 
+                            onValueChange={() => togglePermission(user.id, 'is_active', user.is_active)} 
+                            trackColor={{ false: '#EF4444', true: '#10B981' }} 
+                          />
+                        </View>
+                        
+                        <View style={[styles.tableCell, {flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center'}]}>
+                          <TouchableOpacity 
+                            style={{ padding: 6, marginRight: 8, backgroundColor: '#DBEAFE', borderRadius: 6 }} 
+                            onPress={() => openEditStaffModal(user)}
+                          >
+                            <Ionicons name="pencil-outline" size={18} color="#2563EB" />
+                          </TouchableOpacity>
+
+                          <TouchableOpacity 
+                            style={{ padding: 6, backgroundColor: '#FEE2E2', borderRadius: 6 }} 
+                            onPress={() => handleDeleteStaff(user.id, user.full_name)}
+                          >
+                            <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </ScrollView>
             </View>
           )}
 
           {/* ----------------- 4. ตั้งค่าระบบ ----------------- */}
           {activeMenu === 'settings' && (
             <View style={styles.settingsGrid}>
-              <View style={styles.settingsGridCard}>
+              <View style={[styles.settingsGridCard, isMobile && { width: '100%' }]}>
                 <Text style={styles.settingsCardTitle}>ค่าบริการฟิตเนส</Text>
                 <Text style={styles.settingsCardSub}>อัตราค่าบริการต่อครั้ง</Text>
-                <View style={styles.settingsRow}>
+                <View style={[styles.settingsRow, isMobile && { flexDirection: 'column', gap: 12 }]}>
                   <View style={styles.settingsInputWrapper}>
                     <Text style={styles.settingsInputLabel}>นักศึกษา</Text>
                     <View style={styles.inputWithUnit}>
@@ -1128,10 +1178,10 @@ export default function AdminDashboard({ navigation, route }) {
                 </View>
               </View>
 
-              <View style={styles.settingsGridCard}>
+              <View style={[styles.settingsGridCard, isMobile && { width: '100%' }]}>
                 <Text style={styles.settingsCardTitle}>เงื่อนไขการยืมอุปกรณ์</Text>
                 <Text style={styles.settingsCardSub}>ข้อจำกัดของการทำรายการยืมแต่ละครั้ง</Text>
-                <View style={styles.settingsRow}>
+                <View style={[styles.settingsRow, isMobile && { flexDirection: 'column', gap: 12 }]}>
                   <View style={styles.settingsInputWrapper}>
                     <Text style={styles.settingsInputLabel}>จำนวนวันสูงสุดที่ยืมได้</Text>
                     <View style={styles.inputWithUnit}>
@@ -1159,11 +1209,11 @@ export default function AdminDashboard({ navigation, route }) {
                 </View>
               </View>
 
-              <View style={styles.settingsGridCard}>
+              <View style={[styles.settingsGridCard, isMobile && { width: '100%' }]}>
                 <Text style={styles.settingsCardTitle}>ช่องทางชำระเงิน</Text>
                 <Text style={styles.settingsCardSub}>เปิด-ปิดการรับชำระผ่าน QR</Text>
                 <View style={styles.switchRowContainer}>
-                  <View>
+                  <View style={{ flex: 1, marginRight: 10 }}>
                     <Text style={styles.switchLabel}>รับชำระด้วย QR</Text>
                     <Text style={styles.switchSub}>หากปิด เจ้าหน้าที่จะรับชำระได้เฉพาะเงินสด</Text>
                   </View>
@@ -1184,94 +1234,109 @@ export default function AdminDashboard({ navigation, route }) {
 
 // ================= STYLES =================
 const styles = StyleSheet.create({
-  container: { flex: 1, flexDirection: 'row', backgroundColor: '#F8FAFC' },
-  loadingContainer: { height: 400, justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  loadingContainer: { height: 300, justifyContent: 'center', alignItems: 'center' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'center', alignItems: 'center', zIndex: 100 },
-  modalContainer: { width: '90%', maxWidth: 500, backgroundColor: '#FFFFFF', borderRadius: 16, overflow: 'hidden', ...Platform.select({ web: { boxShadow: '0px 10px 25px rgba(0,0,0,0.1)' }, default: { elevation: 10 } }) },
+  modalContainer: { width: '90%', maxWidth: 500, backgroundColor: '#FFFFFF', borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 10 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', backgroundColor: '#F8FAFC' },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1E293B' },
-  modalBody: { padding: 24, maxHeight: 500 },
-  profileSection: { alignItems: 'center', marginBottom: 24 },
+  modalBody: { padding: 20, maxHeight: 450 },
+  profileSection: { alignItems: 'center', marginBottom: 20 },
   profileAvatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 12, borderWidth: 2, borderColor: '#E2E8F0' },
   profileAvatarImg: { width: 80, height: 80, borderRadius: 40, marginBottom: 12, borderWidth: 2, borderColor: '#E2E8F0', resizeMode: 'cover' },
-  profileName: { fontSize: 20, fontWeight: 'bold', color: '#1E293B' },
-  detailSectionTitle: { fontSize: 14, fontWeight: 'bold', color: '#64748B', marginBottom: 12, marginTop: 10 },
-  detailBox: { backgroundColor: '#F8FAFC', borderRadius: 12, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: '#E2E8F0' },
+  profileName: { fontSize: 18, fontWeight: 'bold', color: '#1E293B' },
+  detailSectionTitle: { fontSize: 13, fontWeight: 'bold', color: '#64748B', marginBottom: 10, marginTop: 10 },
+  detailBox: { backgroundColor: '#F8FAFC', borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#E2E8F0' },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
-  detailLabel: { fontSize: 14, color: '#64748B' },
-  detailValue: { fontSize: 14, color: '#1E293B', fontWeight: '500' },
+  detailLabel: { fontSize: 13, color: '#64748B' },
+  detailValue: { fontSize: 13, color: '#1E293B', fontWeight: '500' },
   idCardBox: { width: '100%', height: 180, backgroundColor: '#F8FAFC', borderRadius: 12, overflow: 'hidden', marginBottom: 20, borderWidth: 1, borderColor: '#E2E8F0' },
   idCardImg: { width: '100%', height: '100%' },
-  closeModalBtn: { backgroundColor: '#1E3A8A', paddingVertical: 16, alignItems: 'center' },
-  closeModalBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
+  closeModalBtn: { backgroundColor: '#1E3A8A', paddingVertical: 14, alignItems: 'center' },
+  closeModalBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' },
+  
+  /* Mobile Header Bar */
+  mobileBarWrapper: { backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', zIndex: 100 },
+  mobileHeaderBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
+  mobileLogoRow: { flexDirection: 'row', alignItems: 'center' },
+  mobileLogoCircle: { width: 34, height: 34, backgroundColor: '#1E3A8A', borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  mobileLogoText: { fontSize: 16, fontWeight: 'bold', color: '#1E293B' },
+  mobileMenuToggle: { padding: 4 },
+  mobileDropdownMenu: { backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
+
   sidebar: { width: 260, backgroundColor: '#FFFFFF', paddingVertical: 20, paddingHorizontal: 15, justifyContent: 'space-between', borderRightWidth: 1, borderRightColor: '#E2E8F0' },
-  logoContainer: { alignItems: 'center', marginBottom: 30, marginTop: 10 },
-  logoCircle: { width: 48, height: 48, backgroundColor: '#1E3A8A', borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  logoContainer: { alignItems: 'center', marginBottom: 20, marginTop: 10 },
+  logoCircle: { width: 48, height: 48, backgroundColor: '#1E3A8A', borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   logoText: { fontSize: 18, fontWeight: 'bold', color: '#1E293B' },
   menuContainer: { flex: 1 },
-  menuSectionTitle: { fontSize: 13, fontWeight: 'bold', color: '#94A3B8', marginTop: 24, marginBottom: 12, paddingHorizontal: 14, textTransform: 'uppercase' },
-  menuItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 8, marginBottom: 4 },
+  menuSectionTitle: { fontSize: 12, fontWeight: 'bold', color: '#94A3B8', marginTop: 16, marginBottom: 8, paddingHorizontal: 10, textTransform: 'uppercase' },
+  menuItem: { flexDirection: 'row', alignItems: 'center', padding: 10, borderRadius: 8, marginBottom: 4 },
   menuItemActive: { backgroundColor: '#F1F5F9' },
-  menuIcon: { marginRight: 12 },
-  menuText: { fontSize: 15, color: '#475569', fontWeight: '500' },
+  menuIcon: { marginRight: 10 },
+  menuText: { fontSize: 14, color: '#475569', fontWeight: '500' },
   menuTextActive: { color: '#1E293B', fontWeight: 'bold' },
-  bottomMenu: { padding: 5, borderTopWidth: 1, borderTopColor: '#E2E8F0', gap: 10 },
-  changePasswordBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F3FF', padding: 14, borderRadius: 8, borderWidth: 1, borderColor: '#DDD6FE' },
-  changePasswordText: { color: '#7C3AED', fontWeight: 'bold', fontSize: 15 },
-  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FEF2F2', padding: 14, borderRadius: 8, borderWidth: 1, borderColor: '#FECACA' },
-  logoutText: { color: '#EF4444', fontWeight: 'bold', fontSize: 15 },
-  mainContent: { flex: 1, display: 'flex' },
-  dashboardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 24, paddingBottom: 16, zIndex: 10 },
-  headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#1E293B', marginBottom: 4 },
-  headerSubtitle: { fontSize: 14, color: '#64748B' },
+  bottomMenu: { paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#E2E8F0', gap: 8 },
+  changePasswordBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F3FF', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#DDD6FE' },
+  changePasswordText: { color: '#7C3AED', fontWeight: 'bold', fontSize: 14 },
+  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FEF2F2', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#FECACA' },
+  logoutText: { color: '#EF4444', fontWeight: 'bold', fontSize: 14 },
   
-  toggleGroup: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 8, padding: 4 },
-  toggleBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6 },
-  toggleBtnActive: { backgroundColor: '#FFFFFF', ...Platform.select({ web: { boxShadow: '0px 1px 3px rgba(0,0,0,0.1)' }, default: { elevation: 1 } }) },
-  toggleText: { fontSize: 14, fontWeight: '600', color: '#64748B' },
+  mainContent: { flex: 1 },
+  dashboardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 16, paddingBottom: 12, zIndex: 10 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#1E293B', marginBottom: 2 },
+  headerSubtitle: { fontSize: 12, color: '#64748B' },
+  
+  toggleGroup: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 8, padding: 3 },
+  toggleBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 },
+  toggleBtnActive: { backgroundColor: '#FFFFFF', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+  toggleText: { fontSize: 12, fontWeight: '600', color: '#64748B' },
   toggleTextActive: { color: '#1E3A8A' },
   
-  monthDropdownBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, borderWidth: 1, borderColor: '#CBD5E1', height: 38 },
-  monthDropdownText: { fontSize: 14, fontWeight: '600', color: '#334155', marginRight: 8 },
-  monthDropdownList: { position: 'absolute', top: 45, right: 0, width: 160, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5, elevation: 5 },
-  monthDropdownItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  monthDropdownItemText: { fontSize: 13, color: '#475569' },
+  monthDropdownBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: '#CBD5E1', height: 32 },
+  monthDropdownText: { fontSize: 12, fontWeight: '600', color: '#334155', marginRight: 6 },
+  monthDropdownList: { position: 'absolute', top: 38, right: 0, width: 150, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5, elevation: 5 },
+  monthDropdownItem: { padding: 10, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  monthDropdownItemText: { fontSize: 12, color: '#475569' },
 
-  saveSettingsBtn: { backgroundColor: '#1E3A8A', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 6 },
-  saveSettingsBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' },
-  contentArea: { paddingHorizontal: 24, paddingBottom: 24, flex: 1, zIndex: 1 },
-  summaryRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 20, zIndex: 1 },
-  metricCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, flex: 1, minWidth: 200, margin: 6, borderWidth: 1, borderColor: '#E2E8F0', ...Platform.select({ web: { boxShadow: '0px 4px 6px -1px rgba(0,0,0,0.05)' }, default: { elevation: 2 } }) },
-  metricHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  metricTitle: { fontSize: 14, color: '#475569', fontWeight: '600' },
-  metricValueContainer: { flexDirection: 'row', alignItems: 'baseline', marginBottom: 8 },
-  metricValue: { fontSize: 32, fontWeight: 'bold', color: '#1E293B', marginRight: 8 },
-  metricUnit: { fontSize: 16, color: '#475569', fontWeight: '600' },
-  metricSubtext: { fontSize: 13, color: '#94A3B8' },
+  saveSettingsBtn: { backgroundColor: '#1E3A8A', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6 },
+  saveSettingsBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: 'bold' },
+  contentArea: { paddingHorizontal: 16, paddingBottom: 20, flex: 1, zIndex: 1 },
+  summaryRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 12, zIndex: 1 },
+  metricCard: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, flex: 1, minWidth: 180, margin: 4, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
+  metricHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  metricTitle: { fontSize: 12, color: '#475569', fontWeight: '600', flex: 1, marginRight: 4 },
+  metricValueContainer: { flexDirection: 'row', alignItems: 'baseline', marginBottom: 4 },
+  metricValue: { fontSize: 26, fontWeight: 'bold', color: '#1E293B', marginRight: 6 },
+  metricUnit: { fontSize: 13, color: '#475569', fontWeight: '600' },
+  metricSubtext: { fontSize: 11, color: '#94A3B8' },
   chartsRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', zIndex: 1 },
-  barChartCard: { flex: 2, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, margin: 6, minWidth: 400, borderWidth: 1, borderColor: '#E2E8F0', ...Platform.select({ web: { boxShadow: '0px 4px 6px -1px rgba(0,0,0,0.05)' }, default: { elevation: 2 } }) },
-  chartTitle: { fontSize: 16, fontWeight: 'bold', color: '#1E293B', marginBottom: 4 },
-  chartSubtitle: { fontSize: 13, color: '#64748B', marginBottom: 30 },
+  barChartCard: { flex: 2, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, margin: 4, minWidth: 320, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
+  chartTitle: { fontSize: 14, fontWeight: 'bold', color: '#1E293B', marginBottom: 2 },
+  chartSubtitle: { fontSize: 11, color: '#64748B', marginBottom: 20 },
 
-  chartArea: { height: 230, paddingBottom: 20, paddingTop: 30 },
+  chartArea: { height: 210, paddingBottom: 20, paddingTop: 25, position: 'relative' },
   barsContainer: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: 10 },
   barItem: { alignItems: 'center', flex: 1, height: '100%', justifyContent: 'flex-end' },
-  barBackground: { width: '100%', maxWidth: 40, height: '100%', backgroundColor: '#F8FAFC', borderRadius: 4, justifyContent: 'flex-end', overflow: 'hidden' }, 
+  barBackground: { width: '100%', maxWidth: 36, height: '100%', backgroundColor: '#F8FAFC', borderRadius: 4, justifyContent: 'flex-end', overflow: 'hidden' }, 
   barFill: { width: '100%', backgroundColor: '#1E3A8A', borderRadius: 4 }, 
-  barLabel: { fontSize: 11, color: '#64748B', position: 'absolute', bottom: -25 },
+  barLabel: { fontSize: 10, color: '#64748B', position: 'absolute', bottom: -22 },
   xAxisLine: { height: 1, backgroundColor: '#E2E8F0', width: '100%', position: 'absolute', bottom: 0 },
 
   tooltipBubble: { 
     position: 'absolute', 
-    marginBottom: 8, 
+    marginBottom: 6, 
     backgroundColor: '#0F172A', 
-    paddingHorizontal: 10, 
-    paddingVertical: 6, 
-    borderRadius: 6, 
+    paddingHorizontal: 8, 
+    paddingVertical: 4, 
+    borderRadius: 4, 
     zIndex: 100,
-    ...Platform.select({ web: { boxShadow: '0px 2px 5px rgba(0,0,0,0.3)' }, default: { elevation: 5 } })
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4
   },
-  tooltipText: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
+  tooltipText: { color: '#FFF', fontSize: 11, fontWeight: 'bold' },
   tooltipArrow: {
     position: 'absolute',
     bottom: -4,
@@ -1287,45 +1352,45 @@ const styles = StyleSheet.create({
     borderTopColor: '#0F172A'
   },
 
-  donutChartCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, margin: 6, minWidth: 280, borderWidth: 1, borderColor: '#E2E8F0', ...Platform.select({ web: { boxShadow: '0px 4px 6px -1px rgba(0,0,0,0.05)' }, default: { elevation: 2 } }) },
-  donutContainer: { alignItems: 'center', justifyContent: 'center', height: 200, marginTop: 10 },
-  donutCircle: { width: 160, height: 160, borderRadius: 80, borderWidth: 24, borderColor: '#1E3A8A', borderBottomColor: '#166534', borderLeftColor: '#166534', transform: [{ rotate: '45deg' }], alignItems: 'center', justifyContent: 'center' },
-  donutInnerCircle: { width: 112, height: 112, borderRadius: 56, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-45deg' }] },
-  donutTotalLabel: { fontSize: 12, color: '#64748B', marginBottom: 2 },
-  donutTotalValue: { fontSize: 18, fontWeight: 'bold', color: '#1E293B' },
-  donutLegend: { flexDirection: 'row', justifyContent: 'center', marginTop: 20, gap: 16 },
+  donutChartCard: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, margin: 4, minWidth: 260, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
+  donutContainer: { alignItems: 'center', justifyContent: 'center', height: 160, marginTop: 10 },
+  donutCircle: { width: 140, height: 140, borderRadius: 70, borderWidth: 20, borderColor: '#1E3A8A', borderBottomColor: '#166534', borderLeftColor: '#166534', transform: [{ rotate: '45deg' }], alignItems: 'center', justifyContent: 'center' },
+  donutInnerCircle: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-45deg' }] },
+  donutTotalLabel: { fontSize: 11, color: '#64748B', marginBottom: 2 },
+  donutTotalValue: { fontSize: 16, fontWeight: 'bold', color: '#1E293B' },
+  donutLegend: { flexDirection: 'row', justifyContent: 'center', marginTop: 15, gap: 12 },
   legendItem: { flexDirection: 'row', alignItems: 'center' },
-  legendDot: { width: 12, height: 12, borderRadius: 6, marginRight: 8 },
-  legendText: { fontSize: 13, color: '#475569', fontWeight: '500' },
+  legendDot: { width: 10, height: 10, borderRadius: 5, marginRight: 6 },
+  legendText: { fontSize: 12, color: '#475569', fontWeight: '500' },
   
-  tableCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 10, borderWidth: 1, borderColor: '#E2E8F0', ...Platform.select({ web: { boxShadow: '0px 4px 6px -1px rgba(0,0,0,0.05)' }, default: { elevation: 2 } }) },
-  tableActionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingBottom: 10 },
-  btnAdd: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E3A8A', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
-  btnAddText: { color: '#FFF', fontSize: 13, fontWeight: 'bold' },
-  tableHeader: { flexDirection: 'row', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', backgroundColor: '#F8FAFC' },
-  tableCol: { fontSize: 13, fontWeight: 'bold', color: '#64748B' },
-  tableRow: { flexDirection: 'row', paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', alignItems: 'center' },
-  tableCell: { fontSize: 14, color: '#1E293B' },
-  badge: { alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 14, borderRadius: 20 },
-  badgeText: { fontSize: 13, fontWeight: 'bold' },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFF6FF', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: '#BFDBFE' },
-  actionBtnText: { fontSize: 12, color: '#2563EB', fontWeight: 'bold', marginLeft: 4 },
-  inputGroup: { marginBottom: 15 },
-  inputLabel: { fontSize: 14, fontWeight: '600', color: '#334155', marginBottom: 8 },
-  inputBox: { borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 8, paddingHorizontal: 15, height: 45, fontSize: 14, backgroundColor: '#F8FAFC' },
-  btnSubmit: { backgroundColor: '#10B981', paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginTop: 10, marginBottom: 20 },
-  btnSubmitText: { color: '#FFF', fontSize: 15, fontWeight: 'bold' },
+  tableCard: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 8, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
+  tableActionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, paddingBottom: 8 },
+  btnAdd: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E3A8A', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6 },
+  btnAddText: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
+  tableHeader: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', backgroundColor: '#F8FAFC' },
+  tableCol: { fontSize: 12, fontWeight: 'bold', color: '#64748B' },
+  tableRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', alignItems: 'center' },
+  tableCell: { fontSize: 13, color: '#1E293B' },
+  badge: { alignSelf: 'flex-start', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 16 },
+  badgeText: { fontSize: 11, fontWeight: 'bold' },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFF6FF', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, borderColor: '#BFDBFE' },
+  actionBtnText: { fontSize: 11, color: '#2563EB', fontWeight: 'bold', marginLeft: 4 },
+  inputGroup: { marginBottom: 12 },
+  inputLabel: { fontSize: 13, fontWeight: '600', color: '#334155', marginBottom: 6 },
+  inputBox: { borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 8, paddingHorizontal: 12, height: 42, fontSize: 13, backgroundColor: '#F8FAFC' },
+  btnSubmit: { backgroundColor: '#10B981', paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginTop: 10, marginBottom: 16 },
+  btnSubmitText: { color: '#FFF', fontSize: 14, fontWeight: 'bold' },
   settingsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  settingsGridCard: { width: '49%', backgroundColor: '#FFFFFF', borderRadius: 12, padding: 24, marginBottom: 20, borderWidth: 1, borderColor: '#E2E8F0', ...Platform.select({ web: { boxShadow: '0px 2px 4px rgba(0,0,0,0.02)' }, default: { elevation: 1 } }) },
-  settingsCardTitle: { fontSize: 16, fontWeight: 'bold', color: '#1E293B', marginBottom: 4 },
-  settingsCardSub: { fontSize: 13, color: '#64748B', marginBottom: 20 },
-  settingsRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 16 },
+  settingsGridCard: { width: '49%', backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 2, elevation: 1 },
+  settingsCardTitle: { fontSize: 15, fontWeight: 'bold', color: '#1E293B', marginBottom: 2 },
+  settingsCardSub: { fontSize: 12, color: '#64748B', marginBottom: 16 },
+  settingsRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   settingsInputWrapper: { flex: 1 },
-  settingsInputLabel: { fontSize: 13, fontWeight: '600', color: '#475569', marginBottom: 8 },
+  settingsInputLabel: { fontSize: 12, fontWeight: '600', color: '#475569', marginBottom: 6 },
   inputWithUnit: { flexDirection: 'row', alignItems: 'center' },
-  settingsInput: { flex: 1, borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 6, padding: 10, fontSize: 14, color: '#1E293B', outlineStyle: 'none' },
-  unitText: { marginLeft: 10, fontSize: 14, color: '#64748B' },
-  switchRowContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, padding: 16 },
-  switchLabel: { fontSize: 14, fontWeight: '600', color: '#1E293B', marginBottom: 4 },
-  switchSub: { fontSize: 12, color: '#64748B' }
+  settingsInput: { flex: 1, borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 6, padding: 8, fontSize: 13, color: '#1E293B' },
+  unitText: { marginLeft: 8, fontSize: 13, color: '#64748B' },
+  switchRowContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, padding: 12 },
+  switchLabel: { fontSize: 13, fontWeight: '600', color: '#1E293B', marginBottom: 2 },
+  switchSub: { fontSize: 11, color: '#64748B' }
 });
