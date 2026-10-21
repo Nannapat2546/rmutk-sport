@@ -13,9 +13,17 @@ app.get('/', (req, res) => {
   res.send('RMUTK Sport API is running on Render!');
 });
 
+// 🌟 API Ping สำหรับ UptimeRobot ปลุกเซิร์ฟเวอร์
+app.get('/api/ping', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'Server is awake' });
+});
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://postgres.qeglmdrtanxflxgshrdy:0807780787bua@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres', 
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
 });
 
 const initDB = async () => {
@@ -136,7 +144,7 @@ app.post('/api/request-otp', async (req, res) => {
       method: 'POST',
       body: JSON.stringify({
         to: email,
-        subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} - RMUTK Sports`,
+        subject: `รหัสยืนยัน OTP ของคุณคือ ${otp} RMUTK Sports`,
         html: emailHtmlTemplate
       })
     });
@@ -189,7 +197,7 @@ app.post('/api/register/outsider', async (req, res) => {
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const accountResult = await pool.query(`SELECT id, account_type, password_hash, is_active FROM accounts WHERE email = $1`, [email]);
+    const accountResult = await pool.query(`SELECT id, account_type, password_hash, is_active FROM accounts WHERE LOWER(email) = LOWER($1)`, [email.trim()]);
     if (accountResult.rows.length === 0) return res.status(401).json({ message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
     
     const account = accountResult.rows[0];
@@ -216,7 +224,7 @@ app.post('/api/login-staff', async (req, res) => {
   const email = (req.body.email || '').trim().toLowerCase();
   const { password } = req.body;
   try {
-    const accountResult = await pool.query(`SELECT id, email, account_type, password_hash, is_active, can_manage_inventory FROM accounts WHERE email = $1 AND account_type = 'staff'`, [email]);
+    const accountResult = await pool.query(`SELECT id, email, account_type, password_hash, is_active, can_manage_inventory FROM accounts WHERE LOWER(email) = $1 AND account_type = 'staff'`, [email]);
     if (accountResult.rows.length === 0) return res.status(401).json({ message: 'อีเมลเจ้าหน้าที่ไม่ถูกต้อง หรือไม่มีสิทธิ์เข้าถึง' });
 
     const account = accountResult.rows[0];
@@ -235,7 +243,7 @@ app.post('/api/login-staff', async (req, res) => {
 app.post('/api/login-admin', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const accountResult = await pool.query(`SELECT id, email, account_type, password_hash, is_active FROM accounts WHERE email = $1 AND account_type = 'admin'`, [email]);
+    const accountResult = await pool.query(`SELECT id, email, account_type, password_hash, is_active FROM accounts WHERE LOWER(email) = LOWER($1) AND account_type = 'admin'`, [email.trim()]);
     if (accountResult.rows.length === 0) return res.status(401).json({ message: 'อีเมลผู้ดูแลระบบไม่ถูกต้อง หรือไม่มีสิทธิ์เข้าถึง' });
 
     const account = accountResult.rows[0];
@@ -272,9 +280,6 @@ app.get('/api/users/scan/:code', async (req, res) => {
   } catch (error) { res.status(500).json({ message: 'เกิดข้อผิดพลาดในการดึงข้อมูล' }); }
 });
 
-// ==========================================
-// 🌟 อัปเดต API การยืม (ป้องกันการยืมซ้อน)
-// ==========================================
 app.post('/api/borrow', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -289,7 +294,6 @@ app.post('/api/borrow', async (req, res) => {
     
     const realAccountId = userCheck.rows[0].account_id;
 
-    // 🌟 เช็คว่ามีรายการค้างคืนหรือไม่ ถ้ามีให้บล็อกการยืมใหม่ทันที
     const pendingCheck = await client.query(`SELECT id FROM transactions WHERE borrower_account_id = $1 AND return_date IS NULL LIMIT 1`, [realAccountId]);
     if (pendingCheck.rows.length > 0) {
       await client.query('ROLLBACK');
@@ -597,22 +601,6 @@ app.post('/api/notify-overdue', async (req, res) => {
         `
       })
     });
-    
-    // =========================================================================
-// 🌟 API ทั้งหมดของคุณ (login-staff, ping, ฯลฯ) วางไว้ด้านบนนี้
-// =========================================================================
-
-
-// 🌟 Catch-all 404 (ลบ '*' ออก ใช้ app.use แบบไม่ใส่ path)
-app.use((req, res) => {
-  res.status(404).json({ message: 'Endpoint not found' });
-});
-
-// 🌟 เปิดรับ Port บน Render
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
 
     if (transaction_id) {
       await pool.query('UPDATE transactions SET last_notified_date = CURRENT_TIMESTAMP WHERE id = $1', [transaction_id]);
@@ -625,5 +613,11 @@ app.listen(PORT, () => {
   }
 });
 
+// 🌟 Catch-all 404 สำหรับจัดการ Route ที่ไม่มีในระบบ (ปลอดภัยต่อ Express 5 / path-to-regexp)
+app.use((req, res) => {
+  res.status(404).json({ message: 'Endpoint not found' });
+});
+
+// 🌟 เปิดรับ Port บน Render
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => console.log(`✅ Backend รันที่พอร์ต ${PORT} บน 0.0.0.0`));
