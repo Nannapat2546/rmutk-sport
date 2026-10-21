@@ -431,15 +431,22 @@ app.get('/api/members', async (req, res) => {
   } catch (error) { res.status(500).json({ message: 'ดึงข้อมูลไม่สำเร็จ' }); }
 });
 
+// 🌟 สปีด API รายงานแดชบอร์ด: ยิง Query พร้อมกันด้วย Promise.all
 app.get('/api/reports/dashboard', async (req, res) => {
   try {
-    const borrowRes = await pool.query(`SELECT t.id as transaction_id, a.email, COALESCE(s.full_name, e.full_name) as member_name, inv.item_name as equipment, COALESCE(t.return_condition, 'ใช้งาน') as equipment_status, GREATEST(t.qty, t.original_qty) as amount, t.created_at as borrow_date, t.return_date as return_date, t.promised_return_date as expected_return_date FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN accounts a ON t.borrower_account_id = a.id LEFT JOIN students s ON t.borrower_account_id = s.account_id LEFT JOIN externals e ON t.borrower_account_id = e.account_id WHERE t.return_date IS NOT NULL ORDER BY t.return_date DESC LIMIT 50`);
-    
-    const pendingRes = await pool.query(`SELECT t.id as transaction_id, a.email, COALESCE(s.full_name, e.full_name) as member_name, inv.item_name as equipment, 'ใช้งาน' as equipment_status, GREATEST(t.qty, t.original_qty) as amount, t.qty as pending_amount, t.created_at as borrow_date, t.promised_return_date as expected_return_date, t.last_notified_date FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN accounts a ON t.borrower_account_id = a.id LEFT JOIN students s ON t.borrower_account_id = s.account_id LEFT JOIN externals e ON t.borrower_account_id = e.account_id WHERE t.return_date IS NULL ORDER BY t.created_at ASC`);
-    
-    const popularRes = await pool.query(`SELECT c.name as category_name, inv.item_name as equipment, COUNT(t.id) as borrow_count FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN equipment_categories c ON inv.category_id = c.id GROUP BY c.name, inv.item_name ORDER BY borrow_count DESC LIMIT 10`);
-    const fitnessRes = await pool.query(`SELECT COALESCE(s.full_name, e.full_name) as member_name, a.account_type as role, f.check_in_time, f.service_fee, f.payment_type FROM fitness_usage f JOIN accounts a ON f.user_account_id = a.id LEFT JOIN students s ON a.id = s.account_id LEFT JOIN externals e ON a.id = e.account_id ORDER BY f.check_in_time DESC LIMIT 50`);
-    res.status(200).json({ borrowReport: borrowRes.rows, pendingReport: pendingRes.rows, popularReport: popularRes.rows, fitnessReport: fitnessRes.rows });
+    const [borrowRes, pendingRes, popularRes, fitnessRes] = await Promise.all([
+      pool.query(`SELECT t.id as transaction_id, a.email, COALESCE(s.full_name, e.full_name) as member_name, inv.item_name as equipment, COALESCE(t.return_condition, 'ใช้งาน') as equipment_status, GREATEST(t.qty, t.original_qty) as amount, t.created_at as borrow_date, t.return_date as return_date, t.promised_return_date as expected_return_date FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN accounts a ON t.borrower_account_id = a.id LEFT JOIN students s ON t.borrower_account_id = s.account_id LEFT JOIN externals e ON t.borrower_account_id = e.account_id WHERE t.return_date IS NOT NULL ORDER BY t.return_date DESC LIMIT 50`),
+      pool.query(`SELECT t.id as transaction_id, a.email, COALESCE(s.full_name, e.full_name) as member_name, inv.item_name as equipment, 'ใช้งาน' as equipment_status, GREATEST(t.qty, t.original_qty) as amount, t.qty as pending_amount, t.created_at as borrow_date, t.promised_return_date as expected_return_date, t.last_notified_date FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN accounts a ON t.borrower_account_id = a.id LEFT JOIN students s ON t.borrower_account_id = s.account_id LEFT JOIN externals e ON t.borrower_account_id = e.account_id WHERE t.return_date IS NULL ORDER BY t.created_at ASC`),
+      pool.query(`SELECT c.name as category_name, inv.item_name as equipment, COUNT(t.id) as borrow_count FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id LEFT JOIN equipment_categories c ON inv.category_id = c.id GROUP BY c.name, inv.item_name ORDER BY borrow_count DESC LIMIT 10`),
+      pool.query(`SELECT COALESCE(s.full_name, e.full_name) as member_name, a.account_type as role, f.check_in_time, f.service_fee, f.payment_type FROM fitness_usage f JOIN accounts a ON f.user_account_id = a.id LEFT JOIN students s ON a.id = s.account_id LEFT JOIN externals e ON a.id = e.account_id ORDER BY f.check_in_time DESC LIMIT 50`)
+    ]);
+
+    res.status(200).json({ 
+      borrowReport: borrowRes.rows, 
+      pendingReport: pendingRes.rows, 
+      popularReport: popularRes.rows, 
+      fitnessReport: fitnessRes.rows 
+    });
   } catch (error) { res.status(500).json({ message: 'ดึงข้อมูลรายงานไม่สำเร็จ' }); }
 });
 
@@ -471,6 +478,7 @@ app.post('/api/change-password', async (req, res) => {
   } catch (error) { res.status(500).json({ message: 'เปลี่ยนรหัสผ่านไม่สำเร็จ' }); }
 });
 
+// 🌟 สปีด API สถิติแอดมิน: ยิง Query พร้อมกันด้วย Promise.all
 app.get('/api/admin/dashboard-stats', async (req, res) => {
   const { mode = 'daily', month = 'all' } = req.query;
   try {
@@ -491,17 +499,28 @@ app.get('/api/admin/dashboard-stats', async (req, res) => {
       }
     }
 
-    const fitnessRes = await pool.query(`SELECT COUNT(*) as total_users, COALESCE(SUM(service_fee), 0) as total_revenue, COALESCE(SUM(CASE WHEN payment_type = 'cash' THEN service_fee ELSE 0 END), 0) as cash, COALESCE(SUM(CASE WHEN payment_type = 'qr' THEN service_fee ELSE 0 END), 0) as qr FROM fitness_usage WHERE ${fitFilter}`);
-    const borrowRes = await pool.query(`SELECT COALESCE(SUM(qty), 0) as total FROM transactions WHERE ${rawTransFilter}`);
-    const pendingRes = await pool.query(`SELECT COALESCE(SUM(qty), 0) as total FROM transactions WHERE return_date IS NULL`);
-    const overdueRes = await pool.query(`SELECT COUNT(*) as total FROM transactions WHERE return_date IS NULL AND DATE(promised_return_date) < CURRENT_DATE`);
-    const popularEqRes = await pool.query(`SELECT inv.item_name as label, SUM(t.qty) as value FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id WHERE ${transFilter} GROUP BY inv.item_name ORDER BY value DESC LIMIT 5`);
-    
+    let chartQuery = "";
+    if (mode === 'daily') {
+      chartQuery = `SELECT EXTRACT(HOUR FROM check_in_time) as label_val, COUNT(*) as count FROM fitness_usage WHERE ${fitFilter} GROUP BY label_val`;
+    } else if (month === 'all') {
+      chartQuery = `SELECT EXTRACT(MONTH FROM check_in_time) as label_val, COUNT(*) as count FROM fitness_usage WHERE ${fitFilter} GROUP BY label_val`;
+    } else {
+      chartQuery = `SELECT EXTRACT(DAY FROM check_in_time) as label_val, COUNT(*) as count FROM fitness_usage WHERE ${fitFilter} GROUP BY label_val`;
+    }
+
+    const [fitnessRes, borrowRes, pendingRes, overdueRes, popularEqRes, chartRes] = await Promise.all([
+      pool.query(`SELECT COUNT(*) as total_users, COALESCE(SUM(service_fee), 0) as total_revenue, COALESCE(SUM(CASE WHEN payment_type = 'cash' THEN service_fee ELSE 0 END), 0) as cash, COALESCE(SUM(CASE WHEN payment_type = 'qr' THEN service_fee ELSE 0 END), 0) as qr FROM fitness_usage WHERE ${fitFilter}`),
+      pool.query(`SELECT COALESCE(SUM(qty), 0) as total FROM transactions WHERE ${rawTransFilter}`),
+      pool.query(`SELECT COALESCE(SUM(qty), 0) as total FROM transactions WHERE return_date IS NULL`),
+      pool.query(`SELECT COUNT(*) as total FROM transactions WHERE return_date IS NULL AND DATE(promised_return_date) < CURRENT_DATE`),
+      pool.query(`SELECT inv.item_name as label, SUM(t.qty) as value FROM transactions t JOIN inventory inv ON t.inventory_id = inv.id WHERE ${transFilter} GROUP BY inv.item_name ORDER BY value DESC LIMIT 5`),
+      pool.query(chartQuery)
+    ]);
+
     let chartBar = [];
     let peakUsage = { label: '-', value: 0 };
     
     if (mode === 'daily') {
-      const chartRes = await pool.query(`SELECT EXTRACT(HOUR FROM check_in_time) as label_val, COUNT(*) as count FROM fitness_usage WHERE ${fitFilter} GROUP BY label_val`);
       chartBar = [{ label: '07:00', value: 0 }, { label: '09:00', value: 0 }, { label: '11:00', value: 0 }, { label: '13:00', value: 0 }, { label: '15:00', value: 0 }, { label: '17:00', value: 0 }, { label: '19:00', value: 0 }, { label: '21:00', value: 0 }];
       chartRes.rows.forEach(row => {
          let h = parseInt(row.label_val);
@@ -510,19 +529,28 @@ app.get('/api/admin/dashboard-stats', async (req, res) => {
       });
     } else {
       if (month === 'all') {
-        const chartRes = await pool.query(`SELECT EXTRACT(MONTH FROM check_in_time) as label_val, COUNT(*) as count FROM fitness_usage WHERE ${fitFilter} GROUP BY label_val`);
         const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
         chartBar = months.map((m) => ({ label: m, value: 0 }));
         chartRes.rows.forEach(row => { let mIndex = parseInt(row.label_val) - 1; if (chartBar[mIndex]) chartBar[mIndex].value += parseInt(row.count); });
       } else {
-        const chartRes = await pool.query(`SELECT EXTRACT(DAY FROM check_in_time) as label_val, COUNT(*) as count FROM fitness_usage WHERE ${fitFilter} GROUP BY label_val`);
         chartBar = Array.from({length: 31}, (_, i) => ({ label: `${i+1}`, value: 0 }));
         chartRes.rows.forEach(row => { let dIndex = parseInt(row.label_val) - 1; if (chartBar[dIndex]) chartBar[dIndex].value += parseInt(row.count); });
       }
     }
     chartBar.forEach(c => { if(c.value > peakUsage.value) { peakUsage = { label: c.label, value: c.value }; } });
 
-    res.status(200).json({ fitnessUsers: parseInt(fitnessRes.rows[0].total_users), revenue: parseInt(fitnessRes.rows[0].total_revenue), cash: parseInt(fitnessRes.rows[0].cash), qr: parseInt(fitnessRes.rows[0].qr), borrowed: parseInt(borrowRes.rows[0].total), notReturned: parseInt(pendingRes.rows[0].total), overdue: parseInt(overdueRes.rows[0].total), chartBar: chartBar, peakUsage: peakUsage, popularEquipment: popularEqRes.rows.map(r => ({ label: r.label, value: parseInt(r.value) })) });
+    res.status(200).json({ 
+      fitnessUsers: parseInt(fitnessRes.rows[0].total_users), 
+      revenue: parseInt(fitnessRes.rows[0].total_revenue), 
+      cash: parseInt(fitnessRes.rows[0].cash), 
+      qr: parseInt(fitnessRes.rows[0].qr), 
+      borrowed: parseInt(borrowRes.rows[0].total), 
+      notReturned: parseInt(pendingRes.rows[0].total), 
+      overdue: parseInt(overdueRes.rows[0].total), 
+      chartBar: chartBar, 
+      peakUsage: peakUsage, 
+      popularEquipment: popularEqRes.rows.map(r => ({ label: r.label, value: parseInt(r.value) })) 
+    });
   } catch (error) { res.status(500).json({ message: 'ดึงข้อมูลสถิติไม่สำเร็จ' }); }
 });
 
