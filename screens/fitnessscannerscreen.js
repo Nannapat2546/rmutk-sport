@@ -51,12 +51,13 @@ export default function FitnessScannerScreen({ navigation }) {
 
   const processScannedCode = async (code) => {
     if (scanned) return;
+    const cleanCode = String(code).trim().replace(/\D/g, '') || String(code).trim();
     setScanned(true);
     setLoading(true);
     setLoadingText('กำลังตรวจสอบข้อมูลในระบบ...');
 
     try {
-      const response = await fetch(`${API_URL}/api/users/scan/${code}`);
+      const response = await fetch(`${API_URL}/api/users/scan/${encodeURIComponent(cleanCode)}`);
       const result = await response.json();
 
       if (response.ok) {
@@ -121,19 +122,25 @@ export default function FitnessScannerScreen({ navigation }) {
         throw new Error(result.message || 'ไม่สามารถอ่านข้อความจากรูปภาพได้');
       }
 
-      let finalId = result.citizenId;
+      // 🌟 คลีนขีด เว้นวรรค และอักขระพิเศษออกจาก citizenId ทันที
+      let finalId = result.citizenId ? String(result.citizenId).replace(/\D/g, '') : '';
 
-      if (!finalId && result.text) {
-        const idRegex = /(?:\d[ \.\-\_]*){13}/;
+      // หากยังได้ไม่ครบ 13 หลัก ให้ดึงเฉพาะตัวเลข 13 หลักจากข้อความรวม (text)
+      if (finalId.length !== 13 && result.text) {
+        const idRegex = /(?:\d[\s\.\-\_]*){13}/;
         const idMatch = result.text.match(idRegex);
         if (idMatch) {
-          finalId = idMatch[0].replace(/[^\d]/g, '');
-          if (finalId.length > 13) finalId = finalId.substring(0, 13);
+          finalId = idMatch[0].replace(/\D/g, '');
+        } else {
+          const digitsOnly = result.text.replace(/\D/g, '');
+          if (digitsOnly.length >= 13) {
+            finalId = digitsOnly.substring(0, 13);
+          }
         }
       }
 
       if (!finalId || finalId.length !== 13) {
-        throw new Error('ระบบ AI มองไม่เห็นเลข 13 หลักบนบัตร กรุณาถ่ายในที่สว่างและให้ภาพชัดเจนที่สุดครับ');
+        throw new Error('ระบบ AI มองไม่เห็นเลข 13 หลักบนบัตร กรุณาถ่ายในที่สว่าง ถือบัตรในแนวนอน และวางให้อยู่ในกรอบครับ');
       }
 
       return finalId;
@@ -146,18 +153,25 @@ export default function FitnessScannerScreen({ navigation }) {
     if (!cameraRef.current) return;
 
     setLoading(true);
-    setLoadingText('กำลังอ่านข้อมูลจากบัตรประชาชน...');
+    setLoadingText('กำลังถ่ายภาพและอ่านข้อมูลจากบัตร...');
 
     try {
-      // 🌟 ปรับ quality เป็น 0.4 เพื่อให้ไฟล์รูปมีขนาดเล็กลง ส่ง OCR ได้เร็วขึ้นมาก
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.4, base64: true });
+      // 🌟 ใช้ quality: 0.25 ช่วยให้จับภาพเร็วขึ้นอย่างมาก และลดขนาด Base64 ส่ง OCR ได้ไวสุดๆ
+      const photo = await cameraRef.current.takePictureAsync({ 
+        quality: 0.25, 
+        base64: true,
+        shutterSound: false
+      });
+      
       const capturedImageUri = photo.uri || `data:image/jpeg;base64,${photo.base64}`;
 
+      setLoadingText('กำลังประมวลผลอ่านเลขบัตรประชาชน (OCR)...');
       const citizenId = await processCardOCR(photo.base64);
 
-      setLoadingText('กำลังตรวจสอบข้อมูลในระบบ...');
+      setLoadingText('กำลังตรวจสอบข้อมูลสมาชิกในระบบ...');
       
-      const response = await fetch(`${API_URL}/api/users/scan/${citizenId}`);
+      // 🌟 ส่งเฉพาะตัวเลข 13 หลักตัวบริสุทธิ์ไปค้นหาใน DB
+      const response = await fetch(`${API_URL}/api/users/scan/${encodeURIComponent(citizenId)}`);
       const result = await response.json();
 
       if (response.ok) {
@@ -167,7 +181,7 @@ export default function FitnessScannerScreen({ navigation }) {
           return;
         }
 
-        // 🌟 กำหนดให้แสดงภาพที่เพิ่งถ่ายล่าสุดลงใน Popup ตรวจสอบข้อมูลทันที
+        // แสดงรูปที่เพิ่งถ่ายล่าสุดในหน้ายืนยันข้อมูล
         setScannedUser({ 
           ...result, 
           liveImage: capturedImageUri 
@@ -175,7 +189,7 @@ export default function FitnessScannerScreen({ navigation }) {
         setScanMode(null);
         setVerifyModalVisible(true);
       } else {
-        showErrorPopup('ไม่พบข้อมูลสมาชิกในระบบ\nบัตรประชาชนนี้ยังไม่ได้ลงทะเบียนสมัครสมาชิกครับ');
+        showErrorPopup(`ไม่พบข้อมูลสมาชิกในระบบ (เลขบัตรที่อ่านได้: ${citizenId})\nบัตรประชาชนนี้ยังไม่ได้ลงทะเบียนสมัครสมาชิกครับ`);
       }
     } catch (error) {
       showErrorPopup(error.message || 'เกิดข้อผิดพลาดในการประมวลผลบัตร');
