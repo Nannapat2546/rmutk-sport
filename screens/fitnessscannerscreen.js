@@ -182,21 +182,22 @@ export default function FitnessScannerScreen({ navigation }) {
     setLoadingText('กำลังจับภาพ...');
 
     try {
-      // 🌟 ใช้ skipProcessing: true ปลดล็อกความเร็วในการถ่ายภาพของกล้อง + quality: 0.3 เพื่อความเร็วสูงสุด
+      // 🌟 เร่งความเร็วสปีดสูงสุด: ปรับ quality เหลือ 0.15 ย่อขนาดไฟล์ Base64 เหลือเพียง 20-50KB
       const photo = await cameraRef.current.takePictureAsync({ 
-        quality: 0.3, 
+        quality: 0.15, 
         base64: true,
         skipProcessing: true,
         exif: false,
         shutterSound: false
       });
       
-      const capturedImageUri = photo.uri || `data:image/jpeg;base64,${photo.base64}`;
+      // ใช้ URI ไฟล์ในเครื่องแทน Base64 สตริงยาวในการแสดงรูป เพื่อไม่ให้เครื่องกระตุก
+      const capturedImageUri = photo.uri;
 
-      setLoadingText('กำลังประมวลผลเลขบัตรประชาชน...');
+      setLoadingText('กำลังอ่านเลขบัตร...');
       const citizenId = await processCardOCR(photo.base64);
 
-      setLoadingText('กำลังค้นหาข้อมูลสมาชิก...');
+      setLoadingText('กำลังตรวจสอบระบบ...');
       
       const response = await fetch(`${API_URL}/api/users/scan/${encodeURIComponent(citizenId)}`);
       const result = await response.json();
@@ -208,7 +209,7 @@ export default function FitnessScannerScreen({ navigation }) {
           return;
         }
 
-        // แสดงรูปที่เพิ่งถ่ายล่าสุดในหน้ายืนยันข้อมูล
+        // แสดงรูปถ่ายจากเครื่องลงในหน้ายืนยันข้อมูลทันที
         setScannedUser({ 
           ...result, 
           liveImage: capturedImageUri 
