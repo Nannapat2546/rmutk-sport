@@ -149,7 +149,10 @@ export default function FitnessScannerScreen({ navigation }) {
     setLoadingText('กำลังอ่านข้อมูลจากบัตรประชาชน...');
 
     try {
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.8, base64: true });
+      // 🌟 ปรับ quality เป็น 0.4 เพื่อให้ไฟล์รูปมีขนาดเล็กลง ส่ง OCR ได้เร็วขึ้นมาก
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.4, base64: true });
+      const capturedImageUri = photo.uri || `data:image/jpeg;base64,${photo.base64}`;
+
       const citizenId = await processCardOCR(photo.base64);
 
       setLoadingText('กำลังตรวจสอบข้อมูลในระบบ...');
@@ -164,18 +167,11 @@ export default function FitnessScannerScreen({ navigation }) {
           return;
         }
 
-        let userProfileImg = null;
-        try {
-          const detailRes = await fetch(`${API_URL}/api/admin/users/${result.id}/detail`);
-          if (detailRes.ok) {
-            const detailData = await detailRes.json();
-            userProfileImg = detailData.profile_image || detailData.id_card_image || detailData.avatar || null;
-          }
-        } catch (e) {
-          console.log('Error fetching user image:', e);
-        }
-
-        setScannedUser({ ...result, liveImage: userProfileImg }); 
+        // 🌟 กำหนดให้แสดงภาพที่เพิ่งถ่ายล่าสุดลงใน Popup ตรวจสอบข้อมูลทันที
+        setScannedUser({ 
+          ...result, 
+          liveImage: capturedImageUri 
+        }); 
         setScanMode(null);
         setVerifyModalVisible(true);
       } else {
