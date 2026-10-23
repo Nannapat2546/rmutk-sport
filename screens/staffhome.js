@@ -69,7 +69,6 @@ export default function StaffDashboard({ route, navigation }) {
 
     setIsSavingPwd(true);
     try {
-      // 🌟 เอา header ngrok ออก
       const res = await fetch(`${API_URL}/api/change-password`, {
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' },
@@ -159,7 +158,13 @@ export default function StaffDashboard({ route, navigation }) {
               {isCameraActive ? (
                 permission && permission.granted ? (
                   <View style={{ flex: 1, width: '100%', position: 'relative' }}>
-                    <CameraView style={StyleSheet.absoluteFillObject} barcodeScannerSettings={{ barcodeTypes: ["qr"] }} onBarcodeScanned={({ data }) => handleScanSuccess(data)} />
+                    <CameraView 
+                      style={StyleSheet.absoluteFillObject} 
+                      facing="back"
+                      autofocus="on"
+                      barcodeScannerSettings={{ barcodeTypes: ["qr"] }} 
+                      onBarcodeScanned={({ data }) => handleScanSuccess(data)} 
+                    />
                     <View style={styles.cameraOverlay}>
                       <View style={styles.scanFrame}>
                         <View style={[styles.corner, styles.topLeft]} />
