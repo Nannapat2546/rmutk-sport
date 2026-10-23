@@ -56,7 +56,6 @@ export default function FitnessScannerScreen({ navigation }) {
     setLoadingText('กำลังตรวจสอบข้อมูลในระบบ...');
 
     try {
-      // 🌟 เอา header ngrok ออก
       const response = await fetch(`${API_URL}/api/users/scan/${code}`);
       const result = await response.json();
 
@@ -80,7 +79,6 @@ export default function FitnessScannerScreen({ navigation }) {
 
         let userProfileImg = null;
         try {
-          // 🌟 เอา header ngrok ออก
           const detailRes = await fetch(`${API_URL}/api/admin/users/${result.id}/detail`);
           if (detailRes.ok) {
             const detailData = await detailRes.json();
@@ -110,7 +108,6 @@ export default function FitnessScannerScreen({ navigation }) {
 
   const processCardOCR = async (base64Image) => {
     try {
-      // 🌟 เอา header ngrok ออก
       const response = await fetch(`${API_URL}/api/ocr`, {
         method: 'POST',
         headers: { 
@@ -153,13 +150,10 @@ export default function FitnessScannerScreen({ navigation }) {
 
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.8, base64: true });
-      const rawBase64 = photo.base64;
-      
       const citizenId = await processCardOCR(photo.base64);
 
       setLoadingText('กำลังตรวจสอบข้อมูลในระบบ...');
       
-      // 🌟 เอา header ngrok ออก
       const response = await fetch(`${API_URL}/api/users/scan/${citizenId}`);
       const result = await response.json();
 
@@ -172,7 +166,6 @@ export default function FitnessScannerScreen({ navigation }) {
 
         let userProfileImg = null;
         try {
-          // 🌟 เอา header ngrok ออก
           const detailRes = await fetch(`${API_URL}/api/admin/users/${result.id}/detail`);
           if (detailRes.ok) {
             const detailData = await detailRes.json();
@@ -259,6 +252,8 @@ export default function FitnessScannerScreen({ navigation }) {
                 <View style={{ flex: 1, width: '100%', position: 'relative' }}>
                   <CameraView
                     ref={cameraRef}
+                    facing="back"
+                    autofocus="on"
                     onBarcodeScanned={scanned ? undefined : ({ data }) => processScannedCode(data)}
                     barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
                     style={StyleSheet.absoluteFillObject}
