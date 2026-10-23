@@ -179,13 +179,14 @@ export default function FitnessScannerScreen({ navigation }) {
     if (!cameraRef.current) return;
 
     setLoading(true);
-    setLoadingText('กำลังจับภาพบัตร...');
+    setLoadingText('กำลังจับภาพ...');
 
     try {
-      // 🌟 ใช้ quality: 0.5 เพื่อให้ตัวหนังสือบนบัตรคมชัดขึ้น ลดโอกาส OCR อ่านเลขผิด
+      // 🌟 ใช้ skipProcessing: true ปลดล็อกความเร็วในการถ่ายภาพของกล้อง + quality: 0.3 เพื่อความเร็วสูงสุด
       const photo = await cameraRef.current.takePictureAsync({ 
-        quality: 0.5, 
+        quality: 0.3, 
         base64: true,
+        skipProcessing: true,
         exif: false,
         shutterSound: false
       });
