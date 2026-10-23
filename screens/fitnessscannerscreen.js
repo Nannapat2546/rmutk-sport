@@ -28,6 +28,23 @@ export default function FitnessScannerScreen({ navigation }) {
   // 🌟 ใช้ URL ของ Render
   const API_URL = 'https://rmutk-sport.onrender.com';
 
+  // 🌟 ฟังก์ชันตรวจสอบความถูกต้องของเลขบัตรประชาชนไทย (Modulus 11 Checksum)
+  const isValidThaiCitizenId = (id) => {
+    if (!id || typeof id !== 'string') return false;
+    const clean = id.replace(/\D/g, '');
+    if (clean.length !== 13) return false;
+    
+    // เลขบัตรประชาชนไทยขึ้นต้นด้วย 0 หรือ 9 ไม่ได้
+    if (clean.startsWith('0')) return false;
+
+    let sum = 0;
+    for (let i = 0; i < 12; i++) {
+      sum += parseInt(clean.charAt(i), 10) * (13 - i);
+    }
+    const checkDigit = (11 - (sum % 11)) % 10;
+    return checkDigit === parseInt(clean.charAt(12), 10);
+  };
+
   if (!permission) {
     return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#00A87E" /></View>;
   }
@@ -122,28 +139,37 @@ export default function FitnessScannerScreen({ navigation }) {
         throw new Error(result.message || 'ไม่สามารถอ่านข้อความจากรูปภาพได้');
       }
 
-      // 🌟 คลีนขีด เว้นวรรค และอักขระพิเศษออกจาก citizenId ทันที
-      let finalId = result.citizenId ? String(result.citizenId).replace(/\D/g, '') : '';
-
-      // หากยังได้ไม่ครบ 13 หลัก ให้ดึงเฉพาะตัวเลข 13 หลักจากข้อความรวม (text)
-      if (finalId.length !== 13 && result.text) {
-        const idRegex = /(?:\d[\s\.\-\_]*){13}/;
-        const idMatch = result.text.match(idRegex);
-        if (idMatch) {
-          finalId = idMatch[0].replace(/\D/g, '');
-        } else {
-          const digitsOnly = result.text.replace(/\D/g, '');
-          if (digitsOnly.length >= 13) {
-            finalId = digitsOnly.substring(0, 13);
-          }
-        }
+      // 1. ตรวจสอบเลขจาก result.citizenId ก่อน
+      let primaryId = result.citizenId ? String(result.citizenId).replace(/\D/g, '') : '';
+      if (isValidThaiCitizenId(primaryId)) {
+        return primaryId;
       }
 
-      if (!finalId || finalId.length !== 13) {
-        throw new Error('ระบบ AI มองไม่เห็นเลข 13 หลักบนบัตร กรุณาถ่ายในที่สว่าง ถือบัตรในแนวนอน และวางให้อยู่ในกรอบครับ');
+      // 2. ถ้า primaryId ไม่ถูกต้อง ให้ค้นหาตัวเลขทั้งหมดในข้อความที่ OCR อ่านได้
+      const rawText = result.text || '';
+      const allDigitsMatches = rawText.match(/\d+/g) || [];
+      const combinedDigits = allDigitsMatches.join('');
+
+      // ค้นหาชุดตัวเลข 13 หลักทุกชุดในข้อความ
+      const candidates = [];
+      for (let i = 0; i <= combinedDigits.length - 13; i++) {
+        const candidate = combinedDigits.substring(i, i + 13);
+        candidates.push(candidate);
       }
 
-      return finalId;
+      // ตรวจหาตัวเลขที่ผ่านสูตร Checksum บัตรประชาชนไทย
+      const validCandidate = candidates.find(candidate => isValidThaiCitizenId(candidate));
+
+      if (validCandidate) {
+        return validCandidate;
+      }
+
+      // 3. หากยังไม่ผ่านสูตร แต่มีเลข 13 หลักหลักๆ ให้สำรองใช้งาน
+      if (primaryId.length === 13) {
+        return primaryId;
+      }
+
+      throw new Error('ระบบไม่สามารถระบุเลขบัตรประชาชนได้ชัดเจน กรุณาถือบัตรให้อยู่ในกรอบ แสงสว่างพอดี และกดถ่ายใหม่อีกครั้งครับ');
     } catch (error) {
       throw error;
     }
@@ -153,24 +179,24 @@ export default function FitnessScannerScreen({ navigation }) {
     if (!cameraRef.current) return;
 
     setLoading(true);
-    setLoadingText('กำลังถ่ายภาพและอ่านข้อมูลจากบัตร...');
+    setLoadingText('กำลังจับภาพบัตร...');
 
     try {
-      // 🌟 ใช้ quality: 0.25 ช่วยให้จับภาพเร็วขึ้นอย่างมาก และลดขนาด Base64 ส่ง OCR ได้ไวสุดๆ
+      // 🌟 ใช้ quality: 0.5 เพื่อให้ตัวหนังสือบนบัตรคมชัดขึ้น ลดโอกาส OCR อ่านเลขผิด
       const photo = await cameraRef.current.takePictureAsync({ 
-        quality: 0.25, 
+        quality: 0.5, 
         base64: true,
+        exif: false,
         shutterSound: false
       });
       
       const capturedImageUri = photo.uri || `data:image/jpeg;base64,${photo.base64}`;
 
-      setLoadingText('กำลังประมวลผลอ่านเลขบัตรประชาชน (OCR)...');
+      setLoadingText('กำลังประมวลผลเลขบัตรประชาชน...');
       const citizenId = await processCardOCR(photo.base64);
 
-      setLoadingText('กำลังตรวจสอบข้อมูลสมาชิกในระบบ...');
+      setLoadingText('กำลังค้นหาข้อมูลสมาชิก...');
       
-      // 🌟 ส่งเฉพาะตัวเลข 13 หลักตัวบริสุทธิ์ไปค้นหาใน DB
       const response = await fetch(`${API_URL}/api/users/scan/${encodeURIComponent(citizenId)}`);
       const result = await response.json();
 
