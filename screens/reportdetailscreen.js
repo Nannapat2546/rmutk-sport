@@ -614,7 +614,12 @@ export default function ReportDetailScreen({ navigation, route }) {
         ) : (
           <View style={{ paddingBottom: 40 }}>
             <View style={styles.tableCard}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+              {/* 🌟 ปรับปรุง ScrollView และ tableContainer ให้ตารางขยายเต็มการ์ดเสมอ */}
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={true} 
+                contentContainerStyle={{ flexGrow: 1, minWidth: '100%' }}
+              >
                 <View style={styles.tableContainer}>
                   
                   {/* ================= 1. ตารางประวัติ ยืม-คืน ================= */}
@@ -940,7 +945,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8, 
     elevation: 2 
   },
-  tableContainer: { width: '100%', minWidth: 1000, zIndex: 1 },
+  tableContainer: { 
+    width: '100%', 
+    minWidth: 1000, 
+    flex: 1, 
+    zIndex: 1 
+  },
   tableHeaderRow: { 
     flexDirection: 'row', 
     backgroundColor: '#F8FAFC', 
@@ -975,7 +985,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
     alignItems: 'center',
-    justifyContent: 'center',
+    justify: 'center',
   },
   notifyBtnText: {
     color: '#FFF',
