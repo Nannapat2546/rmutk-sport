@@ -455,7 +455,7 @@ export default function ReportDetailScreen({ navigation, route }) {
                 {Platform.OS === 'web' ? (
                   <View style={styles.webDatePickerRow}>
                     {/* กล่องวันที่เริ่มต้น */}
-                    <View style={{ flex: 1, minWidth: 105, maxWidth: 135, position: 'relative' }}>
+                    <View style={{ position: 'relative' }}>
                       <TouchableOpacity 
                         style={[styles.dateBox, startDate && {borderColor: '#00A87E', backgroundColor: '#F0FDF4'}]} 
                         activeOpacity={0.7}
@@ -508,7 +508,7 @@ export default function ReportDetailScreen({ navigation, route }) {
                     <Text style={{ fontSize: 12, color: '#64748B', marginHorizontal: 2 }}>ถึง</Text>
 
                     {/* กล่องวันที่สิ้นสุด */}
-                    <View style={{ flex: 1, minWidth: 105, maxWidth: 135, position: 'relative' }}>
+                    <View style={{ position: 'relative' }}>
                       <TouchableOpacity 
                         style={[styles.dateBox, endDate && {borderColor: '#00A87E', backgroundColor: '#F0FDF4'}]} 
                         activeOpacity={0.7}
@@ -829,13 +829,14 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 }, 
     shadowOpacity: 0.04, 
     shadowRadius: 6, 
-    elevation: 2 
+    elevation: 2,
+    overflow: 'hidden'
   },
   filterRow: { 
     flexDirection: 'row', 
     flexWrap: 'wrap', 
     alignItems: 'center', 
-    justifyContent: 'space-between', 
+    justify: 'space-between', 
     gap: 10, 
     zIndex: 50 
   },
@@ -847,8 +848,9 @@ const styles = StyleSheet.create({
     borderRadius: 8, 
     paddingHorizontal: 12, 
     height: 40, 
-    flex: 1, 
-    minWidth: 220 
+    flex: Platform.OS === 'web' ? 1 : undefined,
+    width: Platform.OS === 'web' ? 'auto' : '100%',
+    minWidth: Platform.OS === 'web' ? 220 : '100%'
   },
   searchInput: { 
     flex: 1, 
@@ -863,6 +865,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
+    width: Platform.OS === 'web' ? 'auto' : '100%',
     maxWidth: '100%'
   },
   
@@ -873,14 +876,14 @@ const styles = StyleSheet.create({
     borderWidth: 1, 
     borderColor: '#CBD5E1', 
     borderRadius: 8, 
-    paddingHorizontal: 12, 
-    height: 40 
+    paddingHorizontal: 10, 
+    height: 38 
   },
   filterBtnActive: { borderColor: '#00A87E', backgroundColor: '#E6F5EF' },
-  filterBtnText: { fontSize: 13, color: '#334155', marginLeft: 6, fontWeight: '600' },
+  filterBtnText: { fontSize: 12, color: '#334155', marginLeft: 4, fontWeight: '600' },
   inlineDropdown: { 
     position: 'absolute', 
-    top: 48, 
+    top: 44, 
     left: 0, 
     width: 280, 
     backgroundColor: '#FFF', 
@@ -906,19 +909,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     alignItems: 'center', 
     gap: 4, 
-    flexWrap: 'wrap',
-    flexShrink: 1,
+    flexWrap: 'nowrap',
     maxWidth: '100%'
   },
   webDatePickerRow: { 
     flexDirection: 'row', 
-    alignItems: 'center',
-    flexShrink: 1
+    alignItems: 'center'
   },
   mobileDateRow: { 
     flexDirection: 'row', 
-    alignItems: 'center',
-    flexShrink: 1
+    alignItems: 'center'
   },
   dateBox: { 
     flexDirection: 'row', 
@@ -927,11 +927,10 @@ const styles = StyleSheet.create({
     borderWidth: 1, 
     borderColor: '#CBD5E1', 
     borderRadius: 8, 
-    paddingHorizontal: 8, 
-    height: 40, 
-    minWidth: 105,
-    maxWidth: 135,
-    flex: 1,
+    paddingHorizontal: 6, 
+    height: 38, 
+    minWidth: 90,
+    maxWidth: 120,
     backgroundColor: '#FFF' 
   },
   dateText: { fontSize: 11, color: '#475569' },
@@ -944,11 +943,11 @@ const styles = StyleSheet.create({
     borderWidth: 1, 
     borderColor: '#CBD5E1', 
     borderRadius: 8, 
-    height: 40, 
+    height: 38, 
     paddingHorizontal: 12, 
     backgroundColor: '#FFF' 
   },
-  exportBtnText: { fontSize: 13, color: '#334155', marginLeft: 6, fontWeight: '600' },
+  exportBtnText: { fontSize: 12, color: '#334155', marginLeft: 4, fontWeight: '600' },
 
   tableCard: { 
     backgroundColor: '#FFF', 
