@@ -33,8 +33,6 @@ export default function FitnessScannerScreen({ navigation }) {
     if (!id || typeof id !== 'string') return false;
     const clean = id.replace(/\D/g, '');
     if (clean.length !== 13) return false;
-    
-    // เลขบัตรประชาชนไทยขึ้นต้นด้วย 0 หรือ 9 ไม่ได้
     if (clean.startsWith('0')) return false;
 
     let sum = 0;
@@ -66,8 +64,9 @@ export default function FitnessScannerScreen({ navigation }) {
     setLoading(false);
   };
 
+  // 🌟 ประมวลผลจากรหัสสแกน QR Code หรือป้อนรหัส
   const processScannedCode = async (code) => {
-    if (scanned) return;
+    if (scanned || loading) return;
     const cleanCode = String(code).trim().replace(/\D/g, '') || String(code).trim();
     setScanned(true);
     setLoading(true);
@@ -100,7 +99,7 @@ export default function FitnessScannerScreen({ navigation }) {
           const detailRes = await fetch(`${API_URL}/api/admin/users/${result.id}/detail`);
           if (detailRes.ok) {
             const detailData = await detailRes.json();
-            userProfileImg = detailData.profile_image || detailData.id_card_image || detailData.avatar || null;
+            userProfileImg = detailData.id_card_image || detailData.profile_image || detailData.avatar || null;
           }
         } catch (e) {
           console.log('Could not fetch detail image:', e);
@@ -108,12 +107,12 @@ export default function FitnessScannerScreen({ navigation }) {
 
         setScannedUser({ 
           ...result, 
-          liveImage: userProfileImg 
+          liveImage: userProfileImg || result.id_card_image || result.profile_image || null 
         });
         setScanMode(null); 
         setVerifyModalVisible(true); 
       } else {
-        showErrorPopup('ไม่พบข้อมูลสมาชิกในระบบ\nบัตรนี้อาจยังไม่ได้ลงทะเบียนสมัครสมาชิก กรุณาลงทะเบียนก่อนใช้งานครับ');
+        showErrorPopup(`ไม่พบข้อมูลสมาชิกในระบบ (รหัส: ${cleanCode})\nบัตรนี้อาจยังไม่ได้ลงทะเบียนสมัครสมาชิกครับ`);
         setTimeout(() => setScanned(false), 2000);
       }
     } catch (error) {
@@ -124,101 +123,88 @@ export default function FitnessScannerScreen({ navigation }) {
     }
   };
 
-  const processCardOCR = async (base64Image) => {
-    try {
-      const response = await fetch(`${API_URL}/api/ocr`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ image: base64Image })
-      });
+  // 🌟 ฟังก์ชันดึงภาพถ่ายสำหรับอ่าน OCR บัตรประชาชน (รองรับทั้ง Web และ Mobile)
+  const captureFrame = async () => {
+    if (Platform.OS === 'web') {
+      try {
+        const videoElem = document.querySelector('video');
+        if (!videoElem || videoElem.readyState < 2) return null;
 
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.message || 'ไม่สามารถอ่านข้อความจากรูปภาพได้');
+        const canvas = document.createElement('canvas');
+        canvas.width = videoElem.videoWidth || 1280;
+        canvas.height = videoElem.videoHeight || 720;
+        const ctx = canvas.getContext('2d');
+
+        // พลิกภาพสลับซ้าย-ขวาแก้ Mirror บน Web
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+        return dataUrl.split(',')[1];
+      } catch (e) {
+        return null;
       }
-
-      // 1. ตรวจสอบเลขจาก result.citizenId ก่อน
-      let primaryId = result.citizenId ? String(result.citizenId).replace(/\D/g, '') : '';
-      if (isValidThaiCitizenId(primaryId)) {
-        return primaryId;
-      }
-
-      // 2. ถ้า primaryId ไม่ถูกต้อง ให้ค้นหาตัวเลขทั้งหมดในข้อความที่ OCR อ่านได้
-      const rawText = result.text || '';
-      const allDigitsMatches = rawText.match(/\d+/g) || [];
-      const combinedDigits = allDigitsMatches.join('');
-
-      // ค้นหาชุดตัวเลข 13 หลักทุกชุดในข้อความ
-      const candidates = [];
-      for (let i = 0; i <= combinedDigits.length - 13; i++) {
-        const candidate = combinedDigits.substring(i, i + 13);
-        candidates.push(candidate);
-      }
-
-      // ตรวจหาตัวเลขที่ผ่านสูตร Checksum บัตรประชาชนไทย
-      const validCandidate = candidates.find(candidate => isValidThaiCitizenId(candidate));
-
-      if (validCandidate) {
-        return validCandidate;
-      }
-
-      // 3. หากยังไม่ผ่านสูตร แต่มีเลข 13 หลักหลักๆ ให้สำรองใช้งาน
-      if (primaryId.length === 13) {
-        return primaryId;
-      }
-
-      throw new Error('ระบบไม่สามารถระบุเลขบัตรประชาชนได้ชัดเจน กรุณาถือบัตรให้อยู่ในกรอบ แสงสว่างพอดี และกดถ่ายใหม่อีกครั้งครับ');
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  const handleCaptureCard = async () => {
-    if (!cameraRef.current) return;
-
-    setLoading(true);
-    setLoadingText('กำลังจับภาพ...');
-
-    try {
-      // 🌟 เร่งความเร็วสปีดสูงสุด: ปรับ quality เหลือ 0.15 ย่อขนาดไฟล์ Base64 เหลือเพียง 20-50KB
+    } else {
+      if (!cameraRef.current) return null;
       const photo = await cameraRef.current.takePictureAsync({ 
-        quality: 0.15, 
+        quality: 0.5, 
         base64: true,
         skipProcessing: true,
         exif: false,
         shutterSound: false
       });
-      
-      // ใช้ URI ไฟล์ในเครื่องแทน Base64 สตริงยาวในการแสดงรูป เพื่อไม่ให้เครื่องกระตุก
-      const capturedImageUri = photo.uri;
+      let clean = photo?.base64 || '';
+      if (clean.includes(',')) clean = clean.split(',')[1];
+      return clean;
+    }
+  };
 
-      setLoadingText('กำลังอ่านเลขบัตร...');
-      const citizenId = await processCardOCR(photo.base64);
+  // 🌟 ฟังก์ชันส่งอ่าน OCR เมื่อกดปุ่ม "ถ่ายภาพบัตร"
+  const handleCaptureCard = async () => {
+    if (scanned || loading) return;
+    setLoading(true);
+    setLoadingText('กำลังจับภาพและอ่านเลขบัตร...');
 
-      setLoadingText('กำลังตรวจสอบระบบ...');
-      
-      const response = await fetch(`${API_URL}/api/users/scan/${encodeURIComponent(citizenId)}`);
-      const result = await response.json();
-
-      if (response.ok) {
-        if (result.role !== 'external') {
-          showErrorPopup('ข้อมูลไม่ถูกต้อง: บัตรนี้ถูกบันทึกเป็นสถานะนักศึกษา');
-          setLoading(false);
-          return;
-        }
-
-        // แสดงรูปถ่ายจากเครื่องลงในหน้ายืนยันข้อมูลทันที
-        setScannedUser({ 
-          ...result, 
-          liveImage: capturedImageUri 
-        }); 
-        setScanMode(null);
-        setVerifyModalVisible(true);
-      } else {
-        showErrorPopup(`ไม่พบข้อมูลสมาชิกในระบบ (เลขบัตรที่อ่านได้: ${citizenId})\nบัตรประชาชนนี้ยังไม่ได้ลงทะเบียนสมัครสมาชิกครับ`);
+    try {
+      const base64Image = await captureFrame();
+      if (!base64Image) {
+        throw new Error('ไม่สามารถจับภาพจากกล้องได้ กรุณาถือบัตรให้นิ่งแล้วลองอีกครั้ง');
       }
+
+      const response = await fetch(`${API_URL}/api/ocr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64Image })
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || 'ไม่สามารถอ่านข้อความจากภาพบัตรได้');
+      }
+
+      // ตรวจหาเลขประจำตัวประชาชน 13 หลัก
+      let citizenId = result.citizenId ? String(result.citizenId).replace(/\D/g, '') : '';
+      if (!isValidThaiCitizenId(citizenId)) {
+        const rawText = result.text || '';
+        const allDigitsMatches = rawText.match(/\d+/g) || [];
+        const combinedDigits = allDigitsMatches.join('');
+
+        for (let i = 0; i <= combinedDigits.length - 13; i++) {
+          const candidate = combinedDigits.substring(i, i + 13);
+          if (isValidThaiCitizenId(candidate)) {
+            citizenId = candidate;
+            break;
+          }
+        }
+      }
+
+      if (!citizenId || citizenId.length !== 13) {
+        throw new Error('อ่านเลขบัตรไม่ชัดเจน กรุณาถือบัตรให้อยู่ในกรอบ แสงสว่างเพียงพอ แล้วกดถ่ายอีกครั้งครับ');
+      }
+
+      setLoadingText('กำลังตรวจสอบข้อมูลในระบบ...');
+      await processScannedCode(citizenId);
     } catch (error) {
       showErrorPopup(error.message || 'เกิดข้อผิดพลาดในการประมวลผลบัตร');
     } finally {
@@ -268,7 +254,7 @@ export default function FitnessScannerScreen({ navigation }) {
         <TouchableOpacity style={styles.bigButtonExternal} onPress={() => { setScanMode('external'); setIsCameraActive(true); setScanned(false); setManualCode(''); }}>
           <Ionicons name="id-card" size={60} color="#F5A623" style={{marginBottom: 10}} />
           <Text style={styles.bigButtonTitle}>บุคคลภายนอก</Text>
-          <Text style={styles.bigButtonDesc}>สแกน QR Code หรือถ่ายภาพบัตรประชาชน</Text>
+          <Text style={styles.bigButtonDesc}>สแกน QR Code หรือ ถ่ายภาพบัตรประชาชน</Text>
         </TouchableOpacity>
       </View>
 
@@ -292,7 +278,7 @@ export default function FitnessScannerScreen({ navigation }) {
                     ref={cameraRef}
                     facing="back"
                     autofocus="on"
-                    onBarcodeScanned={scanned ? undefined : ({ data }) => processScannedCode(data)}
+                    onBarcodeScanned={scanned || loading ? undefined : ({ data }) => processScannedCode(data)}
                     barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
                     style={StyleSheet.absoluteFillObject}
                   />
@@ -304,6 +290,9 @@ export default function FitnessScannerScreen({ navigation }) {
                       <View style={[styles.corner, styles.bottomLeft]} />
                       <View style={[styles.corner, styles.bottomRight]} />
                     </View>
+                    <Text style={styles.scanHintText}>
+                      {scanMode === 'student' ? 'วาง QR Code ให้อยู่ในกรอบ' : 'สแกน QR หรือ วางบัตรประชาชนให้อยู่ในกรอบ'}
+                    </Text>
                   </View>
                 </View>
               ) : (
@@ -314,6 +303,7 @@ export default function FitnessScannerScreen({ navigation }) {
                     placeholderTextColor="#999" 
                     value={manualCode} 
                     onChangeText={setManualCode} 
+                    keyboardType="number-pad"
                   />
                 </View>
               )}
@@ -330,18 +320,18 @@ export default function FitnessScannerScreen({ navigation }) {
               <TouchableOpacity style={styles.btnGray} onPress={() => setIsCameraActive(!isCameraActive)}>
                 <Text style={styles.btnGrayText}>{isCameraActive ? 'ป้อนรหัสด้วยตนเอง' : 'เปิดกล้อง'}</Text>
               </TouchableOpacity>
+
+              {isCameraActive && scanMode === 'external' && (
+                <TouchableOpacity style={[styles.btnAction, { backgroundColor: '#00A87E', flex: 1 }]} onPress={handleCaptureCard}>
+                  <Text style={styles.btnTextWhite}>ถ่ายภาพบัตร</Text>
+                </TouchableOpacity>
+              )}
               
-              <View style={{ flexDirection: 'row', gap: 10, flex: 1 }}>
-                {scanMode === 'external' && isCameraActive ? (
-                  <TouchableOpacity style={[styles.btnAction, { backgroundColor: '#00A87E' }]} onPress={handleCaptureCard}>
-                    <Text style={styles.btnTextWhite}>ถ่ายภาพบัตร</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity style={[styles.btnAction, { backgroundColor: '#1E8E3E' }]} onPress={handleManualSubmit}>
-                    <Text style={styles.btnTextWhite}>ตกลง</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              {!isCameraActive && (
+                <TouchableOpacity style={[styles.btnAction, { backgroundColor: '#1E8E3E', flex: 1 }]} onPress={handleManualSubmit}>
+                  <Text style={styles.btnTextWhite}>ตกลง</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
           </View>
@@ -393,10 +383,10 @@ export default function FitnessScannerScreen({ navigation }) {
             </View>
 
             <View style={styles.modalActionRow}>
-              <TouchableOpacity style={[styles.btnAction, { backgroundColor: '#F1F5F9' }]} onPress={cancelUser}>
+              <TouchableOpacity style={[styles.btnAction, { backgroundColor: '#F1F5F9', flex: 1 }]} onPress={cancelUser}>
                 <Text style={{ color: '#475569', fontWeight: 'bold' }}>ยกเลิก</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.btnAction, { backgroundColor: '#F5A623' }]} onPress={confirmUser}>
+              <TouchableOpacity style={[styles.btnAction, { backgroundColor: '#F5A623', flex: 1 }]} onPress={confirmUser}>
                 <Text style={{ color: '#FFF', fontWeight: 'bold' }}>ยืนยันข้อมูลถูกต้อง</Text>
               </TouchableOpacity>
             </View>
@@ -434,12 +424,13 @@ const styles = StyleSheet.create({
   scannerBox: { width: '100%', height: 260, backgroundColor: '#F1F5F9', borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#CBD5E1', overflow: 'hidden', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
   
   cameraOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  scanFrame: { width: 170, height: 170, backgroundColor: 'transparent', position: 'relative' }, 
-  corner: { position: 'absolute', width: 30, height: 30, borderColor: '#FFF' },
+  scanFrame: { width: 220, height: 150, backgroundColor: 'transparent', position: 'relative' }, 
+  corner: { position: 'absolute', width: 28, height: 28, borderColor: '#00A87E' },
   topLeft: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4 },
   topRight: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4 },
   bottomLeft: { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4 },
   bottomRight: { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4 },
+  scanHintText: { color: '#FFFFFF', marginTop: 15, fontSize: 13, fontWeight: '600', backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
 
   manualInputWrapper: { width: '85%', justifyContent: 'center' },
   manualInput: { borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 8, paddingHorizontal: 16, height: 50, backgroundColor: '#FFFFFF', fontSize: 16, textAlign: 'center' },
@@ -447,7 +438,7 @@ const styles = StyleSheet.create({
   modalFooter: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
   btnGray: { flex: 1, backgroundColor: '#F1F5F9', paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   btnGrayText: { fontSize: 13, color: '#475569', fontWeight: 'bold' },
-  btnAction: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  btnAction: { paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   btnTextWhite: { fontSize: 14, color: '#FFFFFF', fontWeight: 'bold' },
 
   loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center', zIndex: 10 },
