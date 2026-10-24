@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, SafeAreaView, 
   Modal, Image, ActivityIndicator, Platform, TextInput 
@@ -10,7 +10,6 @@ export default function FitnessScannerScreen({ navigation }) {
   const [permission, requestPermission] = useCameraPermissions();
   
   const cameraRef = useRef(null);
-  const isProcessingRef = useRef(false);
   
   const [scanMode, setScanMode] = useState(null); 
   const [scanned, setScanned] = useState(false);
@@ -35,7 +34,6 @@ export default function FitnessScannerScreen({ navigation }) {
     const clean = id.replace(/\D/g, '');
     if (clean.length !== 13) return false;
     
-    // เลขบัตรประชาชนไทยขึ้นต้นด้วย 0 หรือ 9 ไม่ได้
     if (clean.startsWith('0')) return false;
 
     let sum = 0;
@@ -45,107 +43,6 @@ export default function FitnessScannerScreen({ navigation }) {
     const checkDigit = (11 - (sum % 11)) % 10;
     return checkDigit === parseInt(clean.charAt(12), 10);
   };
-
-  // 🌟 ฟังก์ชันดึงภาพเฟรมกล้องที่แก้ปัญหากลับด้าน (Un-mirror) สำหรับ Web และเสถียรรองรับ Mobile
-  const captureFrame = async () => {
-    if (Platform.OS === 'web') {
-      try {
-        const videoElem = document.querySelector('video');
-        if (!videoElem || videoElem.readyState < 2) return null;
-
-        const canvas = document.createElement('canvas');
-        canvas.width = videoElem.videoWidth || 1280;
-        canvas.height = videoElem.videoHeight || 720;
-        const ctx = canvas.getContext('2d');
-
-        // 🌟 พลิกภาพจาก Mirror Effect กลับด้าน ให้ตัวอักษรและเลขบัตรอยู่ในทิศทางปกติ
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
-
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.45);
-        return dataUrl.split(',')[1];
-      } catch (e) {
-        console.log('Web capture frame error:', e);
-        return null;
-      }
-    } else {
-      if (!cameraRef.current) return null;
-      const photo = await cameraRef.current.takePictureAsync({ 
-        quality: 0.35, 
-        base64: true,
-        skipProcessing: true,
-        exif: false,
-        shutterSound: false
-      });
-      let clean = photo?.base64 || '';
-      if (clean.includes(',')) clean = clean.split(',')[1];
-      return clean;
-    }
-  };
-
-  // 🌟 ระบบสแกนหน้าบัตรอัตโนมัติ (Auto-Scan Loop แบบ QR Code)
-  useEffect(() => {
-    let timerId = null;
-    let isMounted = true;
-
-    const autoScanCard = async () => {
-      if (
-        scanMode === 'external' &&
-        isCameraActive &&
-        !scanned &&
-        !loading &&
-        !verifyModalVisible &&
-        !errorModalVisible &&
-        !isProcessingRef.current
-      ) {
-        isProcessingRef.current = true;
-        try {
-          const base64Image = await captureFrame();
-          if (base64Image && isMounted) {
-            const citizenId = await processCardOCR(base64Image, true);
-            if (citizenId && isValidThaiCitizenId(citizenId) && isMounted) {
-              await processAutoCapturedCard(citizenId);
-              isProcessingRef.current = false;
-              return;
-            }
-          }
-        } catch (err) {
-          // สแกนเงียบๆ เบื้องหลัง หากยังส่องบัตรไม่ชัด
-        } finally {
-          isProcessingRef.current = false;
-        }
-      }
-
-      if (
-        isMounted && 
-        scanMode === 'external' && 
-        isCameraActive && 
-        !scanned && 
-        !loading && 
-        !verifyModalVisible && 
-        !errorModalVisible
-      ) {
-        timerId = setTimeout(autoScanCard, 400);
-      }
-    };
-
-    if (
-      scanMode === 'external' && 
-      isCameraActive && 
-      !scanned && 
-      !loading && 
-      !verifyModalVisible && 
-      !errorModalVisible
-    ) {
-      timerId = setTimeout(autoScanCard, 300);
-    }
-
-    return () => {
-      isMounted = false;
-      if (timerId) clearTimeout(timerId);
-    };
-  }, [scanMode, isCameraActive, scanned, loading, verifyModalVisible, errorModalVisible]);
 
   if (!permission) {
     return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#00A87E" /></View>;
@@ -168,9 +65,15 @@ export default function FitnessScannerScreen({ navigation }) {
     setLoading(false);
   };
 
+  // 🌟 รองรับการอ่านทั้ง QR Code, บาร์โค้ดบัตรประชาชน (Code128/Code39) และรหัสที่พิมพ์ป้อน
   const processScannedCode = async (code) => {
     if (scanned) return;
-    const cleanCode = String(code).trim().replace(/\D/g, '') || String(code).trim();
+    
+    const rawData = String(code).trim();
+    // ดึงเฉพาะตัวเลข 13 หลักถ้ามีอยู่ในบาร์โค้ด หรือใช้ค่าดิบที่ได้
+    const matched13Digits = rawData.match(/\d{13}/);
+    const cleanCode = matched13Digits ? matched13Digits[0] : rawData.replace(/\D/g, '') || rawData;
+
     setScanned(true);
     setLoading(true);
     setLoadingText('กำลังตรวจสอบข้อมูลในระบบ...');
@@ -215,142 +118,12 @@ export default function FitnessScannerScreen({ navigation }) {
         setScanMode(null); 
         setVerifyModalVisible(true); 
       } else {
-        showErrorPopup('ไม่พบข้อมูลสมาชิกในระบบ\nบัตรนี้อาจยังไม่ได้ลงทะเบียนสมัครสมาชิก กรุณาลงทะเบียนก่อนใช้งานครับ');
+        showErrorPopup(`ไม่พบข้อมูลสมาชิกในระบบ (รหัสที่อ่านได้: ${cleanCode})\nบัตรนี้อาจยังไม่ได้ลงทะเบียนสมัครสมาชิกครับ`);
         setTimeout(() => setScanned(false), 2000);
       }
     } catch (error) {
       showErrorPopup('เกิดข้อผิดพลาด: ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
       setTimeout(() => setScanned(false), 2000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const processCardOCR = async (base64Image, silent = false) => {
-    try {
-      let cleanBase64 = base64Image || '';
-      if (cleanBase64.includes(',')) {
-        cleanBase64 = cleanBase64.split(',')[1];
-      }
-
-      const response = await fetch(`${API_URL}/api/ocr`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ image: cleanBase64 })
-      });
-
-      const result = await response.json();
-      if (!response.ok) {
-        if (silent) return null;
-        throw new Error(result.message || 'ไม่สามารถอ่านข้อความจากรูปภาพได้');
-      }
-
-      // 1. ตรวจสอบเลขจาก result.citizenId ก่อน
-      let primaryId = result.citizenId ? String(result.citizenId).replace(/\D/g, '') : '';
-      if (isValidThaiCitizenId(primaryId)) {
-        return primaryId;
-      }
-
-      // 2. ถ้า primaryId ไม่ถูกต้อง ให้ค้นหาตัวเลขทั้งหมดในข้อความที่ OCR อ่านได้
-      const rawText = result.text || '';
-      const allDigitsMatches = rawText.match(/\d+/g) || [];
-      const combinedDigits = allDigitsMatches.join('');
-
-      // ค้นหาชุดตัวเลข 13 หลักทุกชุดในข้อความ
-      const candidates = [];
-      for (let i = 0; i <= combinedDigits.length - 13; i++) {
-        const candidate = combinedDigits.substring(i, i + 13);
-        candidates.push(candidate);
-      }
-
-      // ตรวจหาตัวเลขที่ผ่านสูตร Checksum บัตรประชาชนไทย
-      const validCandidate = candidates.find(candidate => isValidThaiCitizenId(candidate));
-
-      if (validCandidate) {
-        return validCandidate;
-      }
-
-      // 3. หากยังไม่ผ่านสูตร แต่มีเลข 13 หลักหลักๆ ให้สำรองใช้งาน
-      if (primaryId.length === 13) {
-        return primaryId;
-      }
-
-      if (silent) return null;
-
-      throw new Error('ระบบไม่สามารถระบุเลขบัตรประชาชนได้ชัดเจน กรุณาถือบัตรให้อยู่ในกรอบ แสงสว่างพอดี และกดถ่ายใหม่อีกครั้งครับ');
-    } catch (error) {
-      if (silent) return null;
-      throw error;
-    }
-  };
-
-  // 🌟 ประมวลผลข้อมูลหลังจากระบบสแกนบัตรอัตโนมัติตรวจพบเลขบัตร
-  const processAutoCapturedCard = async (citizenId) => {
-    if (scanned || loading) return;
-    setScanned(true);
-    setLoading(true);
-    setLoadingText('กำลังตรวจสอบระบบ...');
-
-    try {
-      const response = await fetch(`${API_URL}/api/users/scan/${encodeURIComponent(citizenId)}`);
-      const result = await response.json();
-
-      if (response.ok) {
-        if (result.role !== 'external') {
-          showErrorPopup('ข้อมูลไม่ถูกต้อง: บัตรนี้ถูกบันทึกเป็นสถานะนักศึกษา');
-          setLoading(false);
-          setTimeout(() => setScanned(false), 2000);
-          return;
-        }
-
-        let registeredCardImg = null;
-        try {
-          const detailRes = await fetch(`${API_URL}/api/admin/users/${result.id}/detail`);
-          if (detailRes.ok) {
-            const detailData = await detailRes.json();
-            registeredCardImg = detailData.id_card_image || detailData.profile_image || detailData.avatar || null;
-          }
-        } catch (e) {
-          console.log('Could not fetch registered id card image:', e);
-        }
-
-        setScannedUser({ 
-          ...result, 
-          liveImage: registeredCardImg || result.id_card_image || result.profile_image || null 
-        }); 
-        setScanMode(null);
-        setVerifyModalVisible(true);
-      } else {
-        showErrorPopup(`ไม่พบข้อมูลสมาชิกในระบบ (เลขบัตรที่อ่านได้: ${citizenId})\nบัตรประชาชนนี้ยังไม่ได้ลงทะเบียนสมัครสมาชิกครับ`);
-        setTimeout(() => setScanned(false), 2000);
-      }
-    } catch (error) {
-      showErrorPopup(error.message || 'เกิดข้อผิดพลาดในการประมวลผลบัตร');
-      setTimeout(() => setScanned(false), 2000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCaptureCard = async () => {
-    setLoading(true);
-    setLoadingText('กำลังจับภาพ...');
-
-    try {
-      const cleanBase64 = await captureFrame();
-      if (!cleanBase64) {
-        throw new Error('ไม่สามารถจับภาพจากกล้องได้ กรุณาลองใหม่อีกครั้ง');
-      }
-
-      setLoadingText('กำลังอ่านเลขบัตร...');
-      const citizenId = await processCardOCR(cleanBase64);
-
-      setLoadingText('กำลังตรวจสอบระบบ...');
-      await processAutoCapturedCard(citizenId);
-    } catch (error) {
-      showErrorPopup(error.message || 'เกิดข้อผิดพลาดในการประมวลผลบัตร');
     } finally {
       setLoading(false);
     }
@@ -398,7 +171,7 @@ export default function FitnessScannerScreen({ navigation }) {
         <TouchableOpacity style={styles.bigButtonExternal} onPress={() => { setScanMode('external'); setIsCameraActive(true); setScanned(false); setManualCode(''); }}>
           <Ionicons name="id-card" size={60} color="#F5A623" style={{marginBottom: 10}} />
           <Text style={styles.bigButtonTitle}>บุคคลภายนอก</Text>
-          <Text style={styles.bigButtonDesc}>สแกน QR Code หรือถ่ายภาพบัตรประชาชน</Text>
+          <Text style={styles.bigButtonDesc}>สแกน บาร์โค้ด บนบัตรประชาชน หรือ QR Code</Text>
         </TouchableOpacity>
       </View>
 
@@ -408,7 +181,7 @@ export default function FitnessScannerScreen({ navigation }) {
             
             <View style={[styles.modalHeader, { padding: 20, paddingBottom: 15, marginBottom: 0 }]}>
               <Text style={styles.modalTitle}>
-                {scanMode === 'student' ? 'สแกน QR Code นักศึกษา' : 'สแกน QR หรือ ถ่ายภาพบัตร'}
+                {scanMode === 'student' ? 'สแกน QR Code นักศึกษา' : 'สแกนบาร์โค้ด หรือ QR Code'}
               </Text>
               <TouchableOpacity onPress={() => { setScanMode(null); setScanned(false); }}>
                 <Ionicons name="close" size={24} color="#555" />
@@ -423,7 +196,9 @@ export default function FitnessScannerScreen({ navigation }) {
                     facing="back"
                     autofocus="on"
                     onBarcodeScanned={scanned ? undefined : ({ data }) => processScannedCode(data)}
-                    barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+                    barcodeScannerSettings={{ 
+                      barcodeTypes: ["qr", "code128", "code39", "pdf417", "ean13", "code93"] 
+                    }}
                     style={StyleSheet.absoluteFillObject}
                   />
                   
@@ -462,11 +237,7 @@ export default function FitnessScannerScreen({ navigation }) {
               </TouchableOpacity>
               
               <View style={{ flexDirection: 'row', gap: 10, flex: 1 }}>
-                {scanMode === 'external' && isCameraActive ? (
-                  <TouchableOpacity style={[styles.btnAction, { backgroundColor: '#00A87E' }]} onPress={handleCaptureCard}>
-                    <Text style={styles.btnTextWhite}>ถ่ายภาพบัตร</Text>
-                  </TouchableOpacity>
-                ) : (
+                {!isCameraActive && (
                   <TouchableOpacity style={[styles.btnAction, { backgroundColor: '#1E8E3E' }]} onPress={handleManualSubmit}>
                     <Text style={styles.btnTextWhite}>ตกลง</Text>
                   </TouchableOpacity>
