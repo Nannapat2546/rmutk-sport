@@ -120,7 +120,7 @@ export default function ReportDetailScreen({ navigation, route }) {
     return `${day}/${month}/${year}`;
   };
 
-  // 🌟 ฟังก์ชันคำนวณสถานะและวันนัดล่าสุดที่ปรับปรุงแล้ว
+  // 🌟 ฟังก์ชันคำนวณสถานะและวันนัดล่าสุด
   const getStatusInfo = (item, type = reportType) => {
     const originalAmount = parseInt(item.amount) || 0;
     const pendingAmount = parseInt(item.pending_amount) || originalAmount;
@@ -221,16 +221,18 @@ export default function ReportDetailScreen({ navigation, route }) {
         const itemDate = new Date(itemDateStr);
         itemDate.setHours(0, 0, 0, 0);
 
-        const filterStart = Platform.OS === 'web' && webStartDateText ? parseThaiDate(webStartDateText) : startDate;
+        const filterStart = startDate || (Platform.OS === 'web' && webStartDateText ? parseThaiDate(webStartDateText) : null);
         if (filterStart) {
-          filterStart.setHours(0, 0, 0, 0);
-          if (itemDate < filterStart) matchDate = false;
+          const fStart = new Date(filterStart);
+          fStart.setHours(0, 0, 0, 0);
+          if (itemDate < fStart) matchDate = false;
         }
 
-        const filterEnd = Platform.OS === 'web' && webEndDateText ? parseThaiDate(webEndDateText) : endDate;
+        const filterEnd = endDate || (Platform.OS === 'web' && webEndDateText ? parseThaiDate(webEndDateText) : null);
         if (filterEnd) {
-          filterEnd.setHours(23, 59, 59, 999);
-          if (itemDate > filterEnd) matchDate = false;
+          const fEnd = new Date(filterEnd);
+          fEnd.setHours(23, 59, 59, 999);
+          if (itemDate > fEnd) matchDate = false;
         }
       }
 
@@ -309,11 +311,11 @@ export default function ReportDetailScreen({ navigation, route }) {
     if (statusInfo.type === 'returned_late' || statusInfo.type === 'pending_late') {
       return (
         <View style={{ alignItems: 'center' }}>
-          <View style={[styles.badge, {backgroundColor: '#FEE2E2', marginBottom: 2}]}>
+          <View style={[styles.badge, {backgroundColor: '#FEE2E2', borderColor: '#FECACA', borderWidth: 1}]}>
             <Text style={[styles.badgeText, {color: '#EF4444'}]}>{statusInfo.text}</Text>
           </View>
           {statusInfo.type === 'pending_late' && statusInfo.expectedDateStr && statusInfo.expectedDateStr !== '-' && (
-            <Text style={{ fontSize: 10, color: '#EF4444' }}>(นัด: {statusInfo.expectedDateStr})</Text>
+            <Text style={{ fontSize: 10, color: '#EF4444', marginTop: 2 }}>(นัด: {statusInfo.expectedDateStr})</Text>
           )}
         </View>
       );
@@ -321,15 +323,15 @@ export default function ReportDetailScreen({ navigation, route }) {
 
     if (statusInfo.type === 'returned_ok') {
       return (
-        <View style={[styles.badge, {backgroundColor: '#E6F5EF'}]}>
-          <Text style={[styles.badgeText, {color: '#00A87E'}]}>{statusInfo.text}</Text>
+        <View style={[styles.badge, {backgroundColor: '#ECFDF5', borderColor: '#A7F3D0', borderWidth: 1}]}>
+          <Text style={[styles.badgeText, {color: '#059669'}]}>{statusInfo.text}</Text>
         </View>
       );
     }
 
     return (
-      <View style={[styles.badge, {backgroundColor: '#EFF6FF'}]}>
-        <Text style={[styles.badgeText, {color: '#3B82F6'}]}>{statusInfo.text}</Text>
+      <View style={[styles.badge, {backgroundColor: '#EFF6FF', borderColor: '#BFDBFE', borderWidth: 1}]}>
+        <Text style={[styles.badgeText, {color: '#2563EB'}]}>{statusInfo.text}</Text>
       </View>
     );
   };
@@ -338,18 +340,20 @@ export default function ReportDetailScreen({ navigation, route }) {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
+          <Ionicons name="arrow-back" size={22} color="#1E293B" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{getPageTitle()}</Text>
       </View>
 
       <ScrollView style={styles.contentArea} showsVerticalScrollIndicator={false}>
         
+        {/* ================= ส่วนตัวกรอง ================= */}
         <View style={styles.filterCard}>
           <View style={styles.filterRow}>
             
+            {/* ช่องค้นหา */}
             <View style={styles.searchBox}>
-              <Ionicons name="search" size={18} color="#9CA3AF" />
+              <Ionicons name="search" size={18} color="#94A3B8" />
               <TextInput 
                 placeholder="ค้นหาชื่อ, อุปกรณ์..." 
                 style={styles.searchInput} 
@@ -358,18 +362,19 @@ export default function ReportDetailScreen({ navigation, route }) {
               />
               {searchText.length > 0 ? (
                 <TouchableOpacity onPress={() => setSearchText('')}>
-                  <Ionicons name="close-circle" size={16} color="#9CA3AF" />
+                  <Ionicons name="close-circle" size={16} color="#94A3B8" />
                 </TouchableOpacity>
               ) : null}
             </View>
 
+            {/* ปุ่มเมนูตัวกรอง */}
             {(reportType === 'borrow' || reportType === 'pending') && (
               <View style={{ position: 'relative', zIndex: 100 }}>
                 <TouchableOpacity 
                   style={[styles.filterBtn, (eqCondition !== 'all' || statusFilter !== 'all') && styles.filterBtnActive]} 
                   onPress={() => setShowFilterMenu(!showFilterMenu)}
                 >
-                  <Ionicons name="filter" size={16} color={(eqCondition !== 'all' || statusFilter !== 'all') ? "#00A87E" : "#374151"} />
+                  <Ionicons name="filter" size={16} color={(eqCondition !== 'all' || statusFilter !== 'all') ? "#00A87E" : "#475569"} />
                   <Text style={[styles.filterBtnText, (eqCondition !== 'all' || statusFilter !== 'all') && {color: '#00A87E'}]}>
                     ตัวกรอง {(eqCondition !== 'all' || statusFilter !== 'all') ? '(เปิดทำงาน)' : ''}
                   </Text>
@@ -378,14 +383,14 @@ export default function ReportDetailScreen({ navigation, route }) {
                 {showFilterMenu && (
                   <View style={styles.inlineDropdown}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 }}>
-                      <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#1E293B' }}>ตัวกรองข้อมูล</Text>
+                      <Text style={{ fontWeight: 'bold', fontSize: 15, color: '#1E293B' }}>ตัวกรองข้อมูล</Text>
                       <TouchableOpacity onPress={() => setShowFilterMenu(false)}>
-                        <Ionicons name="close" size={22} color="#64748B" />
+                        <Ionicons name="close" size={20} color="#64748B" />
                       </TouchableOpacity>
                     </View>
 
                     {reportType === 'borrow' && (
-                      <View style={{ marginBottom: 20 }}>
+                      <View style={{ marginBottom: 16 }}>
                         <Text style={styles.filterGroupTitle}>สถานะการยืม</Text>
                         <View style={styles.filterToggleGroup}>
                           <TouchableOpacity style={[styles.filterToggleBtn, statusFilter === 'all' && styles.filterToggleBtnActive]} onPress={() => setStatusFilter('all')}><Text style={[styles.filterToggleText, statusFilter === 'all' && styles.filterToggleTextActive]}>ทั้งหมด</Text></TouchableOpacity>
@@ -395,7 +400,7 @@ export default function ReportDetailScreen({ navigation, route }) {
                       </View>
                     )}
                     {reportType === 'pending' && (
-                      <View style={{ marginBottom: 20 }}>
+                      <View style={{ marginBottom: 16 }}>
                         <Text style={styles.filterGroupTitle}>สถานะการยืม</Text>
                         <View style={styles.filterToggleGroup}>
                           <TouchableOpacity style={[styles.filterToggleBtn, statusFilter === 'all' && styles.filterToggleBtnActive]} onPress={() => setStatusFilter('all')}><Text style={[styles.filterToggleText, statusFilter === 'all' && styles.filterToggleTextActive]}>ทั้งหมด</Text></TouchableOpacity>
@@ -415,60 +420,110 @@ export default function ReportDetailScreen({ navigation, route }) {
                     </View>
 
                     <TouchableOpacity 
-                       style={{ marginTop: 20, alignSelf: 'flex-end', backgroundColor: '#FEF2F2', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 }}
+                       style={{ marginTop: 15, alignSelf: 'flex-end', backgroundColor: '#FEF2F2', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 }}
                        onPress={() => { setEqCondition('all'); setStatusFilter('all'); setShowFilterMenu(false); }}
                     >
-                       <Text style={{ color: '#EF4444', fontSize: 13, fontWeight: 'bold' }}>ล้างตัวกรอง</Text>
+                       <Text style={{ color: '#EF4444', fontSize: 12, fontWeight: 'bold' }}>ล้างตัวกรอง</Text>
                     </TouchableOpacity>
                   </View>
                 )}
               </View>
             )}
 
+            {/* 🌟 ปฏิทินเลือกช่วงวันที่ (กราฟิก Pop-up Calendar) */}
             <View style={styles.datePickerGroup}>
               {Platform.OS === 'web' ? (
-                <>
-                  <TextInput 
-                    style={[styles.dateBoxText, webStartDateText && {borderColor: '#00A87E'}]} 
-                    placeholder="วว/ดด/ปปปป"
-                    value={webStartDateText}
-                    onChangeText={setWebStartDateText}
-                    maxLength={10}
-                  />
-                  <Text style={{fontSize: 12, color: '#6B7280', marginHorizontal: 8}}>ถึง</Text>
-                  <TextInput 
-                    style={[styles.dateBoxText, webEndDateText && {borderColor: '#00A87E'}]} 
-                    placeholder="วว/ดด/ปปปป"
-                    value={webEndDateText}
-                    onChangeText={setWebEndDateText}
-                    maxLength={10}
-                  />
-                </>
+                <View style={styles.webDatePickerRow}>
+                  <View style={styles.webDateInputWrapper}>
+                    <input
+                      type="date"
+                      value={startDate ? startDate.toISOString().split('T')[0] : ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val) {
+                          const [y, m, d] = val.split('-');
+                          setStartDate(new Date(parseInt(y), parseInt(m) - 1, parseInt(d)));
+                          setWebStartDateText('');
+                        } else {
+                          setStartDate(null);
+                          setWebStartDateText('');
+                        }
+                      }}
+                      style={{
+                        border: startDate ? '1.5px solid #00A87E' : '1px solid #CBD5E1',
+                        borderRadius: '8px',
+                        padding: '0 10px',
+                        height: '40px',
+                        backgroundColor: '#FFFFFF',
+                        fontSize: '13px',
+                        color: startDate ? '#00A87E' : '#475569',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        fontWeight: startDate ? '600' : 'normal',
+                        fontFamily: 'inherit'
+                      }}
+                    />
+                  </View>
+
+                  <Text style={{ fontSize: 13, color: '#64748B', marginHorizontal: 6 }}>ถึง</Text>
+
+                  <View style={styles.webDateInputWrapper}>
+                    <input
+                      type="date"
+                      value={endDate ? endDate.toISOString().split('T')[0] : ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val) {
+                          const [y, m, d] = val.split('-');
+                          setEndDate(new Date(parseInt(y), parseInt(m) - 1, parseInt(d)));
+                          setWebEndDateText('');
+                        } else {
+                          setEndDate(null);
+                          setWebEndDateText('');
+                        }
+                      }}
+                      style={{
+                        border: endDate ? '1.5px solid #00A87E' : '1px solid #CBD5E1',
+                        borderRadius: '8px',
+                        padding: '0 10px',
+                        height: '40px',
+                        backgroundColor: '#FFFFFF',
+                        fontSize: '13px',
+                        color: endDate ? '#00A87E' : '#475569',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        fontWeight: endDate ? '600' : 'normal',
+                        fontFamily: 'inherit'
+                      }}
+                    />
+                  </View>
+                </View>
               ) : (
-                <>
+                <View style={styles.mobileDateRow}>
                   <TouchableOpacity style={[styles.dateBox, startDate && {borderColor: '#00A87E'}]} onPress={() => setShowStartPicker(true)}>
-                    <Text style={[styles.dateText, startDate && {color: '#00A87E'}]}>{formatDisplayDate(startDate)}</Text>
-                    <Ionicons name="calendar-outline" size={14} color={startDate ? "#00A87E" : "#6B7280"} />
+                    <Text style={[styles.dateText, startDate && {color: '#00A87E', fontWeight: 'bold'}]}>{formatDisplayDate(startDate)}</Text>
+                    <Ionicons name="calendar-outline" size={15} color={startDate ? "#00A87E" : "#64748B"} />
                   </TouchableOpacity>
                   
-                  <Text style={{fontSize: 12, color: '#6B7280', marginHorizontal: 8}}>ถึง</Text>
+                  <Text style={{fontSize: 13, color: '#64748B', marginHorizontal: 6}}>ถึง</Text>
                   
                   <TouchableOpacity style={[styles.dateBox, endDate && {borderColor: '#00A87E'}]} onPress={() => setShowEndPicker(true)}>
-                    <Text style={[styles.dateText, endDate && {color: '#00A87E'}]}>{formatDisplayDate(endDate)}</Text>
-                    <Ionicons name="calendar-outline" size={14} color={endDate ? "#00A87E" : "#6B7280"} />
+                    <Text style={[styles.dateText, endDate && {color: '#00A87E', fontWeight: 'bold'}]}>{formatDisplayDate(endDate)}</Text>
+                    <Ionicons name="calendar-outline" size={15} color={endDate ? "#00A87E" : "#64748B"} />
                   </TouchableOpacity>
-                </>
+                </View>
               )}
 
               {(startDate || endDate || webStartDateText !== '' || webEndDateText !== '') ? (
-                <TouchableOpacity style={{marginLeft: 10}} onPress={() => { setStartDate(null); setEndDate(null); setWebStartDateText(''); setWebEndDateText(''); }}>
-                  <Text style={{color: '#EF4444', fontSize: 12}}>ล้างค่า</Text>
+                <TouchableOpacity style={{marginLeft: 8}} onPress={() => { setStartDate(null); setEndDate(null); setWebStartDateText(''); setWebEndDateText(''); }}>
+                  <Text style={{color: '#EF4444', fontSize: 12, fontWeight: 'bold'}}>ล้างค่า</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
 
+            {/* ปุ่ม Export CSV */}
             <TouchableOpacity style={styles.exportBtn} onPress={handleExportCSV}>
-              <Ionicons name="download-outline" size={16} color="#374151" />
+              <Ionicons name="download-outline" size={16} color="#334155" />
               <Text style={styles.exportBtnText}>Export CSV</Text>
             </TouchableOpacity>
 
@@ -489,171 +544,174 @@ export default function ReportDetailScreen({ navigation, route }) {
           </TouchableOpacity>
         ) : null}
 
+        {/* ================= ส่วนตารางแสดงผล ================= */}
         {isLoading ? (
           <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100}}>
             <ActivityIndicator size="large" color="#00A87E" />
-            <Text style={{marginTop: 10, color: '#666'}}>กำลังดึงข้อมูล...</Text>
+            <Text style={{marginTop: 10, color: '#64748B', fontSize: 14}}>กำลังดึงข้อมูล...</Text>
           </View>
         ) : (
           <View style={{ paddingBottom: 40 }}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.tableContainer}>
-                
-                {/* ================= 1. ตารางประวัติ ยืม-คืน ================= */}
-                {reportType === 'borrow' ? (
-                  <>
-                    <View style={styles.tableHeaderRow}>
-                      <Text style={[styles.headerCell, {width: 140}]}>สมาชิก</Text>
-                      <Text style={[styles.headerCell, {width: 140}]}>อุปกรณ์</Text>
-                      <Text style={[styles.headerCell, {width: 80}]}>สภาพ</Text>
-                      <Text style={[styles.headerCell, {width: 60}]}>จำนวน</Text>
-                      <Text style={[styles.headerCell, {width: 90}]}>ยืมเมื่อ</Text>
-                      <Text style={[styles.headerCell, {width: 90}]}>นัดคืน</Text>
-                      <Text style={[styles.headerCell, {width: 90}]}>คืนเมื่อ</Text>
-                      <Text style={[styles.headerCell, {width: 120}]}>สถานะ</Text>
-                    </View>
-                    {filteredData.map((item, index) => {
-                      const statusInfo = getStatusInfo(item, 'borrow');
-                      return (
-                        <View key={index} style={styles.tableDataRow}>
-                          <Text style={[styles.dataCell, {width: 140}]} numberOfLines={1}>{item.member_name}</Text>
-                          <Text style={[styles.dataCell, {width: 140}]} numberOfLines={1}>{item.equipment}</Text>
-                          
-                          <View style={[styles.dataCell, {width: 80, alignItems: 'center'}]}>
-                            <Text style={{ fontSize: 13, fontWeight: 'bold', color: (item.equipment_status === 'ปกติ' || item.equipment_status === 'ใช้งาน') ? '#10B981' : '#EF4444' }}>
-                              {item.equipment_status === 'ใช้งาน' ? 'ปกติ' : (item.equipment_status || 'ปกติ')}
-                            </Text>
-                          </View>
-
-                          <Text style={[styles.dataCell, {width: 60}]}>{item.amount}</Text>
-                          <Text style={[styles.dataCell, {width: 90}]}>{formatDate(item.borrow_date)}</Text>
-                          <Text style={[styles.dataCell, {width: 90}]}>{statusInfo.displayExpectedDate}</Text>
-                          <Text style={[styles.dataCell, {width: 90}]}>{formatDate(item.return_date)}</Text>
-                          <View style={[styles.dataCell, {width: 120, alignItems: 'center', paddingVertical: 4}]}>
-                            {renderStatusBadge(statusInfo)}
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </>
-                ) : null}
-
-                {/* ================= 2. ตารางคงค้าง ================= */}
-                {reportType === 'pending' ? (
-                  <>
-                    <View style={styles.tableHeaderRow}>
-                      <Text style={[styles.headerCell, {width: 130}]}>สมาชิก</Text>
-                      <Text style={[styles.headerCell, {width: 140}]}>อุปกรณ์</Text>
-                      <Text style={[styles.headerCell, {width: 70}]}>สภาพ</Text>
-                      <Text style={[styles.headerCell, {width: 100}]}>จำนวนที่ยืม</Text>
-                      <Text style={[styles.headerCell, {width: 70}]}>คืนแล้ว</Text>
-                      <Text style={[styles.headerCell, {width: 70}]}>ค้างส่ง</Text>
-                      <Text style={[styles.headerCell, {width: 90}]}>ยืมเมื่อ</Text>
-                      <Text style={[styles.headerCell, {width: 90}]}>นัดล่าสุด</Text>
-                      <Text style={[styles.headerCell, {width: 90}]}>คืนเมื่อ</Text>
-                      <Text style={[styles.headerCell, {width: 100}]}>สถานะ</Text>
-                      <Text style={[styles.headerCell, {width: 110}]}>จัดการ</Text>
-                    </View>
-                    {filteredData.map((item, index) => {
-                      const statusInfo = getStatusInfo(item, 'pending');
-                      
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      const lastNotified = item.last_notified_date ? new Date(item.last_notified_date) : null;
-                      if (lastNotified) lastNotified.setHours(0, 0, 0, 0);
-                      
-                      const isNotifiedToday = lastNotified && lastNotified.getTime() === today.getTime();
-                      const showNotifyButton = statusInfo.isLate && !isNotifiedToday;
-
-                      const originalAmount = parseInt(item.amount) || 0;
-                      const pendingAmount = parseInt(item.pending_amount) || originalAmount;
-                      const returnedAmount = originalAmount > pendingAmount ? originalAmount - pendingAmount : 0;
-
-                      return (
-                        <View key={index} style={styles.tableDataRow}>
-                          <Text style={[styles.dataCell, {width: 130}]} numberOfLines={1}>{item.member_name}</Text>
-                          <Text style={[styles.dataCell, {width: 140}]} numberOfLines={1}>{item.equipment}</Text>
-                          
-                          <View style={[styles.dataCell, {width: 70, alignItems: 'center'}]}>
-                            <Text style={{ fontSize: 13, fontWeight: 'bold', color: (item.equipment_status === 'ปกติ' || item.equipment_status === 'ใช้งาน') ? '#10B981' : '#EF4444' }}>
-                              {item.equipment_status === 'ใช้งาน' ? 'ปกติ' : (item.equipment_status || 'ปกติ')}
-                            </Text>
-                          </View>
-
-                          <Text style={[styles.dataCell, {width: 100, fontWeight: 'bold', color: '#374151'}]}>
-                            {originalAmount}
-                          </Text>
-
-                          <Text style={[styles.dataCell, {width: 70, fontWeight: 'bold', color: '#10B981'}]}>
-                            {returnedAmount}
-                          </Text>
-
-                          <Text style={[styles.dataCell, {width: 70, fontWeight: 'bold', color: '#D93025'}]}>
-                            {pendingAmount}
-                          </Text>
-                          
-                          <Text style={[styles.dataCell, {width: 90}]}>{formatDate(item.borrow_date)}</Text>
-                          <Text style={[styles.dataCell, {width: 90}]}>{statusInfo.displayExpectedDate}</Text>
-                          <Text style={[styles.dataCell, {width: 90}]}>{formatDate(item.return_date)}</Text>
-                          
-                          <View style={[styles.dataCell, {width: 100, alignItems: 'center', paddingVertical: 4}]}>
-                            {renderStatusBadge(statusInfo)}
-                          </View>
-
-                          <View style={[styles.dataCell, {width: 110, alignItems: 'center'}]}>
-                            {showNotifyButton ? (
-                              <TouchableOpacity style={styles.notifyBtn} onPress={() => handleNotifyUser(item, statusInfo.days)}>
-                                <Ionicons name="mail-outline" size={14} color="#FFF" style={{marginRight: 4}} />
-                                <Text style={styles.notifyBtnText}>ส่งแจ้งเตือน</Text>
-                              </TouchableOpacity>
-                            ) : statusInfo.isLate && isNotifiedToday ? (
-                              <Text style={{fontSize: 11, color: '#10B981', fontWeight: 'bold'}}>
-                                <Ionicons name="checkmark-circle" size={12} color="#10B981"/> แจ้งเตือนแล้ว
-                              </Text>
-                            ) : (
-                              <Text style={{fontSize: 11, color: '#9CA3AF'}}>-</Text>
-                            )}
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </>
-                ) : null}
-
-                {/* ================= 3. ตารางรายงานฟิตเนส ================= */}
-                {reportType === 'fitness' ? (
-                  <>
-                    <View style={styles.tableHeaderRow}>
-                      <Text style={[styles.headerCell, {width: 150}]}>สมาชิก</Text>
-                      <Text style={[styles.headerCell, {width: 120}]}>ประเภท</Text>
-                      <Text style={[styles.headerCell, {width: 120}]}>วันที่เข้าใช้</Text>
-                      <Text style={[styles.headerCell, {width: 100}]}>ค่าบริการ (฿)</Text>
-                      <Text style={[styles.headerCell, {width: 100}]}>วิธีชำระ</Text>
-                    </View>
-                    {filteredData.map((item, index) => (
-                      <View key={index} style={styles.tableDataRow}>
-                        <Text style={[styles.dataCell, {width: 150}]} numberOfLines={1}>{item.member_name}</Text>
-                        <View style={[styles.dataCell, {width: 120, alignItems: 'center'}]}>
-                          <View style={[styles.roleTag, item.role === 'student' ? {backgroundColor: '#E6F5EF'} : {backgroundColor: '#FEE2E2'}]}>
-                            <Text style={[styles.roleTagText, item.role === 'student' ? {color: '#00A87E'} : {color: '#EF4444'}]}>
-                              {item.role === 'student' ? 'นักศึกษา' : 'บุคคลภายนอก'}
-                            </Text>
-                          </View>
-                        </View>
-                        <Text style={[styles.dataCell, {width: 120}]}>{formatDate(item.check_in_time)}</Text>
-                        <Text style={[styles.dataCell, {width: 100}]}>{item.service_fee}</Text>
-                        <Text style={[styles.dataCell, {width: 100}]}>{item.payment_type === 'cash' ? 'เงินสด' : 'สแกน'}</Text>
+            <View style={styles.tableCard}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+                <View style={styles.tableContainer}>
+                  
+                  {/* ================= 1. ตารางประวัติ ยืม-คืน ================= */}
+                  {reportType === 'borrow' ? (
+                    <>
+                      <View style={styles.tableHeaderRow}>
+                        <Text style={[styles.headerCell, {flex: 1.5, minWidth: 130}]}>สมาชิก</Text>
+                        <Text style={[styles.headerCell, {flex: 1.5, minWidth: 130}]}>อุปกรณ์</Text>
+                        <Text style={[styles.headerCell, {flex: 1, minWidth: 80}]}>สภาพ</Text>
+                        <Text style={[styles.headerCell, {flex: 0.8, minWidth: 60}]}>จำนวน</Text>
+                        <Text style={[styles.headerCell, {flex: 1.2, minWidth: 90}]}>ยืมเมื่อ</Text>
+                        <Text style={[styles.headerCell, {flex: 1.2, minWidth: 90}]}>นัดคืน</Text>
+                        <Text style={[styles.headerCell, {flex: 1.2, minWidth: 90}]}>คืนเมื่อ</Text>
+                        <Text style={[styles.headerCell, {flex: 1.5, minWidth: 120}]}>สถานะ</Text>
                       </View>
-                    ))}
-                  </>
-                ) : null}
+                      {filteredData.map((item, index) => {
+                        const statusInfo = getStatusInfo(item, 'borrow');
+                        return (
+                          <View key={index} style={[styles.tableDataRow, index % 2 === 1 && styles.tableDataRowAlt]}>
+                            <Text style={[styles.dataCell, {flex: 1.5, minWidth: 130, fontWeight: '500', color: '#1E293B'}]} numberOfLines={1}>{item.member_name}</Text>
+                            <Text style={[styles.dataCell, {flex: 1.5, minWidth: 130}]} numberOfLines={1}>{item.equipment}</Text>
+                            
+                            <View style={[styles.dataCell, {flex: 1, minWidth: 80, alignItems: 'center'}]}>
+                              <Text style={{ fontSize: 13, fontWeight: 'bold', color: (item.equipment_status === 'ปกติ' || item.equipment_status === 'ใช้งาน') ? '#10B981' : '#EF4444' }}>
+                                {item.equipment_status === 'ใช้งาน' ? 'ปกติ' : (item.equipment_status || 'ปกติ')}
+                              </Text>
+                            </View>
 
-                {filteredData.length === 0 ? (
-                  <Text style={styles.emptyText}>ไม่พบข้อมูลที่ตรงกับเงื่อนไขการค้นหา</Text>
-                ) : null}
+                            <Text style={[styles.dataCell, {flex: 0.8, minWidth: 60, fontWeight: '600'}]}>{item.amount}</Text>
+                            <Text style={[styles.dataCell, {flex: 1.2, minWidth: 90}]}>{formatDate(item.borrow_date)}</Text>
+                            <Text style={[styles.dataCell, {flex: 1.2, minWidth: 90}]}>{statusInfo.displayExpectedDate}</Text>
+                            <Text style={[styles.dataCell, {flex: 1.2, minWidth: 90}]}>{formatDate(item.return_date)}</Text>
+                            <View style={[styles.dataCell, {flex: 1.5, minWidth: 120, alignItems: 'center', paddingVertical: 4}]}>
+                              {renderStatusBadge(statusInfo)}
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </>
+                  ) : null}
 
-              </View>
-            </ScrollView>
+                  {/* ================= 2. ตารางคงค้าง ================= */}
+                  {reportType === 'pending' ? (
+                    <>
+                      <View style={styles.tableHeaderRow}>
+                        <Text style={[styles.headerCell, {flex: 1.4, minWidth: 130}]}>สมาชิก</Text>
+                        <Text style={[styles.headerCell, {flex: 1.4, minWidth: 130}]}>อุปกรณ์</Text>
+                        <Text style={[styles.headerCell, {flex: 0.9, minWidth: 70}]}>สภาพ</Text>
+                        <Text style={[styles.headerCell, {flex: 1, minWidth: 90}]}>ยืมไป (ชิ้น)</Text>
+                        <Text style={[styles.headerCell, {flex: 0.8, minWidth: 70}]}>คืนแล้ว</Text>
+                        <Text style={[styles.headerCell, {flex: 0.8, minWidth: 70}]}>ค้างส่ง</Text>
+                        <Text style={[styles.headerCell, {flex: 1.1, minWidth: 85}]}>ยืมเมื่อ</Text>
+                        <Text style={[styles.headerCell, {flex: 1.1, minWidth: 85}]}>นัดล่าสุด</Text>
+                        <Text style={[styles.headerCell, {flex: 1.1, minWidth: 85}]}>คืนเมื่อ</Text>
+                        <Text style={[styles.headerCell, {flex: 1.2, minWidth: 100}]}>สถานะ</Text>
+                        <Text style={[styles.headerCell, {flex: 1.2, minWidth: 110}]}>จัดการ</Text>
+                      </View>
+                      {filteredData.map((item, index) => {
+                        const statusInfo = getStatusInfo(item, 'pending');
+                        
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const lastNotified = item.last_notified_date ? new Date(item.last_notified_date) : null;
+                        if (lastNotified) lastNotified.setHours(0, 0, 0, 0);
+                        
+                        const isNotifiedToday = lastNotified && lastNotified.getTime() === today.getTime();
+                        const showNotifyButton = statusInfo.isLate && !isNotifiedToday;
+
+                        const originalAmount = parseInt(item.amount) || 0;
+                        const pendingAmount = parseInt(item.pending_amount) || originalAmount;
+                        const returnedAmount = originalAmount > pendingAmount ? originalAmount - pendingAmount : 0;
+
+                        return (
+                          <View key={index} style={[styles.tableDataRow, index % 2 === 1 && styles.tableDataRowAlt]}>
+                            <Text style={[styles.dataCell, {flex: 1.4, minWidth: 130, fontWeight: '500', color: '#1E293B'}]} numberOfLines={1}>{item.member_name}</Text>
+                            <Text style={[styles.dataCell, {flex: 1.4, minWidth: 130}]} numberOfLines={1}>{item.equipment}</Text>
+                            
+                            <View style={[styles.dataCell, {flex: 0.9, minWidth: 70, alignItems: 'center'}]}>
+                              <Text style={{ fontSize: 13, fontWeight: 'bold', color: (item.equipment_status === 'ปกติ' || item.equipment_status === 'ใช้งาน') ? '#10B981' : '#EF4444' }}>
+                                {item.equipment_status === 'ใช้งาน' ? 'ปกติ' : (item.equipment_status || 'ปกติ')}
+                              </Text>
+                            </View>
+
+                            <Text style={[styles.dataCell, {flex: 1, minWidth: 90, fontWeight: 'bold', color: '#334155'}]}>
+                              {originalAmount}
+                            </Text>
+
+                            <Text style={[styles.dataCell, {flex: 0.8, minWidth: 70, fontWeight: 'bold', color: '#10B981'}]}>
+                              {returnedAmount}
+                            </Text>
+
+                            <Text style={[styles.dataCell, {flex: 0.8, minWidth: 70, fontWeight: 'bold', color: '#D93025'}]}>
+                              {pendingAmount}
+                            </Text>
+                            
+                            <Text style={[styles.dataCell, {flex: 1.1, minWidth: 85}]}>{formatDate(item.borrow_date)}</Text>
+                            <Text style={[styles.dataCell, {flex: 1.1, minWidth: 85}]}>{statusInfo.displayExpectedDate}</Text>
+                            <Text style={[styles.dataCell, {flex: 1.1, minWidth: 85}]}>{formatDate(item.return_date)}</Text>
+                            
+                            <View style={[styles.dataCell, {flex: 1.2, minWidth: 100, alignItems: 'center', paddingVertical: 4}]}>
+                              {renderStatusBadge(statusInfo)}
+                            </View>
+
+                            <View style={[styles.dataCell, {flex: 1.2, minWidth: 110, alignItems: 'center'}]}>
+                              {showNotifyButton ? (
+                                <TouchableOpacity style={styles.notifyBtn} onPress={() => handleNotifyUser(item, statusInfo.days)}>
+                                  <Ionicons name="mail-outline" size={13} color="#FFF" style={{marginRight: 4}} />
+                                  <Text style={styles.notifyBtnText}>แจ้งเตือน</Text>
+                                </TouchableOpacity>
+                              ) : statusInfo.isLate && isNotifiedToday ? (
+                                <Text style={{fontSize: 11, color: '#10B981', fontWeight: 'bold'}}>
+                                  <Ionicons name="checkmark-circle" size={12} color="#10B981"/> แจ้งเตือนแล้ว
+                                </Text>
+                              ) : (
+                                <Text style={{fontSize: 11, color: '#94A3B8'}}>-</Text>
+                              )}
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </>
+                  ) : null}
+
+                  {/* ================= 3. ตารางรายงานฟิตเนส ================= */}
+                  {reportType === 'fitness' ? (
+                    <>
+                      <View style={styles.tableHeaderRow}>
+                        <Text style={[styles.headerCell, {flex: 2, minWidth: 150}]}>สมาชิก</Text>
+                        <Text style={[styles.headerCell, {flex: 1.5, minWidth: 120}]}>ประเภท</Text>
+                        <Text style={[styles.headerCell, {flex: 1.5, minWidth: 120}]}>วันที่เข้าใช้</Text>
+                        <Text style={[styles.headerCell, {flex: 1.2, minWidth: 100}]}>ค่าบริการ (฿)</Text>
+                        <Text style={[styles.headerCell, {flex: 1.2, minWidth: 100}]}>วิธีชำระ</Text>
+                      </View>
+                      {filteredData.map((item, index) => (
+                        <View key={index} style={[styles.tableDataRow, index % 2 === 1 && styles.tableDataRowAlt]}>
+                          <Text style={[styles.dataCell, {flex: 2, minWidth: 150, fontWeight: '500', color: '#1E293B'}]} numberOfLines={1}>{item.member_name}</Text>
+                          <View style={[styles.dataCell, {flex: 1.5, minWidth: 120, alignItems: 'center'}]}>
+                            <View style={[styles.roleTag, item.role === 'student' ? {backgroundColor: '#E6F5EF'} : {backgroundColor: '#FEE2E2'}]}>
+                              <Text style={[styles.roleTagText, item.role === 'student' ? {color: '#00A87E'} : {color: '#EF4444'}]}>
+                                {item.role === 'student' ? 'นักศึกษา' : 'บุคคลภายนอก'}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={[styles.dataCell, {flex: 1.5, minWidth: 120}]}>{formatDate(item.check_in_time)}</Text>
+                          <Text style={[styles.dataCell, {flex: 1.2, minWidth: 100, fontWeight: '600'}]}>{item.service_fee}</Text>
+                          <Text style={[styles.dataCell, {flex: 1.2, minWidth: 100}]}>{item.payment_type === 'cash' ? 'เงินสด' : 'สแกน'}</Text>
+                        </View>
+                      ))}
+                    </>
+                  ) : null}
+
+                  {filteredData.length === 0 ? (
+                    <Text style={styles.emptyText}>ไม่พบข้อมูลที่ตรงกับเงื่อนไขการค้นหา</Text>
+                  ) : null}
+
+                </View>
+              </ScrollView>
+            </View>
           </View>
         )}
       </ScrollView>
@@ -662,45 +720,49 @@ export default function ReportDetailScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6', zIndex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', zIndex: 2 },
-  backButton: { paddingRight: 15 },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#111827' },
+  container: { flex: 1, backgroundColor: '#F8FAFC', zIndex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', zIndex: 2 },
+  backButton: { paddingRight: 12 },
+  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#0F172A' },
   
   contentArea: { flex: 1, padding: 20, zIndex: 10 },
-  filterCard: { backgroundColor: '#FFF', padding: 15, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 20, zIndex: 50 },
-  filterRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, zIndex: 50 },
+  filterCard: { backgroundColor: '#FFF', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 20, zIndex: 50, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, zIndex: 50 },
   
-  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 6, paddingHorizontal: 10, height: 40, flex: 1, minWidth: 200 },
-  searchInput: { flex: 1, marginLeft: 8, fontSize: 13, color: '#374151', outlineStyle: 'none' },
+  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', borderRadius: 8, paddingHorizontal: 12, height: 40, flex: 1, minWidth: 220 },
+  searchInput: { flex: 1, marginLeft: 8, fontSize: 13, color: '#334155', outlineStyle: 'none' },
   
-  filterBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 6, paddingHorizontal: 15, height: 40 },
+  filterBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 8, paddingHorizontal: 14, height: 40 },
   filterBtnActive: { borderColor: '#00A87E', backgroundColor: '#E6F5EF' },
-  filterBtnText: { fontSize: 13, color: '#374151', marginLeft: 6, fontWeight: 'bold' },
-  inlineDropdown: { position: 'absolute', top: 50, left: 0, width: 300, backgroundColor: '#FFF', borderRadius: 12, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 10, borderWidth: 1, borderColor: '#E2E8F0', zIndex: 999 },
-  filterGroupTitle: { fontSize: 13, fontWeight: 'bold', color: '#64748B', marginBottom: 8 },
-  filterToggleGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  filterToggleBtn: { backgroundColor: '#F8FAFC', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: '#E2E8F0' },
+  filterBtnText: { fontSize: 13, color: '#334155', marginLeft: 6, fontWeight: '600' },
+  inlineDropdown: { position: 'absolute', top: 48, left: 0, width: 290, backgroundColor: '#FFF', borderRadius: 12, padding: 18, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 10, elevation: 8, borderWidth: 1, borderColor: '#E2E8F0', zIndex: 999 },
+  filterGroupTitle: { fontSize: 12, fontWeight: 'bold', color: '#64748B', marginBottom: 8 },
+  filterToggleGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  filterToggleBtn: { backgroundColor: '#F8FAFC', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 18, borderWidth: 1, borderColor: '#E2E8F0' },
   filterToggleBtnActive: { backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' },
-  filterToggleText: { fontSize: 12, color: '#475569', fontWeight: '600' },
+  filterToggleText: { fontSize: 12, color: '#475569', fontWeight: '500' },
   filterToggleTextActive: { color: '#FFF' },
 
   datePickerGroup: { flexDirection: 'row', alignItems: 'center' },
-  dateBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 6, paddingHorizontal: 10, height: 40, width: 110, backgroundColor: '#FFF' },
-  dateBoxText: { borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 6, paddingHorizontal: 10, height: 40, width: 110, backgroundColor: '#FFF', fontSize: 12, textAlign: 'center', outlineStyle: 'none' },
-  dateText: { fontSize: 12, color: '#6B7280' },
+  webDatePickerRow: { flexDirection: 'row', alignItems: 'center' },
+  webDateInputWrapper: { height: 40, justifyContent: 'center' },
+  mobileDateRow: { flexDirection: 'row', alignItems: 'center' },
+  dateBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 8, paddingHorizontal: 10, height: 40, width: 115, backgroundColor: '#FFF' },
+  dateText: { fontSize: 12, color: '#64748B' },
   
-  exportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 6, height: 40, paddingHorizontal: 15, backgroundColor: '#FFF' },
-  exportBtnText: { fontSize: 13, color: '#374151', marginLeft: 6, fontWeight: 'bold' },
+  exportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 8, height: 40, paddingHorizontal: 14, backgroundColor: '#FFF' },
+  exportBtnText: { fontSize: 13, color: '#334155', marginLeft: 6, fontWeight: '600' },
 
-  tableContainer: { backgroundColor: '#FFF', borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden', minWidth: 1050, zIndex: 1 },
-  tableHeaderRow: { flexDirection: 'row', backgroundColor: '#F9FAFB', borderBottomWidth: 1, borderBottomColor: '#E5E7EB', paddingVertical: 14 },
-  headerCell: { fontSize: 13, fontWeight: 'bold', color: '#374151', textAlign: 'center' },
-  tableDataRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingVertical: 14, alignItems: 'center' },
-  dataCell: { fontSize: 13, color: '#4B5563', textAlign: 'center' },
-  emptyText: { textAlign: 'center', padding: 30, color: '#9CA3AF', fontSize: 13 },
+  tableCard: { backgroundColor: '#FFF', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
+  tableContainer: { width: '100%', minWidth: 1000, zIndex: 1 },
+  tableHeaderRow: { flexDirection: 'row', backgroundColor: '#F8FAFC', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingVertical: 12, paddingHorizontal: 8 },
+  headerCell: { fontSize: 13, fontWeight: '600', color: '#475569', textAlign: 'center' },
+  tableDataRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingVertical: 12, paddingHorizontal: 8, alignItems: 'center', backgroundColor: '#FFF' },
+  tableDataRowAlt: { backgroundColor: '#FAF8FF' },
+  dataCell: { fontSize: 13, color: '#475569', textAlign: 'center' },
+  emptyText: { textAlign: 'center', padding: 35, color: '#94A3B8', fontSize: 13 },
   
-  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   badgeText: { fontSize: 11, fontWeight: 'bold' },
   roleTag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
   roleTagText: { fontSize: 11, fontWeight: 'bold' },
@@ -709,10 +771,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#F59E0B',
     paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 6,
     alignItems: 'center',
-    justify: 'center',
+    justifyContent: 'center',
   },
   notifyBtnText: {
     color: '#FFF',
