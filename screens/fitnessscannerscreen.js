@@ -46,7 +46,45 @@ export default function FitnessScannerScreen({ navigation }) {
     return checkDigit === parseInt(clean.charAt(12), 10);
   };
 
-  // 🌟 ระบบสแกนหน้าบัตรอัตโนมัติ (Auto-Scan Loop เสถียรทั้งบน Web และ Mobile)
+  // 🌟 ฟังก์ชันดึงภาพเฟรมกล้องที่แก้ปัญหากลับด้าน (Un-mirror) สำหรับ Web และเสถียรรองรับ Mobile
+  const captureFrame = async () => {
+    if (Platform.OS === 'web') {
+      try {
+        const videoElem = document.querySelector('video');
+        if (!videoElem || videoElem.readyState < 2) return null;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = videoElem.videoWidth || 1280;
+        canvas.height = videoElem.videoHeight || 720;
+        const ctx = canvas.getContext('2d');
+
+        // 🌟 พลิกภาพจาก Mirror Effect กลับด้าน ให้ตัวอักษรและเลขบัตรอยู่ในทิศทางปกติ
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.45);
+        return dataUrl.split(',')[1];
+      } catch (e) {
+        console.log('Web capture frame error:', e);
+        return null;
+      }
+    } else {
+      if (!cameraRef.current) return null;
+      const photo = await cameraRef.current.takePictureAsync({ 
+        quality: 0.35, 
+        base64: true,
+        skipProcessing: true,
+        exif: false,
+        shutterSound: false
+      });
+      let clean = photo?.base64 || '';
+      if (clean.includes(',')) clean = clean.split(',')[1];
+      return clean;
+    }
+  };
+
+  // 🌟 ระบบสแกนหน้าบัตรอัตโนมัติ (Auto-Scan Loop แบบ QR Code)
   useEffect(() => {
     let timerId = null;
     let isMounted = true;
@@ -59,25 +97,13 @@ export default function FitnessScannerScreen({ navigation }) {
         !loading &&
         !verifyModalVisible &&
         !errorModalVisible &&
-        cameraRef.current &&
         !isProcessingRef.current
       ) {
         isProcessingRef.current = true;
         try {
-          const captureOptions = Platform.OS === 'web' 
-            ? { quality: 0.4, base64: true }
-            : { quality: 0.4, base64: true, skipProcessing: true, exif: false, shutterSound: false };
-
-          const photo = await cameraRef.current.takePictureAsync(captureOptions);
-
-          if (photo?.base64 && isMounted) {
-            // คลีน Data URI Prefix ออกเพื่อรองรับ Web Browser
-            let cleanBase64 = photo.base64;
-            if (cleanBase64.includes(',')) {
-              cleanBase64 = cleanBase64.split(',')[1];
-            }
-
-            const citizenId = await processCardOCR(cleanBase64, true);
+          const base64Image = await captureFrame();
+          if (base64Image && isMounted) {
+            const citizenId = await processCardOCR(base64Image, true);
             if (citizenId && isValidThaiCitizenId(citizenId) && isMounted) {
               await processAutoCapturedCard(citizenId);
               isProcessingRef.current = false;
@@ -91,14 +117,28 @@ export default function FitnessScannerScreen({ navigation }) {
         }
       }
 
-      // วนรอบสแกนถัดไปหลังจากประมวลผลเสร็จแล้วเท่านั้น ป้องกันคิวคำขอค้าง
-      if (isMounted && scanMode === 'external' && isCameraActive && !scanned && !loading && !verifyModalVisible && !errorModalVisible) {
-        timerId = setTimeout(autoScanCard, 800);
+      if (
+        isMounted && 
+        scanMode === 'external' && 
+        isCameraActive && 
+        !scanned && 
+        !loading && 
+        !verifyModalVisible && 
+        !errorModalVisible
+      ) {
+        timerId = setTimeout(autoScanCard, 400);
       }
     };
 
-    if (scanMode === 'external' && isCameraActive && !scanned && !loading && !verifyModalVisible && !errorModalVisible) {
-      timerId = setTimeout(autoScanCard, 800);
+    if (
+      scanMode === 'external' && 
+      isCameraActive && 
+      !scanned && 
+      !loading && 
+      !verifyModalVisible && 
+      !errorModalVisible
+    ) {
+      timerId = setTimeout(autoScanCard, 300);
     }
 
     return () => {
@@ -295,21 +335,13 @@ export default function FitnessScannerScreen({ navigation }) {
   };
 
   const handleCaptureCard = async () => {
-    if (!cameraRef.current) return;
-
     setLoading(true);
     setLoadingText('กำลังจับภาพ...');
 
     try {
-      const captureOptions = Platform.OS === 'web' 
-        ? { quality: 0.4, base64: true }
-        : { quality: 0.4, base64: true, skipProcessing: true, exif: false, shutterSound: false };
-
-      const photo = await cameraRef.current.takePictureAsync(captureOptions);
-
-      let cleanBase64 = photo.base64;
-      if (cleanBase64 && cleanBase64.includes(',')) {
-        cleanBase64 = cleanBase64.split(',')[1];
+      const cleanBase64 = await captureFrame();
+      if (!cleanBase64) {
+        throw new Error('ไม่สามารถจับภาพจากกล้องได้ กรุณาลองใหม่อีกครั้ง');
       }
 
       setLoadingText('กำลังอ่านเลขบัตร...');
