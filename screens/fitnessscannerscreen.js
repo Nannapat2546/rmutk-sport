@@ -28,21 +28,6 @@ export default function FitnessScannerScreen({ navigation }) {
   // 🌟 ใช้ URL ของ Render
   const API_URL = 'https://rmutk-sport.onrender.com';
 
-  // 🌟 ฟังก์ชันตรวจสอบความถูกต้องของเลขบัตรประชาชนไทย (Modulus 11 Checksum)
-  const isValidThaiCitizenId = (id) => {
-    if (!id || typeof id !== 'string') return false;
-    const clean = id.replace(/\D/g, '');
-    if (clean.length !== 13) return false;
-    if (clean.startsWith('0')) return false;
-
-    let sum = 0;
-    for (let i = 0; i < 12; i++) {
-      sum += parseInt(clean.charAt(i), 10) * (13 - i);
-    }
-    const checkDigit = (11 - (sum % 11)) % 10;
-    return checkDigit === parseInt(clean.charAt(12), 10);
-  };
-
   if (!permission) {
     return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#00A87E" /></View>;
   }
@@ -64,10 +49,16 @@ export default function FitnessScannerScreen({ navigation }) {
     setLoading(false);
   };
 
-  // 🌟 ประมวลผลจากรหัสสแกน QR Code หรือป้อนรหัส
+  // 🌟 ระบบประมวลผล QR Code และ Barcode อัตโนมัติเมื่อกล้องส่องเจอ
   const processScannedCode = async (code) => {
     if (scanned || loading) return;
-    const cleanCode = String(code).trim().replace(/\D/g, '') || String(code).trim();
+
+    const rawData = String(code).trim();
+    
+    // ดึงชุดตัวเลข 13 หลักถ้ามี (สำหรับกรณีบาร์โค้ดบัตรที่มีขีดหรือตัวอักษรปน)
+    const matched13Digits = rawData.match(/\d{13}/);
+    const cleanCode = matched13Digits ? matched13Digits[0] : (rawData.replace(/\D/g, '') || rawData);
+
     setScanned(true);
     setLoading(true);
     setLoadingText('กำลังตรวจสอบข้อมูลในระบบ...');
@@ -94,12 +85,13 @@ export default function FitnessScannerScreen({ navigation }) {
           return;
         }
 
-        let userProfileImg = null;
+        // 🌟 ดึงรูปภาพบัตรประชาชนที่สแกนลงทะเบียนไว้ตอนสมัครสมาชิกเป็นอันดับแรก
+        let registeredCardImg = result.id_card_image || null;
         try {
           const detailRes = await fetch(`${API_URL}/api/admin/users/${result.id}/detail`);
           if (detailRes.ok) {
             const detailData = await detailRes.json();
-            userProfileImg = detailData.id_card_image || detailData.profile_image || detailData.avatar || null;
+            registeredCardImg = detailData.id_card_image || detailData.profile_image || detailData.avatar || registeredCardImg;
           }
         } catch (e) {
           console.log('Could not fetch detail image:', e);
@@ -107,106 +99,17 @@ export default function FitnessScannerScreen({ navigation }) {
 
         setScannedUser({ 
           ...result, 
-          liveImage: userProfileImg || result.id_card_image || result.profile_image || null 
+          liveImage: registeredCardImg 
         });
         setScanMode(null); 
         setVerifyModalVisible(true); 
       } else {
-        showErrorPopup(`ไม่พบข้อมูลสมาชิกในระบบ (รหัส: ${cleanCode})\nบัตรนี้อาจยังไม่ได้ลงทะเบียนสมัครสมาชิกครับ`);
+        showErrorPopup(`ไม่พบข้อมูลสมาชิกในระบบ (รหัสที่อ่านได้: ${cleanCode})\nบัตรนี้อาจยังไม่ได้ลงทะเบียนสมัครสมาชิกครับ`);
         setTimeout(() => setScanned(false), 2000);
       }
     } catch (error) {
       showErrorPopup('เกิดข้อผิดพลาด: ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
       setTimeout(() => setScanned(false), 2000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 🌟 ฟังก์ชันดึงภาพถ่ายสำหรับอ่าน OCR บัตรประชาชน (รองรับทั้ง Web และ Mobile)
-  const captureFrame = async () => {
-    if (Platform.OS === 'web') {
-      try {
-        const videoElem = document.querySelector('video');
-        if (!videoElem || videoElem.readyState < 2) return null;
-
-        const canvas = document.createElement('canvas');
-        canvas.width = videoElem.videoWidth || 1280;
-        canvas.height = videoElem.videoHeight || 720;
-        const ctx = canvas.getContext('2d');
-
-        // พลิกภาพสลับซ้าย-ขวาแก้ Mirror บน Web
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
-
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-        return dataUrl.split(',')[1];
-      } catch (e) {
-        return null;
-      }
-    } else {
-      if (!cameraRef.current) return null;
-      const photo = await cameraRef.current.takePictureAsync({ 
-        quality: 0.5, 
-        base64: true,
-        skipProcessing: true,
-        exif: false,
-        shutterSound: false
-      });
-      let clean = photo?.base64 || '';
-      if (clean.includes(',')) clean = clean.split(',')[1];
-      return clean;
-    }
-  };
-
-  // 🌟 ฟังก์ชันส่งอ่าน OCR เมื่อกดปุ่ม "ถ่ายภาพบัตร"
-  const handleCaptureCard = async () => {
-    if (scanned || loading) return;
-    setLoading(true);
-    setLoadingText('กำลังจับภาพและอ่านเลขบัตร...');
-
-    try {
-      const base64Image = await captureFrame();
-      if (!base64Image) {
-        throw new Error('ไม่สามารถจับภาพจากกล้องได้ กรุณาถือบัตรให้นิ่งแล้วลองอีกครั้ง');
-      }
-
-      const response = await fetch(`${API_URL}/api/ocr`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64Image })
-      });
-
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.message || 'ไม่สามารถอ่านข้อความจากภาพบัตรได้');
-      }
-
-      // ตรวจหาเลขประจำตัวประชาชน 13 หลัก
-      let citizenId = result.citizenId ? String(result.citizenId).replace(/\D/g, '') : '';
-      if (!isValidThaiCitizenId(citizenId)) {
-        const rawText = result.text || '';
-        const allDigitsMatches = rawText.match(/\d+/g) || [];
-        const combinedDigits = allDigitsMatches.join('');
-
-        for (let i = 0; i <= combinedDigits.length - 13; i++) {
-          const candidate = combinedDigits.substring(i, i + 13);
-          if (isValidThaiCitizenId(candidate)) {
-            citizenId = candidate;
-            break;
-          }
-        }
-      }
-
-      if (!citizenId || citizenId.length !== 13) {
-        throw new Error('อ่านเลขบัตรไม่ชัดเจน กรุณาถือบัตรให้อยู่ในกรอบ แสงสว่างเพียงพอ แล้วกดถ่ายอีกครั้งครับ');
-      }
-
-      setLoadingText('กำลังตรวจสอบข้อมูลในระบบ...');
-      await processScannedCode(citizenId);
-    } catch (error) {
-      showErrorPopup(error.message || 'เกิดข้อผิดพลาดในการประมวลผลบัตร');
     } finally {
       setLoading(false);
     }
@@ -254,7 +157,7 @@ export default function FitnessScannerScreen({ navigation }) {
         <TouchableOpacity style={styles.bigButtonExternal} onPress={() => { setScanMode('external'); setIsCameraActive(true); setScanned(false); setManualCode(''); }}>
           <Ionicons name="id-card" size={60} color="#F5A623" style={{marginBottom: 10}} />
           <Text style={styles.bigButtonTitle}>บุคคลภายนอก</Text>
-          <Text style={styles.bigButtonDesc}>สแกน QR Code หรือ ถ่ายภาพบัตรประชาชน</Text>
+          <Text style={styles.bigButtonDesc}>สแกน QR Code หรือ บาร์โค้ด บนบัตร</Text>
         </TouchableOpacity>
       </View>
 
@@ -264,7 +167,7 @@ export default function FitnessScannerScreen({ navigation }) {
             
             <View style={[styles.modalHeader, { padding: 20, paddingBottom: 15, marginBottom: 0 }]}>
               <Text style={styles.modalTitle}>
-                {scanMode === 'student' ? 'สแกน QR Code นักศึกษา' : 'สแกน QR หรือ ถ่ายภาพบัตร'}
+                {scanMode === 'student' ? 'สแกน QR Code นักศึกษา' : 'สแกน QR Code / บาร์โค้ด'}
               </Text>
               <TouchableOpacity onPress={() => { setScanMode(null); setScanned(false); }}>
                 <Ionicons name="close" size={24} color="#555" />
@@ -279,7 +182,9 @@ export default function FitnessScannerScreen({ navigation }) {
                     facing="back"
                     autofocus="on"
                     onBarcodeScanned={scanned || loading ? undefined : ({ data }) => processScannedCode(data)}
-                    barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+                    barcodeScannerSettings={{ 
+                      barcodeTypes: ["qr", "code128", "code39", "pdf417", "ean13", "code93"] 
+                    }}
                     style={StyleSheet.absoluteFillObject}
                   />
                   
@@ -290,9 +195,7 @@ export default function FitnessScannerScreen({ navigation }) {
                       <View style={[styles.corner, styles.bottomLeft]} />
                       <View style={[styles.corner, styles.bottomRight]} />
                     </View>
-                    <Text style={styles.scanHintText}>
-                      {scanMode === 'student' ? 'วาง QR Code ให้อยู่ในกรอบ' : 'สแกน QR หรือ วางบัตรประชาชนให้อยู่ในกรอบ'}
-                    </Text>
+                    <Text style={styles.scanHintText}>ส่อง QR Code หรือ บาร์โค้ด ให้อยู่ในกรอบ</Text>
                   </View>
                 </View>
               ) : (
@@ -320,12 +223,6 @@ export default function FitnessScannerScreen({ navigation }) {
               <TouchableOpacity style={styles.btnGray} onPress={() => setIsCameraActive(!isCameraActive)}>
                 <Text style={styles.btnGrayText}>{isCameraActive ? 'ป้อนรหัสด้วยตนเอง' : 'เปิดกล้อง'}</Text>
               </TouchableOpacity>
-
-              {isCameraActive && scanMode === 'external' && (
-                <TouchableOpacity style={[styles.btnAction, { backgroundColor: '#00A87E', flex: 1 }]} onPress={handleCaptureCard}>
-                  <Text style={styles.btnTextWhite}>ถ่ายภาพบัตร</Text>
-                </TouchableOpacity>
-              )}
               
               {!isCameraActive && (
                 <TouchableOpacity style={[styles.btnAction, { backgroundColor: '#1E8E3E', flex: 1 }]} onPress={handleManualSubmit}>
@@ -356,6 +253,7 @@ export default function FitnessScannerScreen({ navigation }) {
         </View>
       </Modal>
 
+      {/* 🌟 หน้าต่างป๊อปอัพตรวจสอบข้อมูล พร้อมรูปบัตรประชาชนจากการสมัครสมาชิก */}
       <Modal transparent={true} visible={verifyModalVisible} animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.verifyModalBox}>
@@ -369,7 +267,8 @@ export default function FitnessScannerScreen({ navigation }) {
                 <Image source={{ uri: scannedUser.liveImage }} style={styles.idCardImage} />
               ) : (
                 <View style={styles.noImagePlaceholder}>
-                  <Ionicons name="person-circle-outline" size={80} color="#CBD5E1" />
+                  <Ionicons name="id-card-outline" size={70} color="#CBD5E1" />
+                  <Text style={{ color: '#94A3B8', marginTop: 5, fontSize: 12 }}>ไม่มีรูปภาพบัตรในระบบ</Text>
                 </View>
               )}
             </View>
@@ -424,7 +323,7 @@ const styles = StyleSheet.create({
   scannerBox: { width: '100%', height: 260, backgroundColor: '#F1F5F9', borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#CBD5E1', overflow: 'hidden', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
   
   cameraOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  scanFrame: { width: 220, height: 150, backgroundColor: 'transparent', position: 'relative' }, 
+  scanFrame: { width: 240, height: 150, backgroundColor: 'transparent', position: 'relative' }, 
   corner: { position: 'absolute', width: 28, height: 28, borderColor: '#00A87E' },
   topLeft: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4 },
   topRight: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4 },
@@ -447,7 +346,19 @@ const styles = StyleSheet.create({
   verifyModalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, gap: 10 },
   verifyModalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
   
-  idCardImageContainer: { width: 120, height: 120, borderRadius: 60, backgroundColor: '#F1F5F9', overflow: 'hidden', marginBottom: 20, borderWidth: 2, borderColor: '#E2E8F0', alignSelf: 'center' },
+  // 🌟 ปรับดีไซน์กรอบแสดงผลภาพบัตรประชาชนเป็นทรงสี่เหลี่ยมผืนผ้าแบบเดียวกับบัตรจริง
+  idCardImageContainer: { 
+    width: '100%', 
+    height: 180, 
+    borderRadius: 12, 
+    backgroundColor: '#F1F5F9', 
+    overflow: 'hidden', 
+    marginBottom: 20, 
+    borderWidth: 1.5, 
+    borderColor: '#CBD5E1', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
   idCardImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   noImagePlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
 
