@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, SafeAreaView, 
   Modal, Image, ActivityIndicator, Platform, TextInput 
@@ -10,7 +10,6 @@ export default function FitnessScannerScreen({ navigation }) {
   const [permission, requestPermission] = useCameraPermissions();
   
   const cameraRef = useRef(null);
-  const isScanningRef = useRef(false);
   
   const [scanMode, setScanMode] = useState(null); 
   const [scanned, setScanned] = useState(false);
@@ -34,6 +33,8 @@ export default function FitnessScannerScreen({ navigation }) {
     if (!id || typeof id !== 'string') return false;
     const clean = id.replace(/\D/g, '');
     if (clean.length !== 13) return false;
+    
+    // เลขบัตรประชาชนไทยขึ้นต้นด้วย 0 หรือ 9 ไม่ได้
     if (clean.startsWith('0')) return false;
 
     let sum = 0;
@@ -43,102 +44,6 @@ export default function FitnessScannerScreen({ navigation }) {
     const checkDigit = (11 - (sum % 11)) % 10;
     return checkDigit === parseInt(clean.charAt(12), 10);
   };
-
-  // 🌟 สแกนบาร์โค้ดบน Web ด้วย HD Video Stream & Native BarcodeDetector / ZXing
-  useEffect(() => {
-    let timerId = null;
-    let zxingReader = null;
-    let isMounted = true;
-
-    if (Platform.OS === 'web' && scanMode !== null && isCameraActive && !scanned && !loading && !verifyModalVisible) {
-      const initWebBarcodeScanner = async () => {
-        try {
-          const videoElem = document.querySelector('video');
-          if (!videoElem) return;
-
-          // ปรับความละเอียดวิดีโอเป็น HD เพื่อความคมชัดของแถบบาร์โค้ด
-          if (videoElem.srcObject && videoElem.srcObject.getVideoTracks) {
-            const track = videoElem.srcObject.getVideoTracks()[0];
-            if (track && track.applyConstraints) {
-              await track.applyConstraints({
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
-                advanced: [{ focusMode: 'continuous' }]
-              }).catch(() => {});
-            }
-          }
-
-          // 1. ใช้ Native BarcodeDetector API ของเบราว์เซอร์ถ้ามี (เร็วและแม่นยำที่สุด)
-          if ('BarcodeDetector' in window) {
-            const detector = new window.BarcodeDetector({
-              formats: ['code_128', 'code_39', 'pdf417', 'qr_code', 'ean_13']
-            });
-
-            const scanNativeFrame = async () => {
-              if (!isMounted || scanned || loading || isScanningRef.current) return;
-              if (videoElem.readyState >= 2) {
-                try {
-                  const barcodes = await detector.detect(videoElem);
-                  if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
-                    processScannedCode(barcodes[0].rawValue);
-                    return;
-                  }
-                } catch (e) {}
-              }
-              if (isMounted && !scanned && !loading) {
-                timerId = setTimeout(scanNativeFrame, 200);
-              }
-            };
-            scanNativeFrame();
-            return;
-          }
-
-          // 2. ถ้าไม่มี BarcodeDetector ให้โหลดเอนจิน ZXing สำรอง
-          if (!window.ZXing) {
-            await new Promise((resolve, reject) => {
-              const script = document.createElement('script');
-              script.src = 'https://unpkg.com/@zxing/library@latest';
-              script.onload = resolve;
-              script.onerror = reject;
-              document.head.appendChild(script);
-            });
-          }
-
-          if (window.ZXing && isMounted) {
-            zxingReader = new window.ZXing.BrowserMultiFormatReader();
-            const scanZXingFrame = async () => {
-              if (!isMounted || scanned || loading || isScanningRef.current) return;
-              if (videoElem.readyState >= 2) {
-                try {
-                  const result = await zxingReader.decodeFromVideoElement(videoElem);
-                  if (result && result.text) {
-                    processScannedCode(result.text);
-                    return;
-                  }
-                } catch (e) {}
-              }
-              if (isMounted && !scanned && !loading) {
-                timerId = setTimeout(scanZXingFrame, 300);
-              }
-            };
-            scanZXingFrame();
-          }
-        } catch (err) {
-          console.log('Web scanner setup error:', err);
-        }
-      };
-
-      initWebBarcodeScanner();
-    }
-
-    return () => {
-      isMounted = false;
-      if (timerId) clearTimeout(timerId);
-      if (zxingReader) {
-        try { zxingReader.reset(); } catch (e) {}
-      }
-    };
-  }, [scanMode, isCameraActive, scanned, loading, verifyModalVisible]);
 
   if (!permission) {
     return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#00A87E" /></View>;
@@ -161,30 +66,9 @@ export default function FitnessScannerScreen({ navigation }) {
     setLoading(false);
   };
 
-  // 🌟 ประมวลผลรหัสที่สแกนได้จากทั้ง QR, Barcode และ Manual Input
   const processScannedCode = async (code) => {
-    if (scanned || loading || isScanningRef.current) return;
-    isScanningRef.current = true;
-
-    const rawData = String(code).trim();
-    // ดึงเฉพาะตัวเลขทั้งหมด (ลบขีด - เว้นวรรค และตัวอักษรออก)
-    const onlyDigits = rawData.replace(/\D/g, '');
-    let cleanCode = '';
-
-    // ค้นหาชุดตัวเลข 13 หลัก
-    if (onlyDigits.length >= 13) {
-      const match = onlyDigits.match(/\d{13}/);
-      cleanCode = match ? match[0] : onlyDigits.substring(0, 13);
-    } else {
-      cleanCode = rawData;
-    }
-
-    // หากอยู่ในโหมดบุคคลภายนอก แล้วรหัสที่อ่านได้ยังไม่ใช่เลข 13 หลัก ให้สแกนต่อ
-    if (scanMode === 'external' && cleanCode.length !== 13) {
-      isScanningRef.current = false;
-      return;
-    }
-
+    if (scanned) return;
+    const cleanCode = String(code).trim().replace(/\D/g, '') || String(code).trim();
     setScanned(true);
     setLoading(true);
     setLoadingText('กำลังตรวจสอบข้อมูลในระบบ...');
@@ -196,12 +80,12 @@ export default function FitnessScannerScreen({ navigation }) {
       if (response.ok) {
         if (scanMode === 'student' && result.role !== 'student') {
           showErrorPopup('ข้อมูลไม่ถูกต้อง: บัตรนี้ไม่ใช่สถานะนักศึกษา กรุณาตรวจสอบประเภทผู้เข้าใช้งาน');
-          setTimeout(() => { setScanned(false); isScanningRef.current = false; }, 2000);
+          setTimeout(() => setScanned(false), 2000);
           return;
         }
         if (scanMode === 'external' && result.role !== 'external') {
           showErrorPopup('ข้อมูลไม่ถูกต้อง: บัตรนี้ไม่ใช่สถานะบุคคลภายนอก กรุณาตรวจสอบประเภทผู้เข้าใช้งาน');
-          setTimeout(() => { setScanned(false); isScanningRef.current = false; }, 2000);
+          setTimeout(() => setScanned(false), 2000);
           return;
         }
 
@@ -216,7 +100,7 @@ export default function FitnessScannerScreen({ navigation }) {
           const detailRes = await fetch(`${API_URL}/api/admin/users/${result.id}/detail`);
           if (detailRes.ok) {
             const detailData = await detailRes.json();
-            userProfileImg = detailData.id_card_image || detailData.profile_image || detailData.avatar || null;
+            userProfileImg = detailData.profile_image || detailData.id_card_image || detailData.avatar || null;
           }
         } catch (e) {
           console.log('Could not fetch detail image:', e);
@@ -224,20 +108,121 @@ export default function FitnessScannerScreen({ navigation }) {
 
         setScannedUser({ 
           ...result, 
-          liveImage: userProfileImg || result.id_card_image || result.profile_image || null 
+          liveImage: userProfileImg 
         });
         setScanMode(null); 
         setVerifyModalVisible(true); 
       } else {
-        showErrorPopup(`ไม่พบข้อมูลสมาชิกในระบบ (รหัสที่อ่านได้: ${cleanCode})\nบัตรนี้อาจยังไม่ได้ลงทะเบียนสมัครสมาชิกครับ`);
-        setTimeout(() => { setScanned(false); isScanningRef.current = false; }, 2000);
+        showErrorPopup('ไม่พบข้อมูลสมาชิกในระบบ\nบัตรนี้อาจยังไม่ได้ลงทะเบียนสมัครสมาชิก กรุณาลงทะเบียนก่อนใช้งานครับ');
+        setTimeout(() => setScanned(false), 2000);
       }
     } catch (error) {
       showErrorPopup('เกิดข้อผิดพลาด: ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
-      setTimeout(() => { setScanned(false); isScanningRef.current = false; }, 2000);
+      setTimeout(() => setScanned(false), 2000);
     } finally {
       setLoading(false);
-      isScanningRef.current = false;
+    }
+  };
+
+  const processCardOCR = async (base64Image) => {
+    try {
+      const response = await fetch(`${API_URL}/api/ocr`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ image: base64Image })
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || 'ไม่สามารถอ่านข้อความจากรูปภาพได้');
+      }
+
+      // 1. ตรวจสอบเลขจาก result.citizenId ก่อน
+      let primaryId = result.citizenId ? String(result.citizenId).replace(/\D/g, '') : '';
+      if (isValidThaiCitizenId(primaryId)) {
+        return primaryId;
+      }
+
+      // 2. ถ้า primaryId ไม่ถูกต้อง ให้ค้นหาตัวเลขทั้งหมดในข้อความที่ OCR อ่านได้
+      const rawText = result.text || '';
+      const allDigitsMatches = rawText.match(/\d+/g) || [];
+      const combinedDigits = allDigitsMatches.join('');
+
+      // ค้นหาชุดตัวเลข 13 หลักทุกชุดในข้อความ
+      const candidates = [];
+      for (let i = 0; i <= combinedDigits.length - 13; i++) {
+        const candidate = combinedDigits.substring(i, i + 13);
+        candidates.push(candidate);
+      }
+
+      // ตรวจหาตัวเลขที่ผ่านสูตร Checksum บัตรประชาชนไทย
+      const validCandidate = candidates.find(candidate => isValidThaiCitizenId(candidate));
+
+      if (validCandidate) {
+        return validCandidate;
+      }
+
+      // 3. หากยังไม่ผ่านสูตร แต่มีเลข 13 หลักหลักๆ ให้สำรองใช้งาน
+      if (primaryId.length === 13) {
+        return primaryId;
+      }
+
+      throw new Error('ระบบไม่สามารถระบุเลขบัตรประชาชนได้ชัดเจน กรุณาถือบัตรให้อยู่ในกรอบ แสงสว่างพอดี และกดถ่ายใหม่อีกครั้งครับ');
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleCaptureCard = async () => {
+    if (!cameraRef.current) return;
+
+    setLoading(true);
+    setLoadingText('กำลังจับภาพ...');
+
+    try {
+      // 🌟 เร่งความเร็วสปีดสูงสุด: ปรับ quality เหลือ 0.15 ย่อขนาดไฟล์ Base64 เหลือเพียง 20-50KB
+      const photo = await cameraRef.current.takePictureAsync({ 
+        quality: 0.15, 
+        base64: true,
+        skipProcessing: true,
+        exif: false,
+        shutterSound: false
+      });
+      
+      // ใช้ URI ไฟล์ในเครื่องแทน Base64 สตริงยาวในการแสดงรูป เพื่อไม่ให้เครื่องกระตุก
+      const capturedImageUri = photo.uri;
+
+      setLoadingText('กำลังอ่านเลขบัตร...');
+      const citizenId = await processCardOCR(photo.base64);
+
+      setLoadingText('กำลังตรวจสอบระบบ...');
+      
+      const response = await fetch(`${API_URL}/api/users/scan/${encodeURIComponent(citizenId)}`);
+      const result = await response.json();
+
+      if (response.ok) {
+        if (result.role !== 'external') {
+          showErrorPopup('ข้อมูลไม่ถูกต้อง: บัตรนี้ถูกบันทึกเป็นสถานะนักศึกษา');
+          setLoading(false);
+          return;
+        }
+
+        // แสดงรูปถ่ายจากเครื่องลงในหน้ายืนยันข้อมูลทันที
+        setScannedUser({ 
+          ...result, 
+          liveImage: capturedImageUri 
+        }); 
+        setScanMode(null);
+        setVerifyModalVisible(true);
+      } else {
+        showErrorPopup(`ไม่พบข้อมูลสมาชิกในระบบ (เลขบัตรที่อ่านได้: ${citizenId})\nบัตรประชาชนนี้ยังไม่ได้ลงทะเบียนสมัครสมาชิกครับ`);
+      }
+    } catch (error) {
+      showErrorPopup(error.message || 'เกิดข้อผิดพลาดในการประมวลผลบัตร');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -249,7 +234,6 @@ export default function FitnessScannerScreen({ navigation }) {
   const cancelUser = () => {
     setVerifyModalVisible(false);
     setScanned(false);
-    isScanningRef.current = false;
   };
 
   const handleManualSubmit = () => {
@@ -275,28 +259,28 @@ export default function FitnessScannerScreen({ navigation }) {
         <Text style={styles.selectionTitle}>กรุณาเลือกประเภทผู้เข้าใช้งาน</Text>
         <Text style={styles.selectionSubtitle}>ระบบจะตั้งค่าการสแกนตามประเภทที่เลือก</Text>
 
-        <TouchableOpacity style={styles.bigButtonStudent} onPress={() => { setScanMode('student'); setIsCameraActive(true); setScanned(false); setManualCode(''); isScanningRef.current = false; }}>
+        <TouchableOpacity style={styles.bigButtonStudent} onPress={() => { setScanMode('student'); setIsCameraActive(true); setScanned(false); setManualCode(''); }}>
           <Ionicons name="school" size={60} color="#00A87E" style={{marginBottom: 10}} />
           <Text style={styles.bigButtonTitle}>นักศึกษา</Text>
           <Text style={styles.bigButtonDesc}>สแกน QR Code จากแอปพลิเคชัน</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.bigButtonExternal} onPress={() => { setScanMode('external'); setIsCameraActive(true); setScanned(false); setManualCode(''); isScanningRef.current = false; }}>
+        <TouchableOpacity style={styles.bigButtonExternal} onPress={() => { setScanMode('external'); setIsCameraActive(true); setScanned(false); setManualCode(''); }}>
           <Ionicons name="id-card" size={60} color="#F5A623" style={{marginBottom: 10}} />
           <Text style={styles.bigButtonTitle}>บุคคลภายนอก</Text>
-          <Text style={styles.bigButtonDesc}>สแกนบาร์โค้ดบัตรประชาชน หรือ QR Code</Text>
+          <Text style={styles.bigButtonDesc}>สแกน QR Code หรือถ่ายภาพบัตรประชาชน</Text>
         </TouchableOpacity>
       </View>
 
-      <Modal animationType="fade" transparent={true} visible={scanMode !== null} onRequestClose={() => { setScanMode(null); setScanned(false); isScanningRef.current = false; }}>
+      <Modal animationType="fade" transparent={true} visible={scanMode !== null} onRequestClose={() => { setScanMode(null); setScanned(false); }}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { padding: 0, overflow: 'hidden' }]}>
             
             <View style={[styles.modalHeader, { padding: 20, paddingBottom: 15, marginBottom: 0 }]}>
               <Text style={styles.modalTitle}>
-                {scanMode === 'student' ? 'สแกน QR Code นักศึกษา' : 'สแกนบาร์โค้ด หรือ QR Code'}
+                {scanMode === 'student' ? 'สแกน QR Code นักศึกษา' : 'สแกน QR หรือ ถ่ายภาพบัตร'}
               </Text>
-              <TouchableOpacity onPress={() => { setScanMode(null); setScanned(false); isScanningRef.current = false; }}>
+              <TouchableOpacity onPress={() => { setScanMode(null); setScanned(false); }}>
                 <Ionicons name="close" size={24} color="#555" />
               </TouchableOpacity>
             </View>
@@ -308,10 +292,8 @@ export default function FitnessScannerScreen({ navigation }) {
                     ref={cameraRef}
                     facing="back"
                     autofocus="on"
-                    onBarcodeScanned={scanned || loading ? undefined : ({ data }) => processScannedCode(data)}
-                    barcodeScannerSettings={{ 
-                      barcodeTypes: ["qr", "code128", "code39", "pdf417", "ean13", "code93"] 
-                    }}
+                    onBarcodeScanned={scanned ? undefined : ({ data }) => processScannedCode(data)}
+                    barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
                     style={StyleSheet.absoluteFillObject}
                   />
                   
@@ -322,7 +304,6 @@ export default function FitnessScannerScreen({ navigation }) {
                       <View style={[styles.corner, styles.bottomLeft]} />
                       <View style={[styles.corner, styles.bottomRight]} />
                     </View>
-                    <Text style={styles.scanHintText}>วางแถบบาร์โค้ดขนานกับกรอบกล้อง</Text>
                   </View>
                 </View>
               ) : (
@@ -333,7 +314,6 @@ export default function FitnessScannerScreen({ navigation }) {
                     placeholderTextColor="#999" 
                     value={manualCode} 
                     onChangeText={setManualCode} 
-                    keyboardType="number-pad"
                   />
                 </View>
               )}
@@ -351,11 +331,17 @@ export default function FitnessScannerScreen({ navigation }) {
                 <Text style={styles.btnGrayText}>{isCameraActive ? 'ป้อนรหัสด้วยตนเอง' : 'เปิดกล้อง'}</Text>
               </TouchableOpacity>
               
-              {!isCameraActive && (
-                <TouchableOpacity style={[styles.btnAction, { backgroundColor: '#1E8E3E', flex: 1 }]} onPress={handleManualSubmit}>
-                  <Text style={styles.btnTextWhite}>ตกลง</Text>
-                </TouchableOpacity>
-              )}
+              <View style={{ flexDirection: 'row', gap: 10, flex: 1 }}>
+                {scanMode === 'external' && isCameraActive ? (
+                  <TouchableOpacity style={[styles.btnAction, { backgroundColor: '#00A87E' }]} onPress={handleCaptureCard}>
+                    <Text style={styles.btnTextWhite}>ถ่ายภาพบัตร</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity style={[styles.btnAction, { backgroundColor: '#1E8E3E' }]} onPress={handleManualSubmit}>
+                    <Text style={styles.btnTextWhite}>ตกลง</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
 
           </View>
@@ -372,7 +358,7 @@ export default function FitnessScannerScreen({ navigation }) {
             </Text>
             <TouchableOpacity 
               style={[styles.btnAction, { backgroundColor: '#D93025', width: '100%', paddingVertical: 12, borderRadius: 8 }]} 
-              onPress={() => { setErrorModalVisible(false); setScanned(false); isScanningRef.current = false; }}
+              onPress={() => { setErrorModalVisible(false); setScanned(false); }}
             >
               <Text style={{ color: '#FFF', fontWeight: 'bold', textAlign: 'center' }}>เข้าใจแล้ว</Text>
             </TouchableOpacity>
@@ -448,13 +434,12 @@ const styles = StyleSheet.create({
   scannerBox: { width: '100%', height: 260, backgroundColor: '#F1F5F9', borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#CBD5E1', overflow: 'hidden', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
   
   cameraOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  scanFrame: { width: 280, height: 110, backgroundColor: 'transparent', position: 'relative' }, 
-  corner: { position: 'absolute', width: 28, height: 28, borderColor: '#00A87E' },
+  scanFrame: { width: 170, height: 170, backgroundColor: 'transparent', position: 'relative' }, 
+  corner: { position: 'absolute', width: 30, height: 30, borderColor: '#FFF' },
   topLeft: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4 },
   topRight: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4 },
   bottomLeft: { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4 },
   bottomRight: { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4 },
-  scanHintText: { color: '#FFFFFF', marginTop: 15, fontSize: 13, fontWeight: '600', backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
 
   manualInputWrapper: { width: '85%', justifyContent: 'center' },
   manualInput: { borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 8, paddingHorizontal: 16, height: 50, backgroundColor: '#FFFFFF', fontSize: 16, textAlign: 'center' },
@@ -462,7 +447,7 @@ const styles = StyleSheet.create({
   modalFooter: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
   btnGray: { flex: 1, backgroundColor: '#F1F5F9', paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   btnGrayText: { fontSize: 13, color: '#475569', fontWeight: 'bold' },
-  btnAction: { paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  btnAction: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   btnTextWhite: { fontSize: 14, color: '#FFFFFF', fontWeight: 'bold' },
 
   loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center', zIndex: 10 },
