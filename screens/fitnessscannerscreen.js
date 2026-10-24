@@ -46,9 +46,10 @@ export default function FitnessScannerScreen({ navigation }) {
     return checkDigit === parseInt(clean.charAt(12), 10);
   };
 
-  // 🌟 ระบบสแกนหน้าบัตรอัตโนมัติ (Auto-Scan Loop แบบ QR Code)
+  // 🌟 ระบบสแกนหน้าบัตรอัตโนมัติ (Auto-Scan Loop เสถียรทั้งบน Web และ Mobile)
   useEffect(() => {
-    let intervalId = null;
+    let timerId = null;
+    let isMounted = true;
 
     const autoScanCard = async () => {
       if (
@@ -63,34 +64,46 @@ export default function FitnessScannerScreen({ navigation }) {
       ) {
         isProcessingRef.current = true;
         try {
-          const photo = await cameraRef.current.takePictureAsync({ 
-            quality: 0.15, 
-            base64: true,
-            skipProcessing: true,
-            exif: false,
-            shutterSound: false
-          });
+          const captureOptions = Platform.OS === 'web' 
+            ? { quality: 0.4, base64: true }
+            : { quality: 0.4, base64: true, skipProcessing: true, exif: false, shutterSound: false };
 
-          if (photo?.base64) {
-            const citizenId = await processCardOCR(photo.base64, true);
-            if (citizenId && isValidThaiCitizenId(citizenId)) {
+          const photo = await cameraRef.current.takePictureAsync(captureOptions);
+
+          if (photo?.base64 && isMounted) {
+            // คลีน Data URI Prefix ออกเพื่อรองรับ Web Browser
+            let cleanBase64 = photo.base64;
+            if (cleanBase64.includes(',')) {
+              cleanBase64 = cleanBase64.split(',')[1];
+            }
+
+            const citizenId = await processCardOCR(cleanBase64, true);
+            if (citizenId && isValidThaiCitizenId(citizenId) && isMounted) {
               await processAutoCapturedCard(citizenId);
+              isProcessingRef.current = false;
+              return;
             }
           }
         } catch (err) {
-          // สแกนเบื้องหลังเงียบๆ ไม่แสดง Error Popup หากยังส่องบัตรไม่ชัด
+          // สแกนเงียบๆ เบื้องหลัง หากยังส่องบัตรไม่ชัด
         } finally {
           isProcessingRef.current = false;
         }
       }
+
+      // วนรอบสแกนถัดไปหลังจากประมวลผลเสร็จแล้วเท่านั้น ป้องกันคิวคำขอค้าง
+      if (isMounted && scanMode === 'external' && isCameraActive && !scanned && !loading && !verifyModalVisible && !errorModalVisible) {
+        timerId = setTimeout(autoScanCard, 800);
+      }
     };
 
     if (scanMode === 'external' && isCameraActive && !scanned && !loading && !verifyModalVisible && !errorModalVisible) {
-      intervalId = setInterval(autoScanCard, 1200);
+      timerId = setTimeout(autoScanCard, 800);
     }
 
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      isMounted = false;
+      if (timerId) clearTimeout(timerId);
     };
   }, [scanMode, isCameraActive, scanned, loading, verifyModalVisible, errorModalVisible]);
 
@@ -175,12 +188,17 @@ export default function FitnessScannerScreen({ navigation }) {
 
   const processCardOCR = async (base64Image, silent = false) => {
     try {
+      let cleanBase64 = base64Image || '';
+      if (cleanBase64.includes(',')) {
+        cleanBase64 = cleanBase64.split(',')[1];
+      }
+
       const response = await fetch(`${API_URL}/api/ocr`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ image: base64Image })
+        body: JSON.stringify({ image: cleanBase64 })
       });
 
       const result = await response.json();
@@ -283,16 +301,19 @@ export default function FitnessScannerScreen({ navigation }) {
     setLoadingText('กำลังจับภาพ...');
 
     try {
-      const photo = await cameraRef.current.takePictureAsync({ 
-        quality: 0.15, 
-        base64: true,
-        skipProcessing: true,
-        exif: false,
-        shutterSound: false
-      });
+      const captureOptions = Platform.OS === 'web' 
+        ? { quality: 0.4, base64: true }
+        : { quality: 0.4, base64: true, skipProcessing: true, exif: false, shutterSound: false };
+
+      const photo = await cameraRef.current.takePictureAsync(captureOptions);
+
+      let cleanBase64 = photo.base64;
+      if (cleanBase64 && cleanBase64.includes(',')) {
+        cleanBase64 = cleanBase64.split(',')[1];
+      }
 
       setLoadingText('กำลังอ่านเลขบัตร...');
-      const citizenId = await processCardOCR(photo.base64);
+      const citizenId = await processCardOCR(cleanBase64);
 
       setLoadingText('กำลังตรวจสอบระบบ...');
       await processAutoCapturedCard(citizenId);
