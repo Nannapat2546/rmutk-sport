@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, SafeAreaView, 
   Modal, Image, ActivityIndicator, Platform, TextInput 
@@ -43,6 +43,61 @@ export default function FitnessScannerScreen({ navigation }) {
     return checkDigit === parseInt(clean.charAt(12), 10);
   };
 
+  // 🌟 สแกนบาร์โค้ดบนหน้าเว็บผ่าน ZXing Engine อัตโนมัติ
+  useEffect(() => {
+    let reader = null;
+    let timerId = null;
+
+    if (Platform.OS === 'web' && scanMode !== null && isCameraActive && !scanned && !loading && !verifyModalVisible) {
+      const loadZXingAndScan = async () => {
+        try {
+          if (!window.ZXing) {
+            await new Promise((resolve, reject) => {
+              const script = document.createElement('script');
+              script.src = 'https://unpkg.com/@zxing/library@latest';
+              script.onload = resolve;
+              script.onerror = reject;
+              document.head.appendChild(script);
+            });
+          }
+
+          if (window.ZXing && !reader) {
+            reader = new window.ZXing.BrowserMultiFormatReader();
+            const scanWebFrame = async () => {
+              const videoElem = document.querySelector('video');
+              if (videoElem && videoElem.readyState >= 2 && !scanned && !loading) {
+                try {
+                  const result = await reader.decodeFromVideoElement(videoElem);
+                  if (result && result.text) {
+                    console.log(' Web Scanned Raw Data:', result.text);
+                    processScannedCode(result.text);
+                  }
+                } catch (e) {
+                  // ไม่พบบาร์โค้ดในเฟรมนี้ ให้ค้นหาต่อในเฟรมถัดไป
+                }
+              }
+              if (!scanned && !loading) {
+                timerId = setTimeout(scanWebFrame, 300);
+              }
+            };
+            scanWebFrame();
+          }
+        } catch (err) {
+          console.log('ZXing Web Init Error:', err);
+        }
+      };
+
+      loadZXingAndScan();
+    }
+
+    return () => {
+      if (timerId) clearTimeout(timerId);
+      if (reader) {
+        try { reader.reset(); } catch (e) {}
+      }
+    };
+  }, [scanMode, isCameraActive, scanned, loading, verifyModalVisible]);
+
   if (!permission) {
     return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#00A87E" /></View>;
   }
@@ -64,22 +119,28 @@ export default function FitnessScannerScreen({ navigation }) {
     setLoading(false);
   };
 
-  // 🌟 ระบบประมวลผลบาร์โค้ด / QR Code อัตโนมัติ
+  // 🌟 ประมวลผลรหัสที่สแกนได้จากทั้ง QR, Barcode และ Manual Input
   const processScannedCode = async (code) => {
     if (scanned || loading) return;
 
     const rawData = String(code).trim();
-    // ค้นหาชุดเลข 13 หลักจากรหัสที่อ่านได้จากบาร์โค้ด
-    const matched13Digits = rawData.match(/\d{13}/);
-    let cleanCode = matched13Digits ? matched13Digits[0] : rawData.replace(/\D/g, '');
+    console.log('Scanned Raw Code:', rawData);
 
-    // หากอยู่ในโหมดบุคคลภายนอกและบาร์โค้ดที่ส่องยังไม่ใช่เลข 13 หลัก ให้ข้ามเพื่อสแกนต่อ
-    if (scanMode === 'external') {
-      if (!cleanCode || cleanCode.length !== 13) {
-        return;
-      }
-    } else if (!cleanCode) {
+    // ดึงตัวเลขทั้งหมดออกมา ลบขีด เว้นวรรค และตัวอักษรออก
+    const onlyDigits = rawData.replace(/\D/g, '');
+    let cleanCode = '';
+
+    // ค้นหาชุดตัวเลข 13 หลัก
+    if (onlyDigits.length >= 13) {
+      const match = onlyDigits.match(/\d{13}/);
+      cleanCode = match ? match[0] : onlyDigits.substring(0, 13);
+    } else {
       cleanCode = rawData;
+    }
+
+    // หากอยู่ในโหมดบุคคลภายนอก แล้วรหัสที่อ่านได้ไม่ใช่เลข 13 หลัก ให้ข้ามเพื่อสแกนต่อ
+    if (scanMode === 'external' && cleanCode.length !== 13) {
+      return;
     }
 
     setScanned(true);
@@ -179,7 +240,7 @@ export default function FitnessScannerScreen({ navigation }) {
         <TouchableOpacity style={styles.bigButtonExternal} onPress={() => { setScanMode('external'); setIsCameraActive(true); setScanned(false); setManualCode(''); }}>
           <Ionicons name="id-card" size={60} color="#F5A623" style={{marginBottom: 10}} />
           <Text style={styles.bigButtonTitle}>บุคคลภายนอก</Text>
-          <Text style={styles.bigButtonDesc}>สแกน บาร์โค้ด บนบัตรประชาชน หรือ QR Code</Text>
+          <Text style={styles.bigButtonDesc}>สแกนบาร์โค้ดบัตรประชาชน หรือ QR Code</Text>
         </TouchableOpacity>
       </View>
 
@@ -217,7 +278,7 @@ export default function FitnessScannerScreen({ navigation }) {
                       <View style={[styles.corner, styles.bottomLeft]} />
                       <View style={[styles.corner, styles.bottomRight]} />
                     </View>
-                    <Text style={styles.scanHintText}>วางบาร์โค้ดหรือ QR Code ให้อยู่ในกรอบ</Text>
+                    <Text style={styles.scanHintText}>ถือบัตรห่างจากกล้องประมาณ 15-20 ซม.</Text>
                   </View>
                 </View>
               ) : (
@@ -343,7 +404,7 @@ const styles = StyleSheet.create({
   scannerBox: { width: '100%', height: 260, backgroundColor: '#F1F5F9', borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#CBD5E1', overflow: 'hidden', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
   
   cameraOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  scanFrame: { width: 260, height: 140, backgroundColor: 'transparent', position: 'relative' }, 
+  scanFrame: { width: 260, height: 130, backgroundColor: 'transparent', position: 'relative' }, 
   corner: { position: 'absolute', width: 28, height: 28, borderColor: '#00A87E' },
   topLeft: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4 },
   topRight: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4 },
