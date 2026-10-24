@@ -10,6 +10,7 @@ export default function FitnessScannerScreen({ navigation }) {
   const [permission, requestPermission] = useCameraPermissions();
   
   const cameraRef = useRef(null);
+  const isScanningRef = useRef(false);
   
   const [scanMode, setScanMode] = useState(null); 
   const [scanned, setScanned] = useState(false);
@@ -43,14 +44,56 @@ export default function FitnessScannerScreen({ navigation }) {
     return checkDigit === parseInt(clean.charAt(12), 10);
   };
 
-  // 🌟 สแกนบาร์โค้ดบนหน้าเว็บผ่าน ZXing Engine อัตโนมัติ
+  // 🌟 สแกนบาร์โค้ดบน Web ด้วย HD Video Stream & Native BarcodeDetector / ZXing
   useEffect(() => {
-    let reader = null;
     let timerId = null;
+    let zxingReader = null;
+    let isMounted = true;
 
     if (Platform.OS === 'web' && scanMode !== null && isCameraActive && !scanned && !loading && !verifyModalVisible) {
-      const loadZXingAndScan = async () => {
+      const initWebBarcodeScanner = async () => {
         try {
+          const videoElem = document.querySelector('video');
+          if (!videoElem) return;
+
+          // ปรับความละเอียดวิดีโอเป็น HD เพื่อความคมชัดของแถบบาร์โค้ด
+          if (videoElem.srcObject && videoElem.srcObject.getVideoTracks) {
+            const track = videoElem.srcObject.getVideoTracks()[0];
+            if (track && track.applyConstraints) {
+              await track.applyConstraints({
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                advanced: [{ focusMode: 'continuous' }]
+              }).catch(() => {});
+            }
+          }
+
+          // 1. ใช้ Native BarcodeDetector API ของเบราว์เซอร์ถ้ามี (เร็วและแม่นยำที่สุด)
+          if ('BarcodeDetector' in window) {
+            const detector = new window.BarcodeDetector({
+              formats: ['code_128', 'code_39', 'pdf417', 'qr_code', 'ean_13']
+            });
+
+            const scanNativeFrame = async () => {
+              if (!isMounted || scanned || loading || isScanningRef.current) return;
+              if (videoElem.readyState >= 2) {
+                try {
+                  const barcodes = await detector.detect(videoElem);
+                  if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                    processScannedCode(barcodes[0].rawValue);
+                    return;
+                  }
+                } catch (e) {}
+              }
+              if (isMounted && !scanned && !loading) {
+                timerId = setTimeout(scanNativeFrame, 200);
+              }
+            };
+            scanNativeFrame();
+            return;
+          }
+
+          // 2. ถ้าไม่มี BarcodeDetector ให้โหลดเอนจิน ZXing สำรอง
           if (!window.ZXing) {
             await new Promise((resolve, reject) => {
               const script = document.createElement('script');
@@ -61,39 +104,38 @@ export default function FitnessScannerScreen({ navigation }) {
             });
           }
 
-          if (window.ZXing && !reader) {
-            reader = new window.ZXing.BrowserMultiFormatReader();
-            const scanWebFrame = async () => {
-              const videoElem = document.querySelector('video');
-              if (videoElem && videoElem.readyState >= 2 && !scanned && !loading) {
+          if (window.ZXing && isMounted) {
+            zxingReader = new window.ZXing.BrowserMultiFormatReader();
+            const scanZXingFrame = async () => {
+              if (!isMounted || scanned || loading || isScanningRef.current) return;
+              if (videoElem.readyState >= 2) {
                 try {
-                  const result = await reader.decodeFromVideoElement(videoElem);
+                  const result = await zxingReader.decodeFromVideoElement(videoElem);
                   if (result && result.text) {
-                    console.log(' Web Scanned Raw Data:', result.text);
                     processScannedCode(result.text);
+                    return;
                   }
-                } catch (e) {
-                  // ไม่พบบาร์โค้ดในเฟรมนี้ ให้ค้นหาต่อในเฟรมถัดไป
-                }
+                } catch (e) {}
               }
-              if (!scanned && !loading) {
-                timerId = setTimeout(scanWebFrame, 300);
+              if (isMounted && !scanned && !loading) {
+                timerId = setTimeout(scanZXingFrame, 300);
               }
             };
-            scanWebFrame();
+            scanZXingFrame();
           }
         } catch (err) {
-          console.log('ZXing Web Init Error:', err);
+          console.log('Web scanner setup error:', err);
         }
       };
 
-      loadZXingAndScan();
+      initWebBarcodeScanner();
     }
 
     return () => {
+      isMounted = false;
       if (timerId) clearTimeout(timerId);
-      if (reader) {
-        try { reader.reset(); } catch (e) {}
+      if (zxingReader) {
+        try { zxingReader.reset(); } catch (e) {}
       }
     };
   }, [scanMode, isCameraActive, scanned, loading, verifyModalVisible]);
@@ -121,12 +163,11 @@ export default function FitnessScannerScreen({ navigation }) {
 
   // 🌟 ประมวลผลรหัสที่สแกนได้จากทั้ง QR, Barcode และ Manual Input
   const processScannedCode = async (code) => {
-    if (scanned || loading) return;
+    if (scanned || loading || isScanningRef.current) return;
+    isScanningRef.current = true;
 
     const rawData = String(code).trim();
-    console.log('Scanned Raw Code:', rawData);
-
-    // ดึงตัวเลขทั้งหมดออกมา ลบขีด เว้นวรรค และตัวอักษรออก
+    // ดึงเฉพาะตัวเลขทั้งหมด (ลบขีด - เว้นวรรค และตัวอักษรออก)
     const onlyDigits = rawData.replace(/\D/g, '');
     let cleanCode = '';
 
@@ -138,8 +179,9 @@ export default function FitnessScannerScreen({ navigation }) {
       cleanCode = rawData;
     }
 
-    // หากอยู่ในโหมดบุคคลภายนอก แล้วรหัสที่อ่านได้ไม่ใช่เลข 13 หลัก ให้ข้ามเพื่อสแกนต่อ
+    // หากอยู่ในโหมดบุคคลภายนอก แล้วรหัสที่อ่านได้ยังไม่ใช่เลข 13 หลัก ให้สแกนต่อ
     if (scanMode === 'external' && cleanCode.length !== 13) {
+      isScanningRef.current = false;
       return;
     }
 
@@ -154,12 +196,12 @@ export default function FitnessScannerScreen({ navigation }) {
       if (response.ok) {
         if (scanMode === 'student' && result.role !== 'student') {
           showErrorPopup('ข้อมูลไม่ถูกต้อง: บัตรนี้ไม่ใช่สถานะนักศึกษา กรุณาตรวจสอบประเภทผู้เข้าใช้งาน');
-          setTimeout(() => setScanned(false), 2000);
+          setTimeout(() => { setScanned(false); isScanningRef.current = false; }, 2000);
           return;
         }
         if (scanMode === 'external' && result.role !== 'external') {
           showErrorPopup('ข้อมูลไม่ถูกต้อง: บัตรนี้ไม่ใช่สถานะบุคคลภายนอก กรุณาตรวจสอบประเภทผู้เข้าใช้งาน');
-          setTimeout(() => setScanned(false), 2000);
+          setTimeout(() => { setScanned(false); isScanningRef.current = false; }, 2000);
           return;
         }
 
@@ -188,13 +230,14 @@ export default function FitnessScannerScreen({ navigation }) {
         setVerifyModalVisible(true); 
       } else {
         showErrorPopup(`ไม่พบข้อมูลสมาชิกในระบบ (รหัสที่อ่านได้: ${cleanCode})\nบัตรนี้อาจยังไม่ได้ลงทะเบียนสมัครสมาชิกครับ`);
-        setTimeout(() => setScanned(false), 2000);
+        setTimeout(() => { setScanned(false); isScanningRef.current = false; }, 2000);
       }
     } catch (error) {
       showErrorPopup('เกิดข้อผิดพลาด: ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
-      setTimeout(() => setScanned(false), 2000);
+      setTimeout(() => { setScanned(false); isScanningRef.current = false; }, 2000);
     } finally {
       setLoading(false);
+      isScanningRef.current = false;
     }
   };
 
@@ -206,6 +249,7 @@ export default function FitnessScannerScreen({ navigation }) {
   const cancelUser = () => {
     setVerifyModalVisible(false);
     setScanned(false);
+    isScanningRef.current = false;
   };
 
   const handleManualSubmit = () => {
@@ -231,20 +275,20 @@ export default function FitnessScannerScreen({ navigation }) {
         <Text style={styles.selectionTitle}>กรุณาเลือกประเภทผู้เข้าใช้งาน</Text>
         <Text style={styles.selectionSubtitle}>ระบบจะตั้งค่าการสแกนตามประเภทที่เลือก</Text>
 
-        <TouchableOpacity style={styles.bigButtonStudent} onPress={() => { setScanMode('student'); setIsCameraActive(true); setScanned(false); setManualCode(''); }}>
+        <TouchableOpacity style={styles.bigButtonStudent} onPress={() => { setScanMode('student'); setIsCameraActive(true); setScanned(false); setManualCode(''); isScanningRef.current = false; }}>
           <Ionicons name="school" size={60} color="#00A87E" style={{marginBottom: 10}} />
           <Text style={styles.bigButtonTitle}>นักศึกษา</Text>
           <Text style={styles.bigButtonDesc}>สแกน QR Code จากแอปพลิเคชัน</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.bigButtonExternal} onPress={() => { setScanMode('external'); setIsCameraActive(true); setScanned(false); setManualCode(''); }}>
+        <TouchableOpacity style={styles.bigButtonExternal} onPress={() => { setScanMode('external'); setIsCameraActive(true); setScanned(false); setManualCode(''); isScanningRef.current = false; }}>
           <Ionicons name="id-card" size={60} color="#F5A623" style={{marginBottom: 10}} />
           <Text style={styles.bigButtonTitle}>บุคคลภายนอก</Text>
           <Text style={styles.bigButtonDesc}>สแกนบาร์โค้ดบัตรประชาชน หรือ QR Code</Text>
         </TouchableOpacity>
       </View>
 
-      <Modal animationType="fade" transparent={true} visible={scanMode !== null} onRequestClose={() => { setScanMode(null); setScanned(false); }}>
+      <Modal animationType="fade" transparent={true} visible={scanMode !== null} onRequestClose={() => { setScanMode(null); setScanned(false); isScanningRef.current = false; }}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { padding: 0, overflow: 'hidden' }]}>
             
@@ -252,7 +296,7 @@ export default function FitnessScannerScreen({ navigation }) {
               <Text style={styles.modalTitle}>
                 {scanMode === 'student' ? 'สแกน QR Code นักศึกษา' : 'สแกนบาร์โค้ด หรือ QR Code'}
               </Text>
-              <TouchableOpacity onPress={() => { setScanMode(null); setScanned(false); }}>
+              <TouchableOpacity onPress={() => { setScanMode(null); setScanned(false); isScanningRef.current = false; }}>
                 <Ionicons name="close" size={24} color="#555" />
               </TouchableOpacity>
             </View>
@@ -278,7 +322,7 @@ export default function FitnessScannerScreen({ navigation }) {
                       <View style={[styles.corner, styles.bottomLeft]} />
                       <View style={[styles.corner, styles.bottomRight]} />
                     </View>
-                    <Text style={styles.scanHintText}>ถือบัตรห่างจากกล้องประมาณ 15-20 ซม.</Text>
+                    <Text style={styles.scanHintText}>วางแถบบาร์โค้ดขนานกับกรอบกล้อง</Text>
                   </View>
                 </View>
               ) : (
@@ -328,7 +372,7 @@ export default function FitnessScannerScreen({ navigation }) {
             </Text>
             <TouchableOpacity 
               style={[styles.btnAction, { backgroundColor: '#D93025', width: '100%', paddingVertical: 12, borderRadius: 8 }]} 
-              onPress={() => { setErrorModalVisible(false); setScanned(false); }}
+              onPress={() => { setErrorModalVisible(false); setScanned(false); isScanningRef.current = false; }}
             >
               <Text style={{ color: '#FFF', fontWeight: 'bold', textAlign: 'center' }}>เข้าใจแล้ว</Text>
             </TouchableOpacity>
@@ -404,7 +448,7 @@ const styles = StyleSheet.create({
   scannerBox: { width: '100%', height: 260, backgroundColor: '#F1F5F9', borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#CBD5E1', overflow: 'hidden', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
   
   cameraOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  scanFrame: { width: 260, height: 130, backgroundColor: 'transparent', position: 'relative' }, 
+  scanFrame: { width: 280, height: 110, backgroundColor: 'transparent', position: 'relative' }, 
   corner: { position: 'absolute', width: 28, height: 28, borderColor: '#00A87E' },
   topLeft: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4 },
   topRight: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4 },
