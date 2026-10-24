@@ -33,7 +33,6 @@ export default function FitnessScannerScreen({ navigation }) {
     if (!id || typeof id !== 'string') return false;
     const clean = id.replace(/\D/g, '');
     if (clean.length !== 13) return false;
-    
     if (clean.startsWith('0')) return false;
 
     let sum = 0;
@@ -65,14 +64,23 @@ export default function FitnessScannerScreen({ navigation }) {
     setLoading(false);
   };
 
-  // 🌟 รองรับการอ่านทั้ง QR Code, บาร์โค้ดบัตรประชาชน (Code128/Code39) และรหัสที่พิมพ์ป้อน
+  // 🌟 ระบบประมวลผลบาร์โค้ด / QR Code อัตโนมัติ
   const processScannedCode = async (code) => {
-    if (scanned) return;
-    
+    if (scanned || loading) return;
+
     const rawData = String(code).trim();
-    // ดึงเฉพาะตัวเลข 13 หลักถ้ามีอยู่ในบาร์โค้ด หรือใช้ค่าดิบที่ได้
+    // ค้นหาชุดเลข 13 หลักจากรหัสที่อ่านได้จากบาร์โค้ด
     const matched13Digits = rawData.match(/\d{13}/);
-    const cleanCode = matched13Digits ? matched13Digits[0] : rawData.replace(/\D/g, '') || rawData;
+    let cleanCode = matched13Digits ? matched13Digits[0] : rawData.replace(/\D/g, '');
+
+    // หากอยู่ในโหมดบุคคลภายนอกและบาร์โค้ดที่ส่องยังไม่ใช่เลข 13 หลัก ให้ข้ามเพื่อสแกนต่อ
+    if (scanMode === 'external') {
+      if (!cleanCode || cleanCode.length !== 13) {
+        return;
+      }
+    } else if (!cleanCode) {
+      cleanCode = rawData;
+    }
 
     setScanned(true);
     setLoading(true);
@@ -195,7 +203,7 @@ export default function FitnessScannerScreen({ navigation }) {
                     ref={cameraRef}
                     facing="back"
                     autofocus="on"
-                    onBarcodeScanned={scanned ? undefined : ({ data }) => processScannedCode(data)}
+                    onBarcodeScanned={scanned || loading ? undefined : ({ data }) => processScannedCode(data)}
                     barcodeScannerSettings={{ 
                       barcodeTypes: ["qr", "code128", "code39", "pdf417", "ean13", "code93"] 
                     }}
@@ -209,6 +217,7 @@ export default function FitnessScannerScreen({ navigation }) {
                       <View style={[styles.corner, styles.bottomLeft]} />
                       <View style={[styles.corner, styles.bottomRight]} />
                     </View>
+                    <Text style={styles.scanHintText}>วางบาร์โค้ดหรือ QR Code ให้อยู่ในกรอบ</Text>
                   </View>
                 </View>
               ) : (
@@ -219,6 +228,7 @@ export default function FitnessScannerScreen({ navigation }) {
                     placeholderTextColor="#999" 
                     value={manualCode} 
                     onChangeText={setManualCode} 
+                    keyboardType="number-pad"
                   />
                 </View>
               )}
@@ -236,13 +246,11 @@ export default function FitnessScannerScreen({ navigation }) {
                 <Text style={styles.btnGrayText}>{isCameraActive ? 'ป้อนรหัสด้วยตนเอง' : 'เปิดกล้อง'}</Text>
               </TouchableOpacity>
               
-              <View style={{ flexDirection: 'row', gap: 10, flex: 1 }}>
-                {!isCameraActive && (
-                  <TouchableOpacity style={[styles.btnAction, { backgroundColor: '#1E8E3E' }]} onPress={handleManualSubmit}>
-                    <Text style={styles.btnTextWhite}>ตกลง</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              {!isCameraActive && (
+                <TouchableOpacity style={[styles.btnAction, { backgroundColor: '#1E8E3E', flex: 1 }]} onPress={handleManualSubmit}>
+                  <Text style={styles.btnTextWhite}>ตกลง</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
           </View>
@@ -335,12 +343,13 @@ const styles = StyleSheet.create({
   scannerBox: { width: '100%', height: 260, backgroundColor: '#F1F5F9', borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#CBD5E1', overflow: 'hidden', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
   
   cameraOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  scanFrame: { width: 170, height: 170, backgroundColor: 'transparent', position: 'relative' }, 
-  corner: { position: 'absolute', width: 30, height: 30, borderColor: '#FFF' },
+  scanFrame: { width: 260, height: 140, backgroundColor: 'transparent', position: 'relative' }, 
+  corner: { position: 'absolute', width: 28, height: 28, borderColor: '#00A87E' },
   topLeft: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4 },
   topRight: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4 },
   bottomLeft: { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4 },
   bottomRight: { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4 },
+  scanHintText: { color: '#FFFFFF', marginTop: 15, fontSize: 13, fontWeight: '600', backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
 
   manualInputWrapper: { width: '85%', justifyContent: 'center' },
   manualInput: { borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 8, paddingHorizontal: 16, height: 50, backgroundColor: '#FFFFFF', fontSize: 16, textAlign: 'center' },
@@ -348,7 +357,7 @@ const styles = StyleSheet.create({
   modalFooter: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
   btnGray: { flex: 1, backgroundColor: '#F1F5F9', paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   btnGrayText: { fontSize: 13, color: '#475569', fontWeight: 'bold' },
-  btnAction: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  btnAction: { paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   btnTextWhite: { fontSize: 14, color: '#FFFFFF', fontWeight: 'bold' },
 
   loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center', zIndex: 10 },
