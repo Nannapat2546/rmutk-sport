@@ -472,7 +472,7 @@ export default function ReportDetailScreen({ navigation, route }) {
                         <Text style={[styles.dateText, startDate && {color: '#00A87E', fontWeight: 'bold'}]}>
                           {formatDisplayDate(startDate)}
                         </Text>
-                        <Ionicons name="calendar-outline" size={14} color={startDate ? "#00A87E" : "#64748B"} />
+                        <Ionicons name="calendar-outline" size={15} color={startDate ? "#00A87E" : "#64748B"} />
                       </TouchableOpacity>
                       <input
                         ref={webStartInputRef}
@@ -505,7 +505,7 @@ export default function ReportDetailScreen({ navigation, route }) {
                       />
                     </View>
 
-                    <Text style={{ fontSize: 12, color: '#64748B', marginHorizontal: 2 }}>ถึง</Text>
+                    <Text style={{ fontSize: 12, color: '#64748B', marginHorizontal: 3 }}>ถึง</Text>
 
                     {/* กล่องวันที่สิ้นสุด */}
                     <View style={{ position: 'relative' }}>
@@ -525,7 +525,7 @@ export default function ReportDetailScreen({ navigation, route }) {
                         <Text style={[styles.dateText, endDate && {color: '#00A87E', fontWeight: 'bold'}]}>
                           {formatDisplayDate(endDate)}
                         </Text>
-                        <Ionicons name="calendar-outline" size={14} color={endDate ? "#00A87E" : "#64748B"} />
+                        <Ionicons name="calendar-outline" size={15} color={endDate ? "#00A87E" : "#64748B"} />
                       </TouchableOpacity>
                       <input
                         ref={webEndInputRef}
@@ -562,14 +562,14 @@ export default function ReportDetailScreen({ navigation, route }) {
                   <View style={styles.mobileDateRow}>
                     <TouchableOpacity style={[styles.dateBox, startDate && {borderColor: '#00A87E'}]} onPress={() => setShowStartPicker(true)}>
                       <Text style={[styles.dateText, startDate && {color: '#00A87E', fontWeight: 'bold'}]}>{formatDisplayDate(startDate)}</Text>
-                      <Ionicons name="calendar-outline" size={14} color={startDate ? "#00A87E" : "#64748B"} />
+                      <Ionicons name="calendar-outline" size={15} color={startDate ? "#00A87E" : "#64748B"} />
                     </TouchableOpacity>
                     
-                    <Text style={{fontSize: 12, color: '#64748B', marginHorizontal: 2}}>ถึง</Text>
+                    <Text style={{fontSize: 12, color: '#64748B', marginHorizontal: 3}}>ถึง</Text>
                     
                     <TouchableOpacity style={[styles.dateBox, endDate && {borderColor: '#00A87E'}]} onPress={() => setShowEndPicker(true)}>
                       <Text style={[styles.dateText, endDate && {color: '#00A87E', fontWeight: 'bold'}]}>{formatDisplayDate(endDate)}</Text>
-                      <Ionicons name="calendar-outline" size={14} color={endDate ? "#00A87E" : "#64748B"} />
+                      <Ionicons name="calendar-outline" size={15} color={endDate ? "#00A87E" : "#64748B"} />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -836,7 +836,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     flexWrap: 'wrap', 
     alignItems: 'center', 
-    justify: 'space-between', 
+    justifyContent: 'space-between', 
     gap: 10, 
     zIndex: 50 
   },
@@ -848,9 +848,8 @@ const styles = StyleSheet.create({
     borderRadius: 8, 
     paddingHorizontal: 12, 
     height: 40, 
-    flex: Platform.OS === 'web' ? 1 : undefined,
-    width: Platform.OS === 'web' ? 'auto' : '100%',
-    minWidth: Platform.OS === 'web' ? 220 : '100%'
+    width: Platform.OS === 'web' ? 240 : '100%',
+    maxWidth: '100%'
   },
   searchInput: { 
     flex: 1, 
@@ -876,14 +875,14 @@ const styles = StyleSheet.create({
     borderWidth: 1, 
     borderColor: '#CBD5E1', 
     borderRadius: 8, 
-    paddingHorizontal: 10, 
-    height: 38 
+    paddingHorizontal: 12, 
+    height: 40 
   },
   filterBtnActive: { borderColor: '#00A87E', backgroundColor: '#E6F5EF' },
-  filterBtnText: { fontSize: 12, color: '#334155', marginLeft: 4, fontWeight: '600' },
+  filterBtnText: { fontSize: 13, color: '#334155', marginLeft: 6, fontWeight: '600' },
   inlineDropdown: { 
     position: 'absolute', 
-    top: 44, 
+    top: 48, 
     left: 0, 
     width: 280, 
     backgroundColor: '#FFF', 
@@ -909,8 +908,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     alignItems: 'center', 
     gap: 4, 
-    flexWrap: 'nowrap',
-    maxWidth: '100%'
+    flexWrap: 'nowrap'
   },
   webDatePickerRow: { 
     flexDirection: 'row', 
@@ -923,17 +921,16 @@ const styles = StyleSheet.create({
   dateBox: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    justify: 'space-between', 
+    justifyContent: 'space-between', 
     borderWidth: 1, 
     borderColor: '#CBD5E1', 
     borderRadius: 8, 
-    paddingHorizontal: 6, 
-    height: 38, 
-    minWidth: 90,
-    maxWidth: 120,
+    paddingHorizontal: 10, 
+    height: 40, 
+    width: 130,
     backgroundColor: '#FFF' 
   },
-  dateText: { fontSize: 11, color: '#475569' },
+  dateText: { fontSize: 12, color: '#475569' },
   clearDateBtn: { paddingHorizontal: 4, paddingVertical: 4 },
   
   exportBtn: { 
@@ -943,11 +940,11 @@ const styles = StyleSheet.create({
     borderWidth: 1, 
     borderColor: '#CBD5E1', 
     borderRadius: 8, 
-    height: 38, 
+    height: 40, 
     paddingHorizontal: 12, 
     backgroundColor: '#FFF' 
   },
-  exportBtnText: { fontSize: 12, color: '#334155', marginLeft: 4, fontWeight: '600' },
+  exportBtnText: { fontSize: 13, color: '#334155', marginLeft: 6, fontWeight: '600' },
 
   tableCard: { 
     backgroundColor: '#FFF', 
