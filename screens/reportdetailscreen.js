@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity, 
   ScrollView, ActivityIndicator, TextInput, Platform, Alert
@@ -26,6 +26,10 @@ export default function ReportDetailScreen({ navigation, route }) {
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [webStartDateText, setWebStartDateText] = useState('');
   const [webEndDateText, setWebEndDateText] = useState('');
+
+  // 🌟 Ref สำหรับเรียกปฏิทินเบราว์เซอร์บน Web
+  const webStartInputRef = useRef(null);
+  const webEndInputRef = useRef(null);
 
   const API_URL = 'https://rmutk-sport.onrender.com'; 
 
@@ -430,70 +434,94 @@ export default function ReportDetailScreen({ navigation, route }) {
               </View>
             )}
 
-            {/* 🌟 ปฏิทินเลือกช่วงวันที่ (กราฟิก Pop-up Calendar) */}
+            {/* 🌟 ปฏิทินเลือกช่วงวันที่ (แสดงภาษาไทย พ.ศ. เดียวกันทั้ง Web และ Mobile) */}
             <View style={styles.datePickerGroup}>
               {Platform.OS === 'web' ? (
                 <View style={styles.webDatePickerRow}>
-                  <View style={styles.webDateInputWrapper}>
+                  <View style={{ position: 'relative' }}>
+                    <TouchableOpacity 
+                      style={[styles.dateBox, startDate && {borderColor: '#00A87E'}]} 
+                      onPress={() => {
+                        if (webStartInputRef.current) {
+                          if ('showPicker' in HTMLInputElement.prototype) {
+                            webStartInputRef.current.showPicker();
+                          } else {
+                            webStartInputRef.current.click();
+                          }
+                        }
+                      }}
+                    >
+                      <Text style={[styles.dateText, startDate && {color: '#00A87E', fontWeight: 'bold'}]}>
+                        {formatDisplayDate(startDate)}
+                      </Text>
+                      <Ionicons name="calendar-outline" size={15} color={startDate ? "#00A87E" : "#64748B"} />
+                    </TouchableOpacity>
                     <input
+                      ref={webStartInputRef}
                       type="date"
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        opacity: 0,
+                        cursor: 'pointer'
+                      }}
                       value={startDate ? startDate.toISOString().split('T')[0] : ''}
                       onChange={(e) => {
                         const val = e.target.value;
                         if (val) {
                           const [y, m, d] = val.split('-');
                           setStartDate(new Date(parseInt(y), parseInt(m) - 1, parseInt(d)));
-                          setWebStartDateText('');
                         } else {
                           setStartDate(null);
-                          setWebStartDateText('');
                         }
-                      }}
-                      style={{
-                        border: startDate ? '1.5px solid #00A87E' : '1px solid #CBD5E1',
-                        borderRadius: '8px',
-                        padding: '0 10px',
-                        height: '40px',
-                        backgroundColor: '#FFFFFF',
-                        fontSize: '13px',
-                        color: startDate ? '#00A87E' : '#475569',
-                        outline: 'none',
-                        cursor: 'pointer',
-                        fontWeight: startDate ? '600' : 'normal',
-                        fontFamily: 'inherit'
                       }}
                     />
                   </View>
 
                   <Text style={{ fontSize: 13, color: '#64748B', marginHorizontal: 6 }}>ถึง</Text>
 
-                  <View style={styles.webDateInputWrapper}>
+                  <View style={{ position: 'relative' }}>
+                    <TouchableOpacity 
+                      style={[styles.dateBox, endDate && {borderColor: '#00A87E'}]} 
+                      onPress={() => {
+                        if (webEndInputRef.current) {
+                          if ('showPicker' in HTMLInputElement.prototype) {
+                            webEndInputRef.current.showPicker();
+                          } else {
+                            webEndInputRef.current.click();
+                          }
+                        }
+                      }}
+                    >
+                      <Text style={[styles.dateText, endDate && {color: '#00A87E', fontWeight: 'bold'}]}>
+                        {formatDisplayDate(endDate)}
+                      </Text>
+                      <Ionicons name="calendar-outline" size={15} color={endDate ? "#00A87E" : "#64748B"} />
+                    </TouchableOpacity>
                     <input
+                      ref={webEndInputRef}
                       type="date"
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        opacity: 0,
+                        cursor: 'pointer'
+                      }}
                       value={endDate ? endDate.toISOString().split('T')[0] : ''}
                       onChange={(e) => {
                         const val = e.target.value;
                         if (val) {
                           const [y, m, d] = val.split('-');
                           setEndDate(new Date(parseInt(y), parseInt(m) - 1, parseInt(d)));
-                          setWebEndDateText('');
                         } else {
                           setEndDate(null);
-                          setWebEndDateText('');
                         }
-                      }}
-                      style={{
-                        border: endDate ? '1.5px solid #00A87E' : '1px solid #CBD5E1',
-                        borderRadius: '8px',
-                        padding: '0 10px',
-                        height: '40px',
-                        backgroundColor: '#FFFFFF',
-                        fontSize: '13px',
-                        color: endDate ? '#00A87E' : '#475569',
-                        outline: 'none',
-                        cursor: 'pointer',
-                        fontWeight: endDate ? '600' : 'normal',
-                        fontFamily: 'inherit'
                       }}
                     />
                   </View>
@@ -745,7 +773,6 @@ const styles = StyleSheet.create({
 
   datePickerGroup: { flexDirection: 'row', alignItems: 'center' },
   webDatePickerRow: { flexDirection: 'row', alignItems: 'center' },
-  webDateInputWrapper: { height: 40, justifyContent: 'center' },
   mobileDateRow: { flexDirection: 'row', alignItems: 'center' },
   dateBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 8, paddingHorizontal: 10, height: 40, width: 115, backgroundColor: '#FFF' },
   dateText: { fontSize: 12, color: '#64748B' },
@@ -774,7 +801,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 6,
     alignItems: 'center',
-    justifyContent: 'center',
+    justify: 'center',
   },
   notifyBtnText: {
     color: '#FFF',
