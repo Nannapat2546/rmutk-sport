@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, SafeAreaView, 
   Modal, Image, ActivityIndicator, Platform, TextInput 
@@ -10,6 +10,7 @@ export default function FitnessScannerScreen({ navigation }) {
   const [permission, requestPermission] = useCameraPermissions();
   
   const cameraRef = useRef(null);
+  const isProcessingRef = useRef(false);
   
   const [scanMode, setScanMode] = useState(null); 
   const [scanned, setScanned] = useState(false);
@@ -44,6 +45,54 @@ export default function FitnessScannerScreen({ navigation }) {
     const checkDigit = (11 - (sum % 11)) % 10;
     return checkDigit === parseInt(clean.charAt(12), 10);
   };
+
+  // 🌟 ระบบสแกนหน้าบัตรอัตโนมัติ (Auto-Scan Loop แบบ QR Code)
+  useEffect(() => {
+    let intervalId = null;
+
+    const autoScanCard = async () => {
+      if (
+        scanMode === 'external' &&
+        isCameraActive &&
+        !scanned &&
+        !loading &&
+        !verifyModalVisible &&
+        !errorModalVisible &&
+        cameraRef.current &&
+        !isProcessingRef.current
+      ) {
+        isProcessingRef.current = true;
+        try {
+          const photo = await cameraRef.current.takePictureAsync({ 
+            quality: 0.15, 
+            base64: true,
+            skipProcessing: true,
+            exif: false,
+            shutterSound: false
+          });
+
+          if (photo?.base64) {
+            const citizenId = await processCardOCR(photo.base64, true);
+            if (citizenId && isValidThaiCitizenId(citizenId)) {
+              await processAutoCapturedCard(citizenId);
+            }
+          }
+        } catch (err) {
+          // สแกนเบื้องหลังเงียบๆ ไม่แสดง Error Popup หากยังส่องบัตรไม่ชัด
+        } finally {
+          isProcessingRef.current = false;
+        }
+      }
+    };
+
+    if (scanMode === 'external' && isCameraActive && !scanned && !loading && !verifyModalVisible && !errorModalVisible) {
+      intervalId = setInterval(autoScanCard, 1200);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [scanMode, isCameraActive, scanned, loading, verifyModalVisible, errorModalVisible]);
 
   if (!permission) {
     return <View style={styles.centerContainer}><ActivityIndicator size="large" color="#00A87E" /></View>;
@@ -124,7 +173,7 @@ export default function FitnessScannerScreen({ navigation }) {
     }
   };
 
-  const processCardOCR = async (base64Image) => {
+  const processCardOCR = async (base64Image, silent = false) => {
     try {
       const response = await fetch(`${API_URL}/api/ocr`, {
         method: 'POST',
@@ -136,6 +185,7 @@ export default function FitnessScannerScreen({ navigation }) {
 
       const result = await response.json();
       if (!response.ok) {
+        if (silent) return null;
         throw new Error(result.message || 'ไม่สามารถอ่านข้อความจากรูปภาพได้');
       }
 
@@ -169,9 +219,60 @@ export default function FitnessScannerScreen({ navigation }) {
         return primaryId;
       }
 
+      if (silent) return null;
+
       throw new Error('ระบบไม่สามารถระบุเลขบัตรประชาชนได้ชัดเจน กรุณาถือบัตรให้อยู่ในกรอบ แสงสว่างพอดี และกดถ่ายใหม่อีกครั้งครับ');
     } catch (error) {
+      if (silent) return null;
       throw error;
+    }
+  };
+
+  // 🌟 ประมวลผลข้อมูลหลังจากระบบสแกนบัตรอัตโนมัติตรวจพบเลขบัตร
+  const processAutoCapturedCard = async (citizenId) => {
+    if (scanned || loading) return;
+    setScanned(true);
+    setLoading(true);
+    setLoadingText('กำลังตรวจสอบระบบ...');
+
+    try {
+      const response = await fetch(`${API_URL}/api/users/scan/${encodeURIComponent(citizenId)}`);
+      const result = await response.json();
+
+      if (response.ok) {
+        if (result.role !== 'external') {
+          showErrorPopup('ข้อมูลไม่ถูกต้อง: บัตรนี้ถูกบันทึกเป็นสถานะนักศึกษา');
+          setLoading(false);
+          setTimeout(() => setScanned(false), 2000);
+          return;
+        }
+
+        let registeredCardImg = null;
+        try {
+          const detailRes = await fetch(`${API_URL}/api/admin/users/${result.id}/detail`);
+          if (detailRes.ok) {
+            const detailData = await detailRes.json();
+            registeredCardImg = detailData.id_card_image || detailData.profile_image || detailData.avatar || null;
+          }
+        } catch (e) {
+          console.log('Could not fetch registered id card image:', e);
+        }
+
+        setScannedUser({ 
+          ...result, 
+          liveImage: registeredCardImg || result.id_card_image || result.profile_image || null 
+        }); 
+        setScanMode(null);
+        setVerifyModalVisible(true);
+      } else {
+        showErrorPopup(`ไม่พบข้อมูลสมาชิกในระบบ (เลขบัตรที่อ่านได้: ${citizenId})\nบัตรประชาชนนี้ยังไม่ได้ลงทะเบียนสมัครสมาชิกครับ`);
+        setTimeout(() => setScanned(false), 2000);
+      }
+    } catch (error) {
+      showErrorPopup(error.message || 'เกิดข้อผิดพลาดในการประมวลผลบัตร');
+      setTimeout(() => setScanned(false), 2000);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -194,39 +295,7 @@ export default function FitnessScannerScreen({ navigation }) {
       const citizenId = await processCardOCR(photo.base64);
 
       setLoadingText('กำลังตรวจสอบระบบ...');
-      
-      const response = await fetch(`${API_URL}/api/users/scan/${encodeURIComponent(citizenId)}`);
-      const result = await response.json();
-
-      if (response.ok) {
-        if (result.role !== 'external') {
-          showErrorPopup('ข้อมูลไม่ถูกต้อง: บัตรนี้ถูกบันทึกเป็นสถานะนักศึกษา');
-          setLoading(false);
-          return;
-        }
-
-        // 🌟 ดึงรูปภาพบัตรประชาชนที่สแกน/อัปโหลดไว้ตอนสมัครสมาชิกจากเซิร์ฟเวอร์
-        let registeredCardImg = null;
-        try {
-          const detailRes = await fetch(`${API_URL}/api/admin/users/${result.id}/detail`);
-          if (detailRes.ok) {
-            const detailData = await detailRes.json();
-            registeredCardImg = detailData.id_card_image || detailData.profile_image || detailData.avatar || null;
-          }
-        } catch (e) {
-          console.log('Could not fetch registered id card image:', e);
-        }
-
-        // กำหนดรูปบัตรที่ลงทะเบียนไว้ในระบบให้กับหน้า Modal ตรวจสอบข้อมูล
-        setScannedUser({ 
-          ...result, 
-          liveImage: registeredCardImg || result.id_card_image || result.profile_image || null 
-        }); 
-        setScanMode(null);
-        setVerifyModalVisible(true);
-      } else {
-        showErrorPopup(`ไม่พบข้อมูลสมาชิกในระบบ (เลขบัตรที่อ่านได้: ${citizenId})\nบัตรประชาชนนี้ยังไม่ได้ลงทะเบียนสมัครสมาชิกครับ`);
-      }
+      await processAutoCapturedCard(citizenId);
     } catch (error) {
       showErrorPopup(error.message || 'เกิดข้อผิดพลาดในการประมวลผลบัตร');
     } finally {
