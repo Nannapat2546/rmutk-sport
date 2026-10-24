@@ -100,7 +100,7 @@ export default function FitnessScannerScreen({ navigation }) {
           const detailRes = await fetch(`${API_URL}/api/admin/users/${result.id}/detail`);
           if (detailRes.ok) {
             const detailData = await detailRes.json();
-            userProfileImg = detailData.profile_image || detailData.id_card_image || detailData.avatar || null;
+            userProfileImg = detailData.id_card_image || detailData.profile_image || detailData.avatar || null;
           }
         } catch (e) {
           console.log('Could not fetch detail image:', e);
@@ -108,7 +108,7 @@ export default function FitnessScannerScreen({ navigation }) {
 
         setScannedUser({ 
           ...result, 
-          liveImage: userProfileImg 
+          liveImage: userProfileImg || result.id_card_image || result.profile_image || null 
         });
         setScanMode(null); 
         setVerifyModalVisible(true); 
@@ -182,7 +182,6 @@ export default function FitnessScannerScreen({ navigation }) {
     setLoadingText('กำลังจับภาพ...');
 
     try {
-      // 🌟 เร่งความเร็วสปีดสูงสุด: ปรับ quality เหลือ 0.15 ย่อขนาดไฟล์ Base64 เหลือเพียง 20-50KB
       const photo = await cameraRef.current.takePictureAsync({ 
         quality: 0.15, 
         base64: true,
@@ -190,9 +189,6 @@ export default function FitnessScannerScreen({ navigation }) {
         exif: false,
         shutterSound: false
       });
-      
-      // ใช้ URI ไฟล์ในเครื่องแทน Base64 สตริงยาวในการแสดงรูป เพื่อไม่ให้เครื่องกระตุก
-      const capturedImageUri = photo.uri;
 
       setLoadingText('กำลังอ่านเลขบัตร...');
       const citizenId = await processCardOCR(photo.base64);
@@ -209,10 +205,22 @@ export default function FitnessScannerScreen({ navigation }) {
           return;
         }
 
-        // แสดงรูปถ่ายจากเครื่องลงในหน้ายืนยันข้อมูลทันที
+        // 🌟 ดึงรูปภาพบัตรประชาชนที่สแกน/อัปโหลดไว้ตอนสมัครสมาชิกจากเซิร์ฟเวอร์
+        let registeredCardImg = null;
+        try {
+          const detailRes = await fetch(`${API_URL}/api/admin/users/${result.id}/detail`);
+          if (detailRes.ok) {
+            const detailData = await detailRes.json();
+            registeredCardImg = detailData.id_card_image || detailData.profile_image || detailData.avatar || null;
+          }
+        } catch (e) {
+          console.log('Could not fetch registered id card image:', e);
+        }
+
+        // กำหนดรูปบัตรที่ลงทะเบียนไว้ในระบบให้กับหน้า Modal ตรวจสอบข้อมูล
         setScannedUser({ 
           ...result, 
-          liveImage: capturedImageUri 
+          liveImage: registeredCardImg || result.id_card_image || result.profile_image || null 
         }); 
         setScanMode(null);
         setVerifyModalVisible(true);
