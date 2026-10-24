@@ -24,10 +24,8 @@ export default function ReportDetailScreen({ navigation, route }) {
   const [endDate, setEndDate] = useState(null);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
-  const [webStartDateText, setWebStartDateText] = useState('');
-  const [webEndDateText, setWebEndDateText] = useState('');
 
-  // 🌟 Ref สำหรับเรียกปฏิทินเบราว์เซอร์บน Web
+  // Ref สำหรับเรียกปฏิทินเบราว์เซอร์บน Web
   const webStartInputRef = useRef(null);
   const webEndInputRef = useRef(null);
 
@@ -49,12 +47,38 @@ export default function ReportDetailScreen({ navigation, route }) {
     setIsLoading(false);
   };
 
-  const parseThaiDate = (text) => {
-    if (!text || text.length !== 10) return null;
-    const [day, month, yearStr] = text.split('/');
-    if (!day || !month || !yearStr) return null;
-    const year = parseInt(yearStr) - 543;
-    return new Date(`${year}-${month}-${day}`);
+  // 🌟 ฟังก์ชันแปลง Date เป็น YYYY-MM-DD แบบ Local Time (ป้องกันปัญหา Timezone -1 วัน)
+  const formatDateForInput = (date) => {
+    if (!date) return '';
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  // 🌟 ฟังก์ชันแปลงค่าวันที่จาก API เป็น Date Object ใน Local Time โดยตั้งเวลาเป็นเที่ยงคืน
+  const parseItemDate = (dateVal) => {
+    if (!dateVal) return null;
+    if (dateVal instanceof Date) {
+      return new Date(dateVal.getFullYear(), dateVal.getMonth(), dateVal.getDate(), 0, 0, 0, 0);
+    }
+    const str = String(dateVal).trim();
+    if (str.includes('/')) {
+      const parts = str.split('/');
+      if (parts.length === 3) {
+        let day = parseInt(parts[0], 10);
+        let month = parseInt(parts[1], 10) - 1;
+        let year = parseInt(parts[2], 10);
+        if (year > 2500) year -= 543;
+        else if (year < 100) year += 2000;
+        return new Date(year, month, day, 0, 0, 0, 0);
+      }
+    }
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+    }
+    return null;
   };
 
   const handleNotifyUser = async (item, diffDays) => {
@@ -124,19 +148,16 @@ export default function ReportDetailScreen({ navigation, route }) {
     return `${day}/${month}/${year}`;
   };
 
-  // 🌟 ฟังก์ชันคำนวณสถานะและวันนัดล่าสุด
   const getStatusInfo = (item, type = reportType) => {
     const originalAmount = parseInt(item.amount) || 0;
     const pendingAmount = parseInt(item.pending_amount) || originalAmount;
     const returnedAmount = originalAmount > pendingAmount ? originalAmount - pendingAmount : 0;
     
-    // 1. นัดล่าสุด: แสดงเฉพาะเมื่อทำการคืนไม่ครบ (returnedAmount > 0) และมีวันนัด expected_return_date เท่านั้น
     const isPartialReturn = returnedAmount > 0 && pendingAmount > 0;
     const displayExpectedDate = (isPartialReturn && item.expected_return_date) 
       ? formatDate(item.expected_return_date) 
       : '-';
 
-    // 2. กำหนดวันคืน: ถ้ายืมปกติ ต้องคืนภายในวันนั้นเลย (borrow_date) เว้นแต่คืนไม่ครบและระบุวันนัดใหม่
     const targetDateStr = (isPartialReturn && item.expected_return_date) 
       ? item.expected_return_date 
       : item.borrow_date; 
@@ -148,7 +169,6 @@ export default function ReportDetailScreen({ navigation, route }) {
     const targetDate = new Date(targetDateStr);
     targetDate.setHours(0, 0, 0, 0); 
 
-    // กรณีคืนครบแล้ว (ดูในรายงานยืม-คืน)
     if (item.return_date && type !== 'pending') {
       const retDate = new Date(item.return_date);
       retDate.setHours(0, 0, 0, 0);
@@ -159,7 +179,6 @@ export default function ReportDetailScreen({ navigation, route }) {
       return { isLate: false, days: 0, text: 'คืนตรงเวลา', type: 'returned_ok', displayExpectedDate };
     }
 
-    // กรณียังอยู่ระหว่างยืม หรือคืนยังไม่ครบ
     const now = new Date();
     now.setHours(0, 0, 0, 0); 
     const diffTime = now.getTime() - targetDate.getTime();
@@ -178,6 +197,7 @@ export default function ReportDetailScreen({ navigation, route }) {
     return { isLate: false, days: 0, text: 'กำลังยืม', type: 'pending_ok', displayExpectedDate };
   };
 
+  // 🌟 ตัวกรองข้อมูล แก้ไขการเปรียบเทียบวันที่อย่างถูกต้อง
   const filteredData = useMemo(() => {
     let currentData = [];
     
@@ -219,30 +239,24 @@ export default function ReportDetailScreen({ navigation, route }) {
         (item.equipment && item.equipment.toLowerCase().includes(keyword));
 
       let matchDate = true;
-      const itemDateStr = item.borrow_date || item.check_in_time;
+      const rawDateStr = item.borrow_date || item.check_in_time;
+      const itemDate = parseItemDate(rawDateStr);
       
-      if (itemDateStr) {
-        const itemDate = new Date(itemDateStr);
-        itemDate.setHours(0, 0, 0, 0);
-
-        const filterStart = startDate || (Platform.OS === 'web' && webStartDateText ? parseThaiDate(webStartDateText) : null);
-        if (filterStart) {
-          const fStart = new Date(filterStart);
-          fStart.setHours(0, 0, 0, 0);
-          if (itemDate < fStart) matchDate = false;
+      if (itemDate) {
+        if (startDate) {
+          const fStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 0, 0, 0, 0);
+          if (itemDate.getTime() < fStart.getTime()) matchDate = false;
         }
 
-        const filterEnd = endDate || (Platform.OS === 'web' && webEndDateText ? parseThaiDate(webEndDateText) : null);
-        if (filterEnd) {
-          const fEnd = new Date(filterEnd);
-          fEnd.setHours(23, 59, 59, 999);
-          if (itemDate > fEnd) matchDate = false;
+        if (endDate) {
+          const fEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999);
+          if (itemDate.getTime() > fEnd.getTime()) matchDate = false;
         }
       }
 
       return matchText && matchDate;
     });
-  }, [reports, reportType, searchText, startDate, endDate, webStartDateText, webEndDateText, eqCondition, statusFilter]);
+  }, [reports, reportType, searchText, startDate, endDate, eqCondition, statusFilter]);
 
   const handleExportCSV = async () => {
     if (filteredData.length === 0) {
@@ -434,17 +448,18 @@ export default function ReportDetailScreen({ navigation, route }) {
               </View>
             )}
 
-            {/* 🌟 ปฏิทินเลือกช่วงวันที่ (แสดงภาษาไทย พ.ศ. เดียวกันทั้ง Web และ Mobile) */}
+            {/* 🌟 ปฏิทินเลือกช่วงวันที่ (แก้ไขให้คลิกได้ทั้งกรอบ และคำนวณวันถูกต้อง 100%) */}
             <View style={styles.datePickerGroup}>
               {Platform.OS === 'web' ? (
                 <View style={styles.webDatePickerRow}>
                   <View style={{ position: 'relative' }}>
                     <TouchableOpacity 
                       style={[styles.dateBox, startDate && {borderColor: '#00A87E'}]} 
+                      activeOpacity={0.7}
                       onPress={() => {
                         if (webStartInputRef.current) {
                           if ('showPicker' in HTMLInputElement.prototype) {
-                            webStartInputRef.current.showPicker();
+                            try { webStartInputRef.current.showPicker(); } catch (e) {}
                           } else {
                             webStartInputRef.current.click();
                           }
@@ -466,14 +481,20 @@ export default function ReportDetailScreen({ navigation, route }) {
                         width: '100%',
                         height: '100%',
                         opacity: 0,
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        zIndex: 10
                       }}
-                      value={startDate ? startDate.toISOString().split('T')[0] : ''}
+                      value={formatDateForInput(startDate)}
+                      onClick={(e) => {
+                        if ('showPicker' in e.target) {
+                          try { e.target.showPicker(); } catch (err) {}
+                        }
+                      }}
                       onChange={(e) => {
                         const val = e.target.value;
                         if (val) {
                           const [y, m, d] = val.split('-');
-                          setStartDate(new Date(parseInt(y), parseInt(m) - 1, parseInt(d)));
+                          setStartDate(new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10)));
                         } else {
                           setStartDate(null);
                         }
@@ -486,10 +507,11 @@ export default function ReportDetailScreen({ navigation, route }) {
                   <View style={{ position: 'relative' }}>
                     <TouchableOpacity 
                       style={[styles.dateBox, endDate && {borderColor: '#00A87E'}]} 
+                      activeOpacity={0.7}
                       onPress={() => {
                         if (webEndInputRef.current) {
                           if ('showPicker' in HTMLInputElement.prototype) {
-                            webEndInputRef.current.showPicker();
+                            try { webEndInputRef.current.showPicker(); } catch (e) {}
                           } else {
                             webEndInputRef.current.click();
                           }
@@ -511,14 +533,20 @@ export default function ReportDetailScreen({ navigation, route }) {
                         width: '100%',
                         height: '100%',
                         opacity: 0,
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        zIndex: 10
                       }}
-                      value={endDate ? endDate.toISOString().split('T')[0] : ''}
+                      value={formatDateForInput(endDate)}
+                      onClick={(e) => {
+                        if ('showPicker' in e.target) {
+                          try { e.target.showPicker(); } catch (err) {}
+                        }
+                      }}
                       onChange={(e) => {
                         const val = e.target.value;
                         if (val) {
                           const [y, m, d] = val.split('-');
-                          setEndDate(new Date(parseInt(y), parseInt(m) - 1, parseInt(d)));
+                          setEndDate(new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10)));
                         } else {
                           setEndDate(null);
                         }
@@ -542,8 +570,8 @@ export default function ReportDetailScreen({ navigation, route }) {
                 </View>
               )}
 
-              {(startDate || endDate || webStartDateText !== '' || webEndDateText !== '') ? (
-                <TouchableOpacity style={{marginLeft: 8}} onPress={() => { setStartDate(null); setEndDate(null); setWebStartDateText(''); setWebEndDateText(''); }}>
+              {(startDate || endDate) ? (
+                <TouchableOpacity style={{marginLeft: 8}} onPress={() => { setStartDate(null); setEndDate(null); }}>
                   <Text style={{color: '#EF4444', fontSize: 12, fontWeight: 'bold'}}>ล้างค่า</Text>
                 </TouchableOpacity>
               ) : null}
@@ -801,7 +829,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 6,
     alignItems: 'center',
-    justify: 'center',
+    justifyContent: 'center',
   },
   notifyBtnText: {
     color: '#FFF',
