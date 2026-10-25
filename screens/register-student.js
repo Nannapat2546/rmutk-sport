@@ -137,13 +137,15 @@ const CustomDropdown = ({ options, selectedValue, onSelect, placeholder, disable
 
 export default function RegisterStudent({ navigation }) {
   const [profileImage, setProfileImage] = useState(null); 
-  const [studentId, setStudentId] = useState('');
-  const [name, setName] = useState('');
-  const [selectedFaculty, setSelectedFaculty] = useState(null);
-  const [selectedMajor, setSelectedMajor] = useState(null);
-  const [phone, setPhone] = useState('');
   
-  const [email, setEmail] = useState('');
+  // 🌟 กำหนดค่าเริ่มต้นสำหรับข้อมูลนักศึกษา
+  const [studentId, setStudentId] = useState('655021000089');
+  const [name, setName] = useState('นันท์นภัส');
+  const [selectedFaculty, setSelectedFaculty] = useState('science');
+  const [selectedMajor, setSelectedMajor] = useState('it');
+  const [phone, setPhone] = useState('0807780787');
+  const [email, setEmail] = useState('655021000089@mail.rmutk.ac.th');
+  
   const [otpCode, setOtpCode] = useState('');
   const [password, setPassword] = useState('');
   
@@ -213,7 +215,6 @@ export default function RegisterStudent({ navigation }) {
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
-      // 🌟 เอา header ngrok ออก
       const response = await fetch(`${API_URL}/api/request-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -225,7 +226,6 @@ export default function RegisterStudent({ navigation }) {
       const result = await response.json();
       
       if (response.ok) {
-        // อัปเดตข้อความตรงนี้ ให้แสดงเฉพาะแจ้งเตือนให้ไปเช็คอีเมล
         showPopup('success', 'ส่งรหัส otp ไปที่อีเมล โปรดตรวจสอบในกล่องจดหมายอีเมล');
         setVerificationStep(1); 
       } else {
@@ -251,7 +251,6 @@ export default function RegisterStudent({ navigation }) {
 
     setIsLoading(true);
     try {
-      // 🌟 เอา header ngrok ออก
       const response = await fetch(`${API_URL}/api/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -291,7 +290,6 @@ export default function RegisterStudent({ navigation }) {
     };
 
     try {
-      // 🌟 เอา header ngrok ออก
       const response = await fetch(`${API_URL}/api/register/student`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
