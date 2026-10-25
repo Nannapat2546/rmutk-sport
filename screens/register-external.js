@@ -42,10 +42,11 @@ export default function RegisterOutsider({ navigation }) {
   const [profileImage, setProfileImage] = useState(null); 
   const [idCardImage, setIdCardImage] = useState(null); 
   
-  const [citizenId, setCitizenId] = useState('');
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
+  // 🌟 กำหนดค่าเริ่มต้นตามข้อมูลที่ระบุ
+  const [citizenId, setCitizenId] = useState('1100401141591');
+  const [name, setName] = useState('ยลดา พลนน');
+  const [phone, setPhone] = useState('0994150630');
+  const [email, setEmail] = useState('yphlnn255@gmail.com');
   const [password, setPassword] = useState('');
   
   const [isLoading, setIsLoading] = useState(false);
