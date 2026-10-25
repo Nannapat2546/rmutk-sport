@@ -49,7 +49,6 @@ export default function RegisterOutsider({ navigation }) {
   const [password, setPassword] = useState('');
   
   const [isLoading, setIsLoading] = useState(false);
-  const [isOcrProcessing, setIsOcrProcessing] = useState(false); 
 
   const [popupVisible, setPopupVisible] = useState(false);
   const [popupType, setPopupType] = useState('success'); 
@@ -58,9 +57,8 @@ export default function RegisterOutsider({ navigation }) {
   const [isCameraVisible, setIsCameraVisible] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef(null);
-  const [facing, setFacing] = useState('front'); 
+  const [facing, setFacing] = useState('back'); 
 
-  // 🌟 ใช้ URL ของ Render
   const API_URL = 'https://rmutk-sport.onrender.com';
 
   const pickProfileImage = async () => {
@@ -93,95 +91,9 @@ export default function RegisterOutsider({ navigation }) {
     setIsCameraVisible(true);
   };
 
-  // 🌟 ฟังก์ชัน OCR ที่ฉลาดขึ้น: ตรวจจับคำขยะและตัวเลขไทย/อารบิก ป้องกันชื่อเพี้ยน
-  const processOcrData = async (base64Image) => {
-    try {
-      // 🌟 เอา header ngrok ออก
-      const response = await fetch(`${API_URL}/api/ocr`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ image: base64Image })
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์');
-      }
-
-      setIsCameraVisible(false);
-
-      let finalId = '';
-      let finalName = '';
-
-      const isValidName = (str) => {
-        if (!str) return false;
-        if (/[0-9๐-๙!@#$%^&*()_+={}\[\]:;"'<>,.?/\\]/.test(str)) return false;
-        const garbage = ['ชื่อตัว', 'ชื่อสกุล', 'บัตร', 'ประชาชน', 'ศาสนา', 'เกิด', 'Date', 'Name', 'Thai', 'National'];
-        if (garbage.some(g => str.includes(g))) return false;
-        if (str.replace(/\s/g, '').length < 4) return false;
-        return true;
-      };
-
-      if (result.text) {
-        const cleanNumbers = result.text.replace(/[^\d]/g, ''); 
-        const idMatch = cleanNumbers.match(/\d{13}/); 
-        if (idMatch) {
-          finalId = idMatch[0];
-        }
-
-        const textLines = result.text.split('\n');
-        const nameRegex = /(นาย|นาง|นางสาว|น\.ส\.|ด\.ช\.|ด\.ญ\.)\s*([ก-ฮะ-์]+)\s+([ก-ฮะ-์]+)/;
-        
-        for (let line of textLines) {
-          let cleanLine = line.trim();
-          if (isValidName(cleanLine)) {
-            const match = cleanLine.match(nameRegex);
-            if (match) {
-              finalName = `${match[1]}${match[2]} ${match[3]}`;
-              break; 
-            }
-          }
-        }
-      }
-
-      if (!finalId && result.citizenId) {
-        const cleanBackendId = result.citizenId.replace(/[^\d]/g, '');
-        if (cleanBackendId.length >= 13) {
-          finalId = cleanBackendId.substring(0, 13);
-        }
-      }
-      if (!finalName && result.fullName) {
-        if (isValidName(result.fullName)) {
-          finalName = result.fullName.trim();
-        }
-      }
-
-      if (finalId || finalName) {
-        if (finalId && finalId.length === 13) setCitizenId(finalId);
-        if (finalName) setName(finalName);
-        
-        if (finalId && !finalName) {
-           showPopup('success', 'สแกนสำเร็จ! (ระบบอ่านชื่อไม่ชัดเจน กรุณาพิมพ์ชื่อด้วยตนเอง)');
-        } else {
-           showPopup('success', 'สแกนสำเร็จ กรุณาตรวจสอบและแก้ไขข้อมูลให้ถูกต้องอีกครั้ง');
-        }
-      } else {
-        showPopup('error', 'ระบบ AI อ่านข้อความไม่ชัดเจน เนื่องจากภาพอาจมีแสงสะท้อน กรุณากรอกข้อมูลด้วยตนเอง');
-      }
-
-    } catch (error) {
-      console.error("OCR Error: ", error);
-      setIsCameraVisible(false);
-      showPopup('error', error.message || 'ไม่สามารถอ่านข้อความจากบัตรได้');
-    }
-  };
-
+  // ถ่ายภาพบัตรประชาชนและเก็บรูปภาพไว้ โดยไม่ผ่านการอ่าน OCR
   const takePicture = async () => {
-    if (cameraRef.current && !isOcrProcessing) {
-      setIsOcrProcessing(true); 
+    if (cameraRef.current) {
       try {
         const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.8 });
         
@@ -191,15 +103,10 @@ export default function RegisterOutsider({ navigation }) {
           : `data:image/jpeg;base64,${rawBase64}`;
         
         setIdCardImage(base64Uri);
-        
-        await processOcrData(photo.base64);
-
+        setIsCameraVisible(false); // ถ่ายเสร็จปิดกล้องทันที
       } catch (error) {
         console.error(error);
         showPopup('error', 'เกิดข้อผิดพลาดในการถ่ายรูป');
-        setIsOcrProcessing(false);
-      } finally {
-        setIsOcrProcessing(false);
       }
     }
   };
@@ -219,7 +126,7 @@ export default function RegisterOutsider({ navigation }) {
 
   const handleRegister = async () => {
     if (!citizenId || !name || !phone || !email || !password || !idCardImage) {
-      showPopup('error', 'กรุณากรอกข้อมูลส่วนตัวและสแกนบัตรให้ครบถ้วน');
+      showPopup('error', 'กรุณากรอกข้อมูลส่วนตัวและถ่ายภาพบัตรให้ครบถ้วน');
       return;
     }
 
@@ -243,7 +150,6 @@ export default function RegisterOutsider({ navigation }) {
     };
 
     try {
-      // 🌟 เอา header ngrok ออก
       const response = await fetch(`${API_URL}/api/register/outsider`, {
         method: 'POST',
         headers: { 
@@ -329,7 +235,7 @@ export default function RegisterOutsider({ navigation }) {
                   </>
                 ) : (
                   <View style={styles.placeholderContainer}>
-                    <Ionicons name="scan-outline" size={22} color="#4B5563" />
+                    <Ionicons name="camera-outline" size={22} color="#4B5563" />
                     <Text style={styles.imagePlaceholderTextSmall}>เปิดกล้อง</Text>
                   </View>
                 )}
@@ -349,12 +255,13 @@ export default function RegisterOutsider({ navigation }) {
         </View>
       </ScrollView>
 
+      {/* Modal กล้องสำหรับถ่ายภาพบัตร */}
       <Modal visible={isCameraVisible} animationType="fade" transparent={true}>
         <View style={styles.popupCameraOverlay}>
           <View style={styles.popupCameraBox}>
             
             <View style={styles.popupHeader}>
-              <Text style={styles.popupTitle}>สแกนบัตรประชาชน</Text>
+              <Text style={styles.popupTitle}>ถ่ายภาพบัตรประชาชน</Text>
               <TouchableOpacity onPress={() => setIsCameraVisible(false)}>
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
@@ -376,7 +283,6 @@ export default function RegisterOutsider({ navigation }) {
               <TouchableOpacity 
                 style={styles.popupFlipBtn} 
                 onPress={() => setFacing(f => f === 'back' ? 'front' : 'back')}
-                disabled={isOcrProcessing}
               >
                 <Ionicons name="camera-reverse-outline" size={24} color="#4B5563" />
               </TouchableOpacity>
@@ -384,7 +290,6 @@ export default function RegisterOutsider({ navigation }) {
               <TouchableOpacity 
                 style={styles.popupCaptureBtn} 
                 onPress={takePicture} 
-                disabled={isOcrProcessing}
               >
                 <Ionicons name="camera" size={28} color="#FFF" />
                 <Text style={styles.popupCaptureText}>ถ่ายภาพ</Text>
@@ -397,16 +302,7 @@ export default function RegisterOutsider({ navigation }) {
         </View>
       </Modal>
 
-      <Modal transparent={true} visible={isOcrProcessing} animationType="fade">
-        <View style={styles.fullScreenLoading}>
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color="#00A87E" />
-            <Text style={styles.loadingText}>กำลังอ่านข้อมูลจากบัตร...</Text>
-            <Text style={{ fontSize: 12, color: '#666', marginTop: 5 }}>อาจใช้เวลา 5-15 วินาที</Text>
-          </View>
-        </View>
-      </Modal>
-
+      {/* Modal ป๊อบอัพแสดงผลการทำงาน */}
       <Modal transparent={true} visible={popupVisible} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
@@ -484,10 +380,6 @@ const styles = StyleSheet.create({
   
   popupCaptureBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#00A87E', paddingVertical: 12, paddingHorizontal: 25, borderRadius: 30, elevation: 2 },
   popupCaptureText: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
-
-  fullScreenLoading: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-  loadingBox: { backgroundColor: '#FFF', padding: 25, borderRadius: 16, alignItems: 'center', elevation: 5, width: '80%', maxWidth: 300 },
-  loadingText: { color: '#333', fontSize: 16, marginTop: 15, fontWeight: 'bold' },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalBox: { width: 300, backgroundColor: '#FFF', borderRadius: 16, padding: 25, alignItems: 'center', elevation: 5 },
