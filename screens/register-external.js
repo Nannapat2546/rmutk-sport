@@ -312,7 +312,7 @@ export default function RegisterOutsider({ navigation }) {
 
             <View style={styles.idCardImageWrapper}>
               <View style={styles.labelContainer}>
-                <Text style={styles.labelText}>สแกนบัตร</Text>
+                <Text style={styles.labelText}>ถ่ายภาพบัตร</Text>
                 <Text style={styles.requiredAsterisk}> *</Text>
               </View>
               
