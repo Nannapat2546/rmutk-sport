@@ -14,8 +14,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 export default function LoginScreen({ navigation }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  // 🌟 กำหนดค่าเริ่มต้นสำหรับอีเมลและรหัสผ่านผู้ดูแลระบบ (Admin)
+  const [email, setEmail] = useState('admin@system.com');
+  const [password, setPassword] = useState('111111');
   const [loading, setLoading] = useState(false);
 
   // 🌟 1. เพิ่ม State สำหรับเก็บข้อมูลแอดมินชั่วคราวตอนล็อกอินผ่าน
