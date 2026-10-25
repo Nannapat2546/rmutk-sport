@@ -18,6 +18,7 @@ export default function FitnessScannerScreen({ navigation }) {
 
   const [isCameraActive, setIsCameraActive] = useState(true);
   const [manualCode, setManualCode] = useState('');
+  const [enableTorch, setEnableTorch] = useState(false); // 🌟 สเตตสำหรับเปิด/ปิด แฟลช
 
   const [verifyModalVisible, setVerifyModalVisible] = useState(false);
   const [scannedUser, setScannedUser] = useState(null);
@@ -49,15 +50,16 @@ export default function FitnessScannerScreen({ navigation }) {
     setLoading(false);
   };
 
-  // 🌟 ระบบประมวลผล QR Code และ Barcode อัตโนมัติเมื่อกล้องส่องเจอ
+  // 🌟 ระบบประมวลผล QR Code และ Barcode บนบัตรประชาชน
   const processScannedCode = async (code) => {
     if (scanned || loading) return;
 
     const rawData = String(code).trim();
     
-    // ดึงชุดตัวเลข 13 หลักถ้ามี (สำหรับกรณีบาร์โค้ดบัตรที่มีขีดหรือตัวอักษรปน)
-    const matched13Digits = rawData.match(/\d{13}/);
-    const cleanCode = matched13Digits ? matched13Digits[0] : (rawData.replace(/\D/g, '') || rawData);
+    // ทำความสะอาดข้อความ ลบขีด (-) และช่องว่าง เพื่อให้สกัดเลข 13 หลักได้แม่นยำ
+    const sanitizedText = rawData.replace(/[-_ \s]/g, '');
+    const matched13Digits = sanitizedText.match(/\d{13}/);
+    const cleanCode = matched13Digits ? matched13Digits[0] : (sanitizedText.replace(/\D/g, '') || rawData);
 
     setScanned(true);
     setLoading(true);
@@ -81,11 +83,11 @@ export default function FitnessScannerScreen({ navigation }) {
 
         if (result.role === 'student') {
           setScanMode(null);
+          setEnableTorch(false);
           navigation.replace('Fitness', { qrData: result.code_id });
           return;
         }
 
-        // 🌟 ดึงรูปภาพบัตรประชาชนที่สแกนลงทะเบียนไว้ตอนสมัครสมาชิกเป็นอันดับแรก
         let registeredCardImg = result.id_card_image || null;
         try {
           const detailRes = await fetch(`${API_URL}/api/admin/users/${result.id}/detail`);
@@ -102,6 +104,7 @@ export default function FitnessScannerScreen({ navigation }) {
           liveImage: registeredCardImg 
         });
         setScanMode(null); 
+        setEnableTorch(false);
         setVerifyModalVisible(true); 
       } else {
         showErrorPopup(`ไม่พบข้อมูลสมาชิกในระบบ (รหัสที่อ่านได้: ${cleanCode})\nบัตรนี้อาจยังไม่ได้ลงทะเบียนสมัครสมาชิกครับ`);
@@ -134,6 +137,12 @@ export default function FitnessScannerScreen({ navigation }) {
     processScannedCode(manualCode.trim());
   };
 
+  const closeModal = () => {
+    setScanMode(null);
+    setScanned(false);
+    setEnableTorch(false);
+  };
+
   return (
     <SafeAreaView style={styles.selectionContainer}>
       <View style={styles.headerLight}>
@@ -161,7 +170,7 @@ export default function FitnessScannerScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <Modal animationType="fade" transparent={true} visible={scanMode !== null} onRequestClose={() => { setScanMode(null); setScanned(false); }}>
+      <Modal animationType="fade" transparent={true} visible={scanMode !== null} onRequestClose={closeModal}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { padding: 0, overflow: 'hidden' }]}>
             
@@ -169,7 +178,7 @@ export default function FitnessScannerScreen({ navigation }) {
               <Text style={styles.modalTitle}>
                 {scanMode === 'student' ? 'สแกน QR Code นักศึกษา' : 'สแกน QR Code / บาร์โค้ด'}
               </Text>
-              <TouchableOpacity onPress={() => { setScanMode(null); setScanned(false); }}>
+              <TouchableOpacity onPress={closeModal}>
                 <Ionicons name="close" size={24} color="#555" />
               </TouchableOpacity>
             </View>
@@ -181,21 +190,35 @@ export default function FitnessScannerScreen({ navigation }) {
                     ref={cameraRef}
                     facing="back"
                     autofocus="on"
+                    enableTorch={enableTorch}
+                    zoom={0.05} // 🌟 เพิ่มระยะโฟกัสเพื่อความคมชัดของบาร์โค้ดขนาดเล็ก
                     onBarcodeScanned={scanned || loading ? undefined : ({ data }) => processScannedCode(data)}
                     barcodeScannerSettings={{ 
-                      barcodeTypes: ["qr", "code128", "code39", "pdf417", "ean13", "code93"] 
+                      barcodeTypes: [
+                        "qr", "code128", "code39", "pdf417", "ean13", "ean8", 
+                        "code93", "aztec", "datamatrix", "itf14", "upc_e"
+                      ] 
                     }}
                     style={StyleSheet.absoluteFillObject}
                   />
                   
                   <View style={styles.cameraOverlay}>
+                    {/* ปุ่มเปิด/ปิด แฟลชเพิ่มความสว่าง */}
+                    <TouchableOpacity 
+                      style={[styles.torchButton, enableTorch && styles.torchButtonActive]} 
+                      onPress={() => setEnableTorch(!enableTorch)}
+                    >
+                      <Ionicons name={enableTorch ? "flash" : "flash-outline"} size={20} color={enableTorch ? "#FFF" : "#FFF"} />
+                      <Text style={styles.torchText}>{enableTorch ? "เปิดไฟฉาย" : "ปิดไฟฉาย"}</Text>
+                    </TouchableOpacity>
+
                     <View style={styles.scanFrame}>
                       <View style={[styles.corner, styles.topLeft]} />
                       <View style={[styles.corner, styles.topRight]} />
                       <View style={[styles.corner, styles.bottomLeft]} />
                       <View style={[styles.corner, styles.bottomRight]} />
                     </View>
-                    <Text style={styles.scanHintText}>ส่อง QR Code หรือ บาร์โค้ด ให้อยู่ในกรอบ</Text>
+                    <Text style={styles.scanHintText}>วาง QR Code หรือ บาร์โค้ด ให้อยู่ในกรอบ</Text>
                   </View>
                 </View>
               ) : (
@@ -253,7 +276,6 @@ export default function FitnessScannerScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* 🌟 หน้าต่างป๊อปอัพตรวจสอบข้อมูล พร้อมรูปบัตรประชาชนจากการสมัครสมาชิก */}
       <Modal transparent={true} visible={verifyModalVisible} animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.verifyModalBox}>
@@ -320,10 +342,15 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1E293B' },
   
-  scannerBox: { width: '100%', height: 260, backgroundColor: '#F1F5F9', borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#CBD5E1', overflow: 'hidden', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  scannerBox: { width: '100%', height: 280, backgroundColor: '#F1F5F9', borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#CBD5E1', overflow: 'hidden', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
   
-  cameraOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  scanFrame: { width: 240, height: 150, backgroundColor: 'transparent', position: 'relative' }, 
+  cameraOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
+  
+  torchButton: { position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.6)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, gap: 4, zIndex: 10 },
+  torchButtonActive: { backgroundColor: '#F5A623' },
+  torchText: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
+
+  scanFrame: { width: 280, height: 160, backgroundColor: 'transparent', position: 'relative' }, 
   corner: { position: 'absolute', width: 28, height: 28, borderColor: '#00A87E' },
   topLeft: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4 },
   topRight: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4 },
@@ -346,7 +373,6 @@ const styles = StyleSheet.create({
   verifyModalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, gap: 10 },
   verifyModalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
   
-  // 🌟 ปรับดีไซน์กรอบแสดงผลภาพบัตรประชาชนเป็นทรงสี่เหลี่ยมผืนผ้าแบบเดียวกับบัตรจริง
   idCardImageContainer: { 
     width: '100%', 
     height: 180, 
