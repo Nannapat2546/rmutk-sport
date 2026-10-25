@@ -16,7 +16,6 @@ export default function ReportDetailScreen({ navigation, route }) {
 
   const [searchText, setSearchText] = useState('');
   
-  const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [eqCondition, setEqCondition] = useState('all'); 
   const [statusFilter, setStatusFilter] = useState('all'); 
 
@@ -365,7 +364,7 @@ export default function ReportDetailScreen({ navigation, route }) {
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentArea} showsVerticalScrollIndicator={false}>
         
-        {/* ================= ส่วนตัวกรอง ================= */}
+        {/* ================= ส่วนตัวกรองแบบ Inline ไม่ซ่อน ================= */}
         <View style={styles.filterCard}>
           <View style={styles.filterRow}>
             
@@ -385,68 +384,77 @@ export default function ReportDetailScreen({ navigation, route }) {
               ) : null}
             </View>
 
-            {/* กลุ่มปุ่มตัวกรอง วันที่ และ Export */}
+            {/* กลุ่มตัวกรองด่วน + ปฏิทิน + Export CSV */}
             <View style={styles.actionsGroup}>
-              {/* ปุ่มเมนูตัวกรอง */}
+
+              {/* 🌟 แสดงตัวกรองแบบ Inline ปุ่มกดโดยตรง ไม่ซ่อนเข้าป๊อบอัพ */}
               {(reportType === 'borrow' || reportType === 'pending') && (
-                <View style={{ position: 'relative', zIndex: 100 }}>
-                  <TouchableOpacity 
-                    style={[styles.filterBtn, (eqCondition !== 'all' || statusFilter !== 'all') && styles.filterBtnActive]} 
-                    onPress={() => setShowFilterMenu(!showFilterMenu)}
-                  >
-                    <Ionicons name="filter" size={16} color={(eqCondition !== 'all' || statusFilter !== 'all') ? "#00A87E" : "#475569"} />
-                    <Text style={[styles.filterBtnText, (eqCondition !== 'all' || statusFilter !== 'all') && {color: '#00A87E'}]}>
-                      ตัวกรอง {(eqCondition !== 'all' || statusFilter !== 'all') ? '(เปิดทำงาน)' : ''}
-                    </Text>
-                  </TouchableOpacity>
+                <View style={styles.inlineFilterWrapper}>
+                  {/* ตัวกรองสถานะการยืม */}
+                  <View style={styles.filterPillGroup}>
+                    <Text style={styles.filterPillLabel}>สถานะ:</Text>
+                    <TouchableOpacity 
+                      style={[styles.pillBtn, statusFilter === 'all' && styles.pillBtnActive]} 
+                      onPress={() => setStatusFilter('all')}
+                    >
+                      <Text style={[styles.pillText, statusFilter === 'all' && styles.pillTextActive]}>ทั้งหมด</Text>
+                    </TouchableOpacity>
 
-                  {showFilterMenu && (
-                    <View style={styles.inlineDropdown}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 }}>
-                        <Text style={{ fontWeight: 'bold', fontSize: 15, color: '#1E293B' }}>ตัวกรองข้อมูล</Text>
-                        <TouchableOpacity onPress={() => setShowFilterMenu(false)}>
-                          <Ionicons name="close" size={20} color="#64748B" />
+                    {reportType === 'borrow' ? (
+                      <>
+                        <TouchableOpacity 
+                          style={[styles.pillBtn, statusFilter === 'returned' && styles.pillBtnActive]} 
+                          onPress={() => setStatusFilter('returned')}
+                        >
+                          <Text style={[styles.pillText, statusFilter === 'returned' && styles.pillTextActive]}>ตรงเวลา</Text>
                         </TouchableOpacity>
-                      </View>
+                        <TouchableOpacity 
+                          style={[styles.pillBtn, statusFilter === 'late' && styles.pillBtnActive]} 
+                          onPress={() => setStatusFilter('late')}
+                        >
+                          <Text style={[styles.pillText, statusFilter === 'late' && styles.pillTextActive]}>คืนช้า</Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <>
+                        <TouchableOpacity 
+                          style={[styles.pillBtn, statusFilter === 'borrowing' && styles.pillBtnActive]} 
+                          onPress={() => setStatusFilter('borrowing')}
+                        >
+                          <Text style={[styles.pillText, statusFilter === 'borrowing' && styles.pillTextActive]}>กำลังยืม</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={[styles.pillBtn, statusFilter === 'late' && styles.pillBtnActive]} 
+                          onPress={() => setStatusFilter('late')}
+                        >
+                          <Text style={[styles.pillText, statusFilter === 'late' && styles.pillTextActive]}>ล่าช้า</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </View>
 
-                      {reportType === 'borrow' && (
-                        <View style={{ marginBottom: 16 }}>
-                          <Text style={styles.filterGroupTitle}>สถานะการยืม</Text>
-                          <View style={styles.filterToggleGroup}>
-                            <TouchableOpacity style={[styles.filterToggleBtn, statusFilter === 'all' && styles.filterToggleBtnActive]} onPress={() => setStatusFilter('all')}><Text style={[styles.filterToggleText, statusFilter === 'all' && styles.filterToggleTextActive]}>ทั้งหมด</Text></TouchableOpacity>
-                            <TouchableOpacity style={[styles.filterToggleBtn, statusFilter === 'returned' && styles.filterToggleBtnActive]} onPress={() => setStatusFilter('returned')}><Text style={[styles.filterToggleText, statusFilter === 'returned' && styles.filterToggleTextActive]}>ตรงเวลา</Text></TouchableOpacity>
-                            <TouchableOpacity style={[styles.filterToggleBtn, statusFilter === 'late' && styles.filterToggleBtnActive]} onPress={() => setStatusFilter('late')}><Text style={[styles.filterToggleText, statusFilter === 'late' && styles.filterToggleTextActive]}>คืนช้า</Text></TouchableOpacity>
-                          </View>
-                        </View>
-                      )}
-                      {reportType === 'pending' && (
-                        <View style={{ marginBottom: 16 }}>
-                          <Text style={styles.filterGroupTitle}>สถานะการยืม</Text>
-                          <View style={styles.filterToggleGroup}>
-                            <TouchableOpacity style={[styles.filterToggleBtn, statusFilter === 'all' && styles.filterToggleBtnActive]} onPress={() => setStatusFilter('all')}><Text style={[styles.filterToggleText, statusFilter === 'all' && styles.filterToggleTextActive]}>ทั้งหมด</Text></TouchableOpacity>
-                            <TouchableOpacity style={[styles.filterToggleBtn, statusFilter === 'borrowing' && styles.filterToggleBtnActive]} onPress={() => setStatusFilter('borrowing')}><Text style={[styles.filterToggleText, statusFilter === 'borrowing' && styles.filterToggleTextActive]}>กำลังยืม</Text></TouchableOpacity>
-                            <TouchableOpacity style={[styles.filterToggleBtn, statusFilter === 'late' && styles.filterToggleBtnActive]} onPress={() => setStatusFilter('late')}><Text style={[styles.filterToggleText, statusFilter === 'late' && styles.filterToggleTextActive]}>ล่าช้า</Text></TouchableOpacity>
-                          </View>
-                        </View>
-                      )}
-
-                      <View style={{ marginBottom: 10 }}>
-                        <Text style={styles.filterGroupTitle}>สภาพอุปกรณ์</Text>
-                        <View style={styles.filterToggleGroup}>
-                          <TouchableOpacity style={[styles.filterToggleBtn, eqCondition === 'all' && styles.filterToggleBtnActive]} onPress={() => setEqCondition('all')}><Text style={[styles.filterToggleText, eqCondition === 'all' && styles.filterToggleTextActive]}>ทั้งหมด</Text></TouchableOpacity>
-                          <TouchableOpacity style={[styles.filterToggleBtn, eqCondition === 'normal' && styles.filterToggleBtnActive]} onPress={() => setEqCondition('normal')}><Text style={[styles.filterToggleText, eqCondition === 'normal' && styles.filterToggleTextActive]}>ปกติ</Text></TouchableOpacity>
-                          <TouchableOpacity style={[styles.filterToggleBtn, eqCondition === 'broken' && styles.filterToggleBtnActive]} onPress={() => setEqCondition('broken')}><Text style={[styles.filterToggleText, eqCondition === 'broken' && styles.filterToggleTextActive]}>ชำรุด</Text></TouchableOpacity>
-                        </View>
-                      </View>
-
-                      <TouchableOpacity 
-                        style={{ marginTop: 15, alignSelf: 'flex-end', backgroundColor: '#FEF2F2', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 }}
-                        onPress={() => { setEqCondition('all'); setStatusFilter('all'); setShowFilterMenu(false); }}
-                      >
-                        <Text style={{ color: '#EF4444', fontSize: 12, fontWeight: 'bold' }}>ล้างตัวกรอง</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
+                  {/* ตัวกรองสภาพอุปกรณ์ */}
+                  <View style={styles.filterPillGroup}>
+                    <Text style={styles.filterPillLabel}>สภาพ:</Text>
+                    <TouchableOpacity 
+                      style={[styles.pillBtn, eqCondition === 'all' && styles.pillBtnActive]} 
+                      onPress={() => setEqCondition('all')}
+                    >
+                      <Text style={[styles.pillText, eqCondition === 'all' && styles.pillTextActive]}>ทั้งหมด</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.pillBtn, eqCondition === 'normal' && styles.pillBtnActive]} 
+                      onPress={() => setEqCondition('normal')}
+                    >
+                      <Text style={[styles.pillText, eqCondition === 'normal' && styles.pillTextActive]}>ปกติ</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.pillBtn, eqCondition === 'broken' && styles.pillBtnActive]} 
+                      onPress={() => setEqCondition('broken')}
+                    >
+                      <Text style={[styles.pillText, eqCondition === 'broken' && styles.pillTextActive]}>ชำรุด</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )}
 
@@ -836,7 +844,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     flexWrap: 'wrap', 
     alignItems: 'center', 
-    justifyContent: 'space-between', 
+    justify: 'space-between', 
     gap: 10, 
     zIndex: 50 
   },
@@ -848,7 +856,7 @@ const styles = StyleSheet.create({
     borderRadius: 8, 
     paddingHorizontal: 12, 
     height: 40, 
-    width: Platform.OS === 'web' ? 240 : '100%',
+    width: Platform.OS === 'web' ? 220 : '100%',
     maxWidth: '100%'
   },
   searchInput: { 
@@ -863,46 +871,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     width: Platform.OS === 'web' ? 'auto' : '100%',
     maxWidth: '100%'
   },
-  
-  filterBtn: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: '#FFF', 
-    borderWidth: 1, 
-    borderColor: '#CBD5E1', 
-    borderRadius: 8, 
-    paddingHorizontal: 12, 
-    height: 40 
+
+  /* 🌟 สไตล์สำหรับตัวกรองแบบ Inline ไม่ซ่อน */
+  inlineFilterWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  filterBtnActive: { borderColor: '#00A87E', backgroundColor: '#E6F5EF' },
-  filterBtnText: { fontSize: 13, color: '#334155', marginLeft: 6, fontWeight: '600' },
-  inlineDropdown: { 
-    position: 'absolute', 
-    top: 48, 
-    left: 0, 
-    width: 280, 
-    backgroundColor: '#FFF', 
-    borderRadius: 12, 
-    padding: 16, 
-    shadowColor: '#000', 
-    shadowOffset: { width: 0, height: 6 }, 
-    shadowOpacity: 0.12, 
-    shadowRadius: 10, 
-    elevation: 8, 
-    borderWidth: 1, 
-    borderColor: '#E2E8F0', 
-    zIndex: 999 
+  filterPillGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 3,
+    gap: 2,
   },
-  filterGroupTitle: { fontSize: 12, fontWeight: 'bold', color: '#64748B', marginBottom: 8 },
-  filterToggleGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  filterToggleBtn: { backgroundColor: '#F8FAFC', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 18, borderWidth: 1, borderColor: '#E2E8F0' },
-  filterToggleBtnActive: { backgroundColor: '#1E3A8A', borderColor: '#1E3A8A' },
-  filterToggleText: { fontSize: 12, color: '#475569', fontWeight: '500' },
-  filterToggleTextActive: { color: '#FFF' },
+  filterPillLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#64748B',
+    paddingHorizontal: 6,
+  },
+  pillBtn: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+  },
+  pillBtnActive: {
+    backgroundColor: '#00A87E',
+  },
+  pillText: {
+    fontSize: 12,
+    color: '#475569',
+    fontWeight: '500',
+  },
+  pillTextActive: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
 
   datePickerGroup: { 
     flexDirection: 'row', 
@@ -936,7 +949,7 @@ const styles = StyleSheet.create({
   exportBtn: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    justify: 'center', 
+    justifyContent: 'center', 
     borderWidth: 1, 
     borderColor: '#CBD5E1', 
     borderRadius: 8, 
@@ -998,7 +1011,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
     alignItems: 'center',
-    justify: 'center',
+    justifyContent: 'center',
   },
   notifyBtnText: {
     color: '#FFF',
