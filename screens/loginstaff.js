@@ -14,8 +14,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 export default function LoginStaffScreen({ navigation }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  // 🌟 กำหนดค่าเริ่มต้นสำหรับอีเมลและรหัสผ่านเจ้าหน้าที่
+  const [email, setEmail] = useState('staff01@system.com');
+  const [password, setPassword] = useState('123456');
   const [loading, setLoading] = useState(false);
 
   // 🌟 State สำหรับ Pop-up
