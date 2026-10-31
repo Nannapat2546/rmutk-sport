@@ -128,6 +128,7 @@ export default function ReportDetailScreen({ navigation, route }) {
     }
   };
 
+  // เพิ่มการแสดงเวลา น. ต่อท้ายวันที่
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     const d = new Date(dateString);
@@ -135,7 +136,10 @@ export default function ReportDetailScreen({ navigation, route }) {
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = (d.getFullYear() + 543).toString().slice(-2);
-    return `${day}/${month}/${year}`;
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+
+    return `${day}/${month}/${year} ${hours}:${minutes} น.`;
   };
 
   const formatDisplayDate = (date) => {
@@ -152,7 +156,7 @@ export default function ReportDetailScreen({ navigation, route }) {
     const returnedAmount = originalAmount > pendingAmount ? originalAmount - pendingAmount : 0;
     
     const isPartialReturn = returnedAmount > 0 && pendingAmount > 0;
-    const displayExpectedDate = (isPartialReturn && item.expected_return_date) 
+    const displayExpectedDate = item.expected_return_date 
       ? formatDate(item.expected_return_date) 
       : '-';
 
@@ -272,7 +276,7 @@ export default function ReportDetailScreen({ navigation, route }) {
         const statusInfo = getStatusInfo(item, 'borrow');
         return [
           `"${item.member_name || '-'}"`, `"${item.equipment || '-'}"`, `"${item.equipment_status === 'ใช้งาน' ? 'ปกติ' : (item.equipment_status || 'ปกติ')}"`, 
-          item.amount, formatDate(item.borrow_date), statusInfo.displayExpectedDate, formatDate(item.return_date), `"${statusInfo.text}"`
+          item.amount, `"${formatDate(item.borrow_date)}"`, `"${statusInfo.displayExpectedDate}"`, `"${formatDate(item.return_date)}"`, `"${statusInfo.text}"`
         ];
       });
     } else if (reportType === 'pending') {
@@ -285,14 +289,14 @@ export default function ReportDetailScreen({ navigation, route }) {
 
         return [
           `"${item.member_name || '-'}"`, `"${item.equipment || '-'}"`, `"${item.equipment_status === 'ใช้งาน' ? 'ปกติ' : (item.equipment_status || 'ปกติ')}"`, 
-          originalAmount, returnedAmount, pendingAmount, formatDate(item.borrow_date), statusInfo.displayExpectedDate, formatDate(item.return_date), `"${statusInfo.text}"`
+          originalAmount, returnedAmount, pendingAmount, `"${formatDate(item.borrow_date)}"`, `"${statusInfo.displayExpectedDate}"`, `"${formatDate(item.return_date)}"`, `"${statusInfo.text}"`
         ];
       });
     } else if (reportType === 'fitness') {
       headers = ['สมาชิก', 'ประเภท', 'วันที่เข้าใช้', 'ค่าบริการ', 'วิธีชำระ'];
       rows = filteredData.map(item => [
         `"${item.member_name || '-'}"`, item.role === 'student' ? 'นักศึกษา' : 'บุคคลภายนอก',
-        formatDate(item.check_in_time), item.service_fee, item.payment_type === 'cash' ? 'เงินสด' : 'สแกน'
+        `"${formatDate(item.check_in_time)}"`, item.service_fee, item.payment_type === 'cash' ? 'เงินสด' : 'สแกน'
       ]);
     }
 
@@ -387,7 +391,7 @@ export default function ReportDetailScreen({ navigation, route }) {
 
             {/* กลุ่มปุ่มตัวกรอง วันที่ และ Export */}
             <View style={styles.actionsGroup}>
-              {/* ปุ่มเมนูตัวกรอง (ป๊อบอัพเหมือนเดิม) */}
+              {/* ปุ่มเมนูตัวกรอง */}
               {(reportType === 'borrow' || reportType === 'pending') && (
                 <View style={{ position: 'relative', zIndex: 100 }}>
                   <TouchableOpacity 
@@ -629,9 +633,9 @@ export default function ReportDetailScreen({ navigation, route }) {
                         <Text style={[styles.headerCell, {flex: 1.5, minWidth: 140}]}>อุปกรณ์</Text>
                         <Text style={[styles.headerCell, {flex: 1, minWidth: 90}]}>สภาพ</Text>
                         <Text style={[styles.headerCell, {flex: 0.8, minWidth: 70}]}>จำนวน</Text>
-                        <Text style={[styles.headerCell, {flex: 1.2, minWidth: 100}]}>ยืมเมื่อ</Text>
-                        <Text style={[styles.headerCell, {flex: 1.2, minWidth: 100}]}>นัดคืน</Text>
-                        <Text style={[styles.headerCell, {flex: 1.2, minWidth: 100}]}>คืนเมื่อ</Text>
+                        <Text style={[styles.headerCell, {flex: 1.5, minWidth: 145}]}>ยืมเมื่อ</Text>
+                        <Text style={[styles.headerCell, {flex: 1.5, minWidth: 145}]}>นัดคืน</Text>
+                        <Text style={[styles.headerCell, {flex: 1.5, minWidth: 145}]}>คืนเมื่อ</Text>
                         <Text style={[styles.headerCell, {flex: 1.5, minWidth: 130}]}>สถานะ</Text>
                       </View>
                       {filteredData.map((item, index) => {
@@ -648,9 +652,9 @@ export default function ReportDetailScreen({ navigation, route }) {
                             </View>
 
                             <Text style={[styles.dataCell, {flex: 0.8, minWidth: 70, fontWeight: '600'}]}>{item.amount}</Text>
-                            <Text style={[styles.dataCell, {flex: 1.2, minWidth: 100}]}>{formatDate(item.borrow_date)}</Text>
-                            <Text style={[styles.dataCell, {flex: 1.2, minWidth: 100}]}>{statusInfo.displayExpectedDate}</Text>
-                            <Text style={[styles.dataCell, {flex: 1.2, minWidth: 100}]}>{formatDate(item.return_date)}</Text>
+                            <Text style={[styles.dataCell, {flex: 1.5, minWidth: 145}]}>{formatDate(item.borrow_date)}</Text>
+                            <Text style={[styles.dataCell, {flex: 1.5, minWidth: 145}]}>{statusInfo.displayExpectedDate}</Text>
+                            <Text style={[styles.dataCell, {flex: 1.5, minWidth: 145}]}>{formatDate(item.return_date)}</Text>
                             <View style={[styles.dataCell, {flex: 1.5, minWidth: 130, alignItems: 'center', paddingVertical: 4}]}>
                               {renderStatusBadge(statusInfo)}
                             </View>
@@ -670,9 +674,9 @@ export default function ReportDetailScreen({ navigation, route }) {
                         <Text style={[styles.headerCell, {flex: 1, minWidth: 100}]}>ยืมไป (ชิ้น)</Text>
                         <Text style={[styles.headerCell, {flex: 0.8, minWidth: 80}]}>คืนแล้ว</Text>
                         <Text style={[styles.headerCell, {flex: 0.8, minWidth: 80}]}>ค้างส่ง</Text>
-                        <Text style={[styles.headerCell, {flex: 1.1, minWidth: 95}]}>ยืมเมื่อ</Text>
-                        <Text style={[styles.headerCell, {flex: 1.1, minWidth: 95}]}>นัดล่าสุด</Text>
-                        <Text style={[styles.headerCell, {flex: 1.1, minWidth: 95}]}>คืนเมื่อ</Text>
+                        <Text style={[styles.headerCell, {flex: 1.4, minWidth: 140}]}>ยืมเมื่อ</Text>
+                        <Text style={[styles.headerCell, {flex: 1.4, minWidth: 140}]}>นัดล่าสุด</Text>
+                        <Text style={[styles.headerCell, {flex: 1.4, minWidth: 140}]}>คืนเมื่อ</Text>
                         <Text style={[styles.headerCell, {flex: 1.2, minWidth: 110}]}>สถานะ</Text>
                         <Text style={[styles.headerCell, {flex: 1.2, minWidth: 120}]}>จัดการ</Text>
                       </View>
@@ -714,9 +718,9 @@ export default function ReportDetailScreen({ navigation, route }) {
                               {pendingAmount}
                             </Text>
                             
-                            <Text style={[styles.dataCell, {flex: 1.1, minWidth: 95}]}>{formatDate(item.borrow_date)}</Text>
-                            <Text style={[styles.dataCell, {flex: 1.1, minWidth: 95}]}>{statusInfo.displayExpectedDate}</Text>
-                            <Text style={[styles.dataCell, {flex: 1.1, minWidth: 95}]}>{formatDate(item.return_date)}</Text>
+                            <Text style={[styles.dataCell, {flex: 1.4, minWidth: 140}]}>{formatDate(item.borrow_date)}</Text>
+                            <Text style={[styles.dataCell, {flex: 1.4, minWidth: 140}]}>{statusInfo.displayExpectedDate}</Text>
+                            <Text style={[styles.dataCell, {flex: 1.4, minWidth: 140}]}>{formatDate(item.return_date)}</Text>
                             
                             <View style={[styles.dataCell, {flex: 1.2, minWidth: 110, alignItems: 'center', paddingVertical: 4}]}>
                               {renderStatusBadge(statusInfo)}
@@ -748,7 +752,7 @@ export default function ReportDetailScreen({ navigation, route }) {
                       <View style={styles.tableHeaderRow}>
                         <Text style={[styles.headerCell, {flex: 2, minWidth: 180}]}>สมาชิก</Text>
                         <Text style={[styles.headerCell, {flex: 1.5, minWidth: 140}]}>ประเภท</Text>
-                        <Text style={[styles.headerCell, {flex: 1.5, minWidth: 140}]}>วันที่เข้าใช้</Text>
+                        <Text style={[styles.headerCell, {flex: 1.8, minWidth: 160}]}>วันที่เข้าใช้</Text>
                         <Text style={[styles.headerCell, {flex: 1.2, minWidth: 120}]}>ค่าบริการ (฿)</Text>
                         <Text style={[styles.headerCell, {flex: 1.2, minWidth: 120}]}>วิธีชำระ</Text>
                       </View>
@@ -762,7 +766,7 @@ export default function ReportDetailScreen({ navigation, route }) {
                               </Text>
                             </View>
                           </View>
-                          <Text style={[styles.dataCell, {flex: 1.5, minWidth: 140}]}>{formatDate(item.check_in_time)}</Text>
+                          <Text style={[styles.dataCell, {flex: 1.8, minWidth: 160}]}>{formatDate(item.check_in_time)}</Text>
                           <Text style={[styles.dataCell, {flex: 1.2, minWidth: 120, fontWeight: '600'}]}>{item.service_fee}</Text>
                           <Text style={[styles.dataCell, {flex: 1.2, minWidth: 120}]}>{item.payment_type === 'cash' ? 'เงินสด' : 'สแกน'}</Text>
                         </View>
@@ -959,7 +963,7 @@ const styles = StyleSheet.create({
   },
   tableContainer: { 
     width: '100%', 
-    minWidth: 1000, 
+    minWidth: 1100, 
     flex: 1, 
     zIndex: 1 
   },
