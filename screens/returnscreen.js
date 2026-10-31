@@ -52,6 +52,7 @@ export default function ReturnScreen({ navigation, route }) {
   
   const [normalQty, setNormalQty] = useState(0);
   const [brokenQty, setBrokenQty] = useState(0);
+  const [brokenNote, setBrokenNote] = useState(''); // 🌟 เพิ่ม state สำหรับหมายเหตุชำรุด
   
   const [expectedDate, setExpectedDate] = useState(new Date()); 
   const [showDatePicker, setShowDatePicker] = useState(false);   
@@ -98,14 +99,12 @@ export default function ReturnScreen({ navigation, route }) {
 
   const fetchUserDataAndPendingItem = async (code) => {
     try {
-      // 🌟 เอา header ngrok ออก
       const userRes = await fetch(`${API_URL}/api/users/scan/${code}`);
       const userResult = await userRes.json();
       
       if (!userRes.ok) return showPopup('error', userResult.message || 'รหัสสมาชิกนี้ไม่มีในระบบ');
       setUserData(userResult);
 
-      // 🌟 เอา header ngrok ออก
       const pendingRes = await fetch(`${API_URL}/api/returns/pending/${userResult.id}`);
       const pendingResult = await pendingRes.json();
 
@@ -114,6 +113,7 @@ export default function ReturnScreen({ navigation, route }) {
       setTransactionData(pendingResult);
       setNormalQty(parseInt(pendingResult.borrowed_qty) || 0); 
       setBrokenQty(0);
+      setBrokenNote(''); // ล้างค่าหมายเหตุ
 
     } catch (error) {
       showPopup('error', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
@@ -130,6 +130,11 @@ export default function ReturnScreen({ navigation, route }) {
     
     if (totalReturn === 0) return showPopup('error', 'กรุณาระบุจำนวนที่ต้องการคืน');
     if (totalReturn > borrowed) return showPopup('error', `จำนวนที่คืนรวมกัน (${totalReturn} ชิ้น) เกินกว่าจำนวนที่ยืมไป (${borrowed} ชิ้น)`);
+    
+    // 🌟 ตรวจสอบว่าถ้ามียอดชำรุด ให้ระบุหมายเหตุด้วย
+    if (brokenQty > 0 && !brokenNote.trim()) {
+      return showPopup('error', 'กรุณาระบุรายละเอียดหมายเหตุอุปกรณ์ชำรุด');
+    }
 
     if (totalReturn < borrowed) {
       setPartialModalVisible(true);
@@ -146,11 +151,11 @@ export default function ReturnScreen({ navigation, route }) {
         inventory_id: transactionData.inventory_id,
         normal_qty: normalQty,
         broken_qty: brokenQty,
+        broken_note: brokenQty > 0 ? brokenNote.trim() : '', // 🌟 ส่งหมายเหตุชำรุดไปยัง API
         borrowed_qty: parseInt(transactionData.borrowed_qty),
         new_expected_date: expectedReturnDateStr, 
       };
 
-      // 🌟 เอา header ngrok ออก
       const response = await fetch(`${API_URL}/api/return`, {
         method: 'POST',
         headers: { 
@@ -259,6 +264,26 @@ export default function ReturnScreen({ navigation, route }) {
               <CustomDropdown label="ชำรุด (ชิ้น)" options={qtyOptions} selectedValue={brokenQty} onSelect={setBrokenQty} />
             </View>
 
+            {/* 🌟 ช่องกรอกหมายเหตุอุปกรณ์ชำรุด (จะแสดงผลเฉพาะเมื่อมียอดชำรุด > 0) */}
+            {brokenQty > 0 && (
+              <View style={{ marginTop: 16 }}>
+                <Text style={styles.inputLabel}>
+                  หมายเหตุอุปกรณ์ชำรุด <Text style={{ color: '#EF4444' }}>*</Text>
+                </Text>
+                <View style={styles.noteInputWrapper}>
+                  <TextInput
+                    style={styles.noteInputBox}
+                    placeholder="ระบุรายละเอียดความชำรุด (เช่น ลูกบอลรั่ว, ไม้แบดสายขาด)"
+                    placeholderTextColor="#94A3B8"
+                    value={brokenNote}
+                    onChangeText={setBrokenNote}
+                    multiline={true}
+                    numberOfLines={3}
+                  />
+                </View>
+              </View>
+            )}
+
             <View style={styles.summaryBar}>
               <Text style={styles.summaryText}>
                 คืน {totalReturn} ชิ้น | ปกติ {normalQty} ชิ้น | ชำรุด {brokenQty} ชิ้น
@@ -295,7 +320,7 @@ export default function ReturnScreen({ navigation, route }) {
             <View style={styles.warningBox}>
               <Text style={styles.warningText}>นักศึกษายังมียอดค้างส่งอีก {transactionData?.borrowed_qty - totalReturn} ชิ้น</Text>
               {brokenQty > 0 && (
-                <Text style={styles.warningText}>มีอุปกรณ์ชำรุด {brokenQty} ชิ้น กรุณาตรวจสอบความเสียหาย</Text>
+                <Text style={styles.warningText}>มีอุปกรณ์ชำรุด {brokenQty} ชิ้น ({brokenNote || 'ไม่ได้ระบุหมายเหตุ'})</Text>
               )}
             </View>
 
@@ -373,7 +398,7 @@ export default function ReturnScreen({ navigation, route }) {
         </View>
       </Modal>
 
-      {/* ================= 🌟 Pop-up แจ้งเตือนแบบใหม่ ================= */}
+      {/* ================= 🌟 Pop-up แจ้งเตือน ================= */}
       <Modal transparent={true} visible={popupVisible} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.alertModalBox}>
@@ -498,6 +523,23 @@ const styles = StyleSheet.create({
   dropdownList: { position: 'absolute', top: 50, left: 0, right: 0, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 4, maxHeight: 150, elevation: 5, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5 },
   dropdownItem: { paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#F8FAFC' },
   dropdownItemText: { fontSize: 15, color: '#1E293B', fontWeight: '500' },
+
+  // 🌟 สไตล์สำหรับช่องกรอกหมายเหตุอุปกรณ์ชำรุด
+  noteInputWrapper: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 6,
+    backgroundColor: '#FFF',
+    padding: 10,
+    minHeight: 80,
+  },
+  noteInputBox: {
+    flex: 1,
+    fontSize: 14,
+    color: '#111827',
+    textAlignVertical: 'top',
+    outlineStyle: 'none',
+  },
   
   summaryBar: { backgroundColor: '#F1F5F9', borderRadius: 4, padding: 14, marginTop: 20, alignItems: 'center' },
   summaryText: { fontSize: 13, color: '#111827', fontWeight: 'bold' },
