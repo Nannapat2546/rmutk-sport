@@ -128,7 +128,7 @@ export default function ReportDetailScreen({ navigation, route }) {
     }
   };
 
-  // เพิ่มการแสดงเวลา น. ต่อท้ายวันที่
+  // แสดงวันที่และเวลา น. ต่อท้าย
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     const d = new Date(dateString);
@@ -156,13 +156,33 @@ export default function ReportDetailScreen({ navigation, route }) {
     const returnedAmount = originalAmount > pendingAmount ? originalAmount - pendingAmount : 0;
     
     const isPartialReturn = returnedAmount > 0 && pendingAmount > 0;
-    const displayExpectedDate = item.expected_return_date 
-      ? formatDate(item.expected_return_date) 
-      : '-';
+    
+    // คำนวณวันนัดคืนให้เป็นแบบ "วันต่อวัน" (ใช้วันเดียวกับวันที่ยืม borrow_date)
+    let expectedReturnDateObj = null;
+    if (item.borrow_date) {
+      const bDate = new Date(item.borrow_date);
+      if (!isNaN(bDate.getTime())) {
+        if (item.expected_return_date) {
+          const eDate = new Date(item.expected_return_date);
+          // กำหนดวัน/เดือน/ปี ให้อยู่ในวันเดียวกับวันที่ยืม (วันต่อวัน) แต่คงเวลานัดคืนเดิมไว้
+          expectedReturnDateObj = new Date(
+            bDate.getFullYear(),
+            bDate.getMonth(),
+            bDate.getDate(),
+            !isNaN(eDate.getTime()) ? eDate.getHours() : bDate.getHours(),
+            !isNaN(eDate.getTime()) ? eDate.getMinutes() : bDate.getMinutes()
+          );
+        } else {
+          // หากไม่มี expected_return_date ให้ใช้วันเดียวกับยืม
+          expectedReturnDateObj = bDate;
+        }
+      }
+    } else if (item.expected_return_date) {
+      expectedReturnDateObj = new Date(item.expected_return_date);
+    }
 
-    const targetDateStr = (isPartialReturn && item.expected_return_date) 
-      ? item.expected_return_date 
-      : item.borrow_date; 
+    const displayExpectedDate = expectedReturnDateObj ? formatDate(expectedReturnDateObj) : '-';
+    const targetDateStr = item.borrow_date || item.expected_return_date; 
 
     if (!targetDateStr) {
       return { isLate: false, days: 0, text: 'กำลังยืม', type: 'pending_ok', displayExpectedDate };
@@ -839,7 +859,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     flexWrap: 'wrap', 
     alignItems: 'center', 
-    justifyContent: 'space-between', 
+    justifycontent: 'space-between', 
     gap: 10, 
     zIndex: 50 
   },
